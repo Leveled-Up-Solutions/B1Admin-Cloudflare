@@ -1,0 +1,184 @@
+import type { Context } from './types';
+import { allowed } from './permissions';
+import { all, first, json, body, records, requireAdmin, requiredString, HttpError, id, now } from './http';
+const projection = `SELECT t.*, cp.firstName||' '||cp.lastName createdByLabel,
+ COALESCE(ap.firstName||' '||ap.lastName,ag.name) assignedToLabel,
+ COALESCE(sp.firstName||' '||sp.lastName,sg.name) associatedWithLabel
+ FROM tasks t JOIN people cp ON cp.churchId=t.churchId AND cp.id=t.createdById
+ LEFT JOIN people ap ON ap.churchId=t.churchId AND ap.id=t.assignedPersonId
+ LEFT JOIN groups ag ON ag.churchId=t.churchId AND ag.id=t.assignedGroupId
+ LEFT JOIN people sp ON sp.churchId=t.churchId AND sp.id=t.associatedPersonId
+ LEFT JOIN groups sg ON sg.churchId=t.churchId AND sg.id=t.associatedGroupId`;
+function dto(row: any) {
+  const { assignedPersonId, assignedGroupId, associatedPersonId, associatedGroupId, ...data } = row;
+  return {
+    ...data,
+    createdByType: 'person',
+    assignedToType: assignedPersonId ? 'person' : 'group',
+    assignedToId: assignedPersonId || assignedGroupId,
+    associatedWithType: associatedPersonId ? 'person' : associatedGroupId ? 'group' : null,
+    associatedWithId: associatedPersonId || associatedGroupId || null,
+  };
+}
+async function access(ctx: Context, taskId: string) {
+  const row = await first(ctx, projection + ' WHERE t.churchId=? AND t.id=?', ctx.principal.churchId, taskId);
+  if (!row) throw new HttpError(404, 'Task not found');
+  if (
+    !allowed(ctx, 'DoingApi', 'Tasks', 'View') &&
+    !allowed(ctx, 'DoingApi', 'Tasks', 'Edit') &&
+    row.createdById !== ctx.principal.personId &&
+    row.assignedPersonId !== ctx.principal.personId &&
+    !(await first(
+      ctx,
+      'SELECT id FROM group_members WHERE churchId=? AND groupId=? AND personId=?',
+      ctx.principal.churchId,
+      row.assignedGroupId || '',
+      ctx.principal.personId,
+    ))
+  )
+    throw new HttpError(403, 'Task access required');
+  return row;
+}
+async function relation(
+  ctx: Context,
+  type: any,
+  entity: any,
+  optional = false,
+): Promise<[string | null, string | null]> {
+  if (optional && !entity) return [null, null];
+  if (type !== 'person' && type !== 'group') throw new HttpError(400, 'Invalid task relation');
+  const value = requiredString(entity, 'task relation');
+  const target = await first(
+    ctx,
+    `SELECT id FROM ${type === 'person' ? 'people' : 'groups'} WHERE churchId=? AND id=? ${type === 'person' ? 'AND removed=0' : ''}`,
+    ctx.principal.churchId,
+    value,
+  );
+  if (!target) throw new HttpError(400, 'Unknown task relation');
+  return type === 'person' ? [value, null] : [null, value];
+}
+export async function tasks(ctx: Context): Promise<Response | undefined> {
+  const path = ctx.path.toLowerCase(),
+    method = ctx.request.method,
+    cid = ctx.principal.churchId,
+    pid = ctx.principal.personId;
+  if (!path.startsWith('/doing/tasks')) return undefined;
+  if (['/doing/tasks', '/doing/tasks/closed'].includes(path) && method === 'GET')
+    return json(
+      (
+        await all(
+          ctx,
+          projection +
+            ' WHERE t.churchId=? AND t.status=? AND (t.createdById=? OR t.assignedPersonId=?) ORDER BY t.dateCreated DESC',
+          cid,
+          path.endsWith('/closed') ? 'Closed' : 'Open',
+          pid,
+          pid,
+        )
+      ).map(dto),
+    );
+  if (path === '/doing/tasks/loadforgroups' && method === 'POST') {
+    const input = await body(ctx.request);
+    if (
+      !Array.isArray(input.groupIds) ||
+      input.groupIds.length > 90 ||
+      input.groupIds.some((v: any) => typeof v !== 'string') ||
+      !['Open', 'Closed'].includes(input.status)
+    )
+      throw new HttpError(400, 'Invalid group task query');
+    if (!input.groupIds.length) return json([]);
+    const ids = input.groupIds;
+    const own =
+      !allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
+        ? ' AND t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?)'
+        : '';
+    return json(
+      (
+        await all(
+          ctx,
+          projection +
+            ` WHERE t.churchId=? AND t.status=? AND t.assignedGroupId IN (${ids.map(() => '?').join(',')})${own} ORDER BY t.dateCreated DESC`,
+          cid,
+          input.status,
+          ...ids,
+          ...(!allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
+            ? [cid, pid]
+            : []),
+        )
+      ).map(dto),
+    );
+  }
+  if (path === '/doing/tasks' && method === 'POST') {
+    requireAdmin(ctx);
+    if (ctx.url.searchParams.has('type')) throw new HttpError(501, 'Self-service workflow tasks are not ported');
+    const input = await records(ctx.request),
+      statements: D1PreparedStatement[] = [],
+      ids: string[] = [];
+    for (const item of input) {
+      if (item.churchId && item.churchId !== cid) throw new HttpError(403, 'Church mismatch');
+      if (
+        item.workflowId ||
+        item.stepId ||
+        item.assignmentId ||
+        item.followupKey ||
+        item.conversationId ||
+        item.automationId ||
+        item.taskType
+      )
+        throw new HttpError(400, 'Only standalone manual tasks are supported');
+      const taskId = item.id ? requiredString(item.id, 'id') : id();
+      const exists = await first(ctx, 'SELECT churchId FROM tasks WHERE id=?', taskId);
+      if (exists && exists.churchId !== cid) throw new HttpError(404, 'Task not found');
+      const existing = exists ? dto(await access(ctx, taskId)) : null;
+      const row = { ...existing, ...item };
+      const title = requiredString(row.title, 'title', 500);
+      const status = row.status || 'Open';
+      if (!['Open', 'Closed'].includes(status)) throw new HttpError(400, 'Invalid task status');
+      const [assignedPersonId, assignedGroupId] = await relation(ctx, row.assignedToType, row.assignedToId);
+      const [associatedPersonId, associatedGroupId] = await relation(
+        ctx,
+        row.associatedWithType,
+        row.associatedWithId,
+        true,
+      );
+      let dueDate: string | null = null;
+      if (row.dueDate) {
+        if (typeof row.dueDate !== 'string' || !Number.isFinite(Date.parse(row.dueDate)))
+          throw new HttpError(400, 'Invalid dueDate');
+        dueDate = new Date(row.dueDate).toISOString();
+      }
+      statements.push(
+        ctx.env.DB.prepare(
+          `INSERT INTO tasks(id,churchId,taskNumber,title,status,dateCreated,dateClosed,dueDate,createdById,assignedPersonId,assignedGroupId,associatedPersonId,associatedGroupId) VALUES(?,?,(SELECT COALESCE(MAX(taskNumber),0)+1 FROM tasks WHERE churchId=?),?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,status=excluded.status,dateClosed=excluded.dateClosed,dueDate=excluded.dueDate,assignedPersonId=excluded.assignedPersonId,assignedGroupId=excluded.assignedGroupId,associatedPersonId=excluded.associatedPersonId,associatedGroupId=excluded.associatedGroupId WHERE tasks.churchId=excluded.churchId`,
+        ).bind(
+          taskId,
+          cid,
+          cid,
+          title,
+          status,
+          existing?.dateCreated || now(),
+          status === 'Closed' ? existing?.dateClosed || now() : null,
+          dueDate,
+          existing?.createdById || pid,
+          assignedPersonId,
+          assignedGroupId,
+          associatedPersonId,
+          associatedGroupId,
+        ),
+      );
+      statements.push(
+        ctx.env.DB.prepare(
+          'INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) VALUES(?,?,?,?,?,?)',
+        ).bind(id(), cid, ctx.principal.userId, 'tasks.save', taskId, now()),
+      );
+      ids.push(taskId);
+    }
+    await ctx.env.DB.batch(statements);
+    const result = [];
+    for (const taskId of ids) result.push(dto(await access(ctx, taskId)));
+    return json(result);
+  }
+  if (/^\/doing\/tasks\/[^/]+$/.test(path) && method === 'GET')
+    return json(dto(await access(ctx, ctx.path.split('/').pop()!)));
+  return undefined;
+}

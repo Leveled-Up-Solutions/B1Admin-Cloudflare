@@ -1,0 +1,19 @@
+{
+  "name": "b1-cloudflare-api",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "db:migrate": "wrangler d1 migrations apply DB --local",
+    "db:seed": "wrangler d1 execute DB --local --file=seed.sql",
+    "build": "wrangler deploy --dry-run --outdir=dist"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261104.1",
+    "wrangler": "4.157.0",
+    "typescript": "^6.0.3",
+    "miniflare": "5.20261103.0-beta"
+  }
+}
