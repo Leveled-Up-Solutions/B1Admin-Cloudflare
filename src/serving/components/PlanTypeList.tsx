@@ -85,9 +85,9 @@ export const PlanTypeList = React.memo(({ ministry }: Props) => {
                   </TableCell>
                   <TableCell align="right">
                     <VerbRow sx={{ justifyContent: "flex-end" }}>
-                      <TextAction small component={Link} to={`/serving/overview?planTypeId=${planType.id}&ministryId=${ministry.id}`}>
+                      {process.env.REACT_APP_STAGE !== "cloudflare" && <TextAction small component={Link} to={`/serving/overview?planTypeId=${planType.id}&ministryId=${ministry.id}`}>
                         {Locale.label("plans.planTypePage.overview")}
-                      </TextAction>
+                      </TextAction>}
                       {canEdit && (
                         <TextAction small onClick={() => handleEdit(planType)} aria-label={Locale.label("common.edit")}>
                           {Locale.label("common.edit")}

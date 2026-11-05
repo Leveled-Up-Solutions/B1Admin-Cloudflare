@@ -32,7 +32,7 @@ export const NewTask = (props: Props) => {
       const tasks = await ApiHelper.post("/tasks", [taskData.task], "DoingApi");
       const createdTask = tasks[0];
 
-      if (taskData.message?.content && taskData.message.content.trim() !== "") {
+      if (process.env.REACT_APP_STAGE !== "cloudflare" && taskData.message?.content && taskData.message.content.trim() !== "") {
         const conv: ConversationInterface = {
           allowAnonymousPosts: false,
           contentType: "task",
@@ -52,7 +52,7 @@ export const NewTask = (props: Props) => {
         await ApiHelper.post("/messages", [taskMessage], "MessagingApi");
       }
 
-      await sendNotification(createdTask);
+      if (process.env.REACT_APP_STAGE !== "cloudflare") await sendNotification(createdTask);
       return createdTask;
     },
     onSuccess: () => {
@@ -148,6 +148,7 @@ export const NewTask = (props: Props) => {
         </Typography>
 
         {errors.length > 0 && <ErrorMessages errors={errors} />}
+        {createTaskMutation.isError && <ErrorMessages errors={[createTaskMutation.error.message]} />}
 
         <Grid container spacing={2}>
           <Grid size={{ xs: 12, sm: 6, md: props.compact ? 6 : 4 }}>
@@ -223,7 +224,7 @@ export const NewTask = (props: Props) => {
           </Grid>
         </Grid>
 
-        <TextField
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <TextField
           fullWidth
           label={Locale.label("common.notes")}
           value={message.content}
@@ -235,7 +236,7 @@ export const NewTask = (props: Props) => {
           data-testid="task-notes-input"
           aria-label={Locale.label("tasks.newTask.taskNotesAria")}
           variant="outlined"
-        />
+        />}
 
         <Stack direction="row" spacing={2} justifyContent="flex-end">
           <Button

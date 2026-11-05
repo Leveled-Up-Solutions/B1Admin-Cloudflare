@@ -225,10 +225,10 @@ export const Assignment = (props: Props) => {
         </TextAction>
       </Box>
     ),
-    canEdit && positions.length > 0 && plan?.lastAutofillRunId && (
+    process.env.REACT_APP_STAGE !== "cloudflare" && canEdit && positions.length > 0 && plan?.lastAutofillRunId && (
       <TextAction key="undo" onClick={handleUndoAutoAssign} data-testid="undo-auto-assign-button">{Locale.label("plans.assignment.undoAutoAssign") || "Undo Auto Assign"}</TextAction>
     ),
-    canEdit && positions.length > 0 && (
+    process.env.REACT_APP_STAGE !== "cloudflare" && canEdit && positions.length > 0 && (
       <TextAction key="auto" onClick={handleAutoAssign} data-testid="auto-assign-button">{Locale.label("plans.assignment.autoAssign")}</TextAction>
     ),
     canEdit && <TextAction key="add" onClick={addPosition} data-testid="add-position-button">{Locale.label("plans.assignment.addPosition")}</TextAction>,

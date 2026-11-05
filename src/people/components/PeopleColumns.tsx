@@ -102,6 +102,7 @@ export const PeopleColumns = memo(function PeopleColumns(props: Props) {
   }, [tabValue, standardItems, optionalItems, optionalColumns.length]);
 
   React.useEffect(() => {
+    if (process.env.REACT_APP_STAGE === "cloudflare") return;
     ApiHelper.get("/forms?contentType=person", "MembershipApi").then((data: any) => {
       if (data.length > 0) {
         const personForms = data.filter((f: any) => f.contentType === "person");

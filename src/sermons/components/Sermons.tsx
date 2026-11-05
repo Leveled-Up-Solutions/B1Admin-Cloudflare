@@ -15,11 +15,14 @@ import { CountChip, HeaderPrimaryButton, ResultsBar, SearchField, Surface, TextA
 import { hoverRowSx } from "../../components/ui/tableStyles";
 import { SermonChrome } from "./SermonChrome";
 
+const IS_CLOUDFLARE = process.env.REACT_APP_STAGE === "cloudflare";
+
 export const Sermons = () => {
   const [sermons, setSermons] = React.useState<SermonInterface[]>([]);
   const [filteredSermons, setFilteredSermons] = React.useState<SermonInterface[]>([]);
   const [playlists, setPlaylists] = React.useState<PlaylistInterface[]>([]);
   const [currentSermon, setCurrentSermon] = React.useState<SermonInterface | null>(null);
+  const [loadError, setLoadError] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -33,6 +36,7 @@ export const Sermons = () => {
   const [copySnackbar, setCopySnackbar] = React.useState(false);
 
   const podcastFeedUrl = React.useMemo(() => {
+    if (IS_CLOUDFLARE) return "";
     const base = ApiHelper.getConfig("ContentApi")?.url?.replace(/\/+$/, "") || "";
     const churchId = UserHelper.currentUserChurch?.church?.id;
     return (base && churchId) ? base + "/sermons/rss/" + churchId : "";
@@ -96,29 +100,29 @@ export const Sermons = () => {
             <Typography>{Locale.label("sermons.addSermon")}</Typography>
           </Stack>
         </MenuItem>
-        <MenuItem onClick={handleAddPermanentLiveUrl}>
+        {!IS_CLOUDFLARE && <MenuItem onClick={handleAddPermanentLiveUrl}>
           <Stack direction="row" spacing={1} alignItems="center">
             <LiveTvIcon fontSize="small" sx={{ color: "error.main" }} />
             <Typography>{Locale.label("sermons.addPermanentLiveUrl")}</Typography>
           </Stack>
-        </MenuItem>
-        <MenuItem onClick={handleBulkImport} data-testid="bulk-import-menu-item">
+        </MenuItem>}
+        {!IS_CLOUDFLARE && <MenuItem onClick={handleBulkImport} data-testid="bulk-import-menu-item">
           <Stack direction="row" spacing={1} alignItems="center">
             <CloudUploadIcon fontSize="small" />
             <Typography>{Locale.label("sermons.bulkImport.title")}</Typography>
           </Stack>
-        </MenuItem>
+        </MenuItem>}
       </Menu>
     </>
   );
 
   const loadData = () => {
-    ApiHelper.get("/playlists", "ContentApi").then((data: any) => { setPlaylists(data); });
+    ApiHelper.get("/playlists", "ContentApi").then((data: any) => { setPlaylists(data); }).catch(err => setLoadError(err.message));
     ApiHelper.get("/sermons", "ContentApi").then((data: any) => {
       setSermons(data);
       setFilteredSermons(filterSermons(data, searchTerm));
-      setIsLoading(false);
-    });
+      setIsLoading(false); setLoadError("");
+    }).catch(err => { setLoadError(err.message); setIsLoading(false); });
   };
 
   const filterSermons = (list: any[], value: string) => {
@@ -138,7 +142,7 @@ export const Sermons = () => {
   };
 
   const handleAdd = (permanentUrl: boolean) => {
-    const v: SermonInterface = { churchId: UserHelper.currentUserChurch.church.id, duration: 5400, videoType: "youtube", videoData: "", title: Locale.label("sermons.sermonEdit.newSermon"), permanentUrl };
+    const v: SermonInterface = { churchId: UserHelper.currentUserChurch.church.id, duration: 5400, publishDate: new Date(), videoType: IS_CLOUDFLARE ? "" : "youtube", videoData: "", title: Locale.label("sermons.sermonEdit.newSermon"), permanentUrl };
     if (permanentUrl) {
       v.videoType = "youtube_channel";
       v.videoData = Locale.label("sermons.sermonEdit.channelIdPlaceholder");
@@ -338,6 +342,7 @@ export const Sermons = () => {
   return (
     <>
       <SermonChrome selected="sermons" actions={getActionButtons()}>
+        {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
         <Grid container spacing={3} alignItems="flex-start">
           <Grid size={{ xs: 12, lg: 8 }}>
             {currentSermon !== null && (

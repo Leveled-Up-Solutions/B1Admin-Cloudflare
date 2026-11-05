@@ -27,7 +27,7 @@ interface Props {
 // Shared header for the sermons pages; section switching lives in the main menu.
 export const SermonChrome: React.FC<Props> = ({ selected, actions, children }) => (
   <>
-    <PageHeader title={Locale.label(...titles[selected])} subtitle={Locale.label(...subtitles[selected])}>
+    <PageHeader title={Locale.label(...titles[selected])} subtitle={process.env.REACT_APP_STAGE === "cloudflare" && selected === "sermons" ? "Manage sermon metadata, playlists and the member archive" : Locale.label(...subtitles[selected])}>
       {actions}
     </PageHeader>
     <PageContainer>{children}</PageContainer>

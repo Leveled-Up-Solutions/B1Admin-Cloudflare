@@ -188,7 +188,7 @@ export const ServingPage = () => {
               <TeamList ministry={selectedMinistry} />
             </Grid>
             <Grid size={{ xs: 12 }}>
-              <ContentProviderAuthManager key={selectedMinistry.id} ministryId={selectedMinistry.id || ""} />
+              {process.env.REACT_APP_STAGE !== "cloudflare" && <ContentProviderAuthManager key={selectedMinistry.id} ministryId={selectedMinistry.id || ""} />}
             </Grid>
           </Grid>
         )}

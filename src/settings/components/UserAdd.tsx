@@ -35,7 +35,7 @@ export const UserAdd = (props: Props) => {
   const [unlinked, setUnlinked] = useState<{ personId: string; userId: string } | null>(null);
 
   const showInviteOrFinish = (emailAddr: string, personName: string) => {
-    if (!emailAddr) {
+    if (process.env.REACT_APP_STAGE === "cloudflare" || !emailAddr) {
       props.updatedFunction();
     } else {
       setInviteEmail(emailAddr);
@@ -70,6 +70,12 @@ export const UserAdd = (props: Props) => {
   };
 
   const saveUserFromPerson = async () => {
+    if (process.env.REACT_APP_STAGE === "cloudflare") {
+      if (!selectedPerson?.id) return;
+      await ApiHelper.post("/rolemembers/", [{ roleId: props.role.id, personId: selectedPerson.id }], "MembershipApi");
+      props.updatedFunction();
+      return;
+    }
     if (showEmailField && !validateEmail(email)) {
       setErrors([Locale.label("settings.userAdd.valEmail")]);
       return;
@@ -104,6 +110,8 @@ export const UserAdd = (props: Props) => {
       if (editMode) await saveExistingUser();
       else if (showNameFields) await saveNewUser();
       else await saveUserFromPerson();
+    } catch {
+      setErrors([process.env.REACT_APP_STAGE === "cloudflare" ? "Choose a person with an existing local account. The role could not be saved." : Locale.label("common.saveError")]);
     } finally {
       setIsSubmitting(false);
     }
@@ -160,6 +168,16 @@ export const UserAdd = (props: Props) => {
     if (isSubmitting) return;
     setSelectedPerson(person);
 
+    if (process.env.REACT_APP_STAGE === "cloudflare") {
+      setIsSubmitting(true);
+      try {
+        await ApiHelper.post("/rolemembers/", [{ roleId: props.role.id, personId: person.id }], "MembershipApi");
+        props.updatedFunction();
+      } catch { setErrors(["Choose a person with an existing local account. The role could not be saved."]); }
+      finally { setIsSubmitting(false); }
+      return;
+    }
+
     if (!person.contactInfo.email) {
       setShowEmailField(true);
       return;
@@ -180,6 +198,8 @@ export const UserAdd = (props: Props) => {
       }
       setSavedPersonId(person.id || "");
       showInviteOrFinish(userEmail, first || "");
+    } catch {
+      setErrors([process.env.REACT_APP_STAGE === "cloudflare" ? "Choose a person with an existing local account. The role could not be saved." : Locale.label("common.saveError")]);
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +235,7 @@ export const UserAdd = (props: Props) => {
     })();
   }, [props.selectedUser]);
 
-  const message = !showNameFields && !editMode && hasSearched && (
+  const message = process.env.REACT_APP_STAGE !== "cloudflare" && !showNameFields && !editMode && hasSearched && (
     <span>
       {Locale.label("settings.userAdd.noAcc")}{" "}
       <button type="button" onClick={CreateNewUser} data-testid="create-new-user-link" aria-label={Locale.label("settings.userAdd.createNewUserAria")} style={{ background: "none", border: 0, padding: 0, color: "var(--link)", cursor: "pointer" }}>

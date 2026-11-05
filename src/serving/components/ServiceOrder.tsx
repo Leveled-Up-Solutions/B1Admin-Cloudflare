@@ -442,10 +442,10 @@ export const ServiceOrder = memo((props: Props) => {
               <ArrowDropDownIcon sx={{ fontSize: 18 }} />
             </Box>
           </TextAction>
-          {!hasAssociatedContent && (
+          {process.env.REACT_APP_STAGE !== "cloudflare" && !hasAssociatedContent && (
             <TextAction small onClick={() => setShowAssociateLessonSelector(true)}>{Locale.label("plans.serviceOrder.associateLesson") || "Link Lesson"}</TextAction>
           )}
-          <TextAction small onClick={() => setShowSaveTemplate(true)}>{Locale.label("plans.templates.saveTitle") || "Save as Template"}</TextAction>
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <TextAction small onClick={() => setShowSaveTemplate(true)}>{Locale.label("plans.templates.saveTitle") || "Save as Template"}</TextAction>}
         </VerbRow>
         <Menu
           anchorEl={addMenuAnchor}
@@ -458,12 +458,12 @@ export const ServiceOrder = memo((props: Props) => {
           <MenuItem onClick={() => { setAddMenuAnchor(null); addItem(); }}>
             <FormatListBulletedIcon sx={{ mr: 1 }} /> {Locale.label("plans.planItem.item")}
           </MenuItem>
-          <MenuItem onClick={() => { setAddMenuAnchor(null); addSong(); }}>
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <MenuItem onClick={() => { setAddMenuAnchor(null); addSong(); }}>
             <MusicNoteIcon sx={{ mr: 1 }} /> {Locale.label("plans.planItem.song")}
-          </MenuItem>
-          <MenuItem onClick={() => { setAddMenuAnchor(null); handleAddContent(); }}>
+          </MenuItem>}
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <MenuItem onClick={() => { setAddMenuAnchor(null); handleAddContent(); }}>
             <MenuBookIcon sx={{ mr: 1 }} /> {Locale.label("plans.serviceOrder.addFromLesson") || "Add from Lesson"}
-          </MenuItem>
+          </MenuItem>}
         </Menu>
       </>
     ),

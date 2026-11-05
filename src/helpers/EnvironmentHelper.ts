@@ -6,6 +6,7 @@ export class EnvironmentHelper {
   private static CommonsApi = "";
   static B1Url = "";
   static ChurchAppsUrl = "";
+  static get isCloudflare() { return process.env.REACT_APP_STAGE === "cloudflare"; }
 
   static get Common() { return CommonEnvironmentHelper; }
 
@@ -20,6 +21,7 @@ export class EnvironmentHelper {
     }
     EnvironmentHelper.Common.init(stage || "");
     if (stage === "selfhost") EnvironmentHelper.initSelfHost();
+    if (stage === "cloudflare") EnvironmentHelper.initCloudflare();
     // Commons module isn't in @churchapps/helpers' CommonEnvironmentHelper yet — derive its
     // base from MembershipApi's, which every stage already resolves correctly.
     EnvironmentHelper.CommonsApi = CommonEnvironmentHelper.MembershipApi.replace(/\/membership$/, "/commons");
@@ -60,6 +62,24 @@ export class EnvironmentHelper {
     common.GoogleAnalyticsTag = "";
     EnvironmentHelper.LessonsApi = "https://api.lessons.church";
     EnvironmentHelper.B1Url = origin;
+  };
+
+  // Every service stays on this installation. Unported APIs fail locally instead of
+  // silently sending development records or credentials to hosted ChurchApps services.
+  static initCloudflare = () => {
+    const origin = window.location.origin;
+    const common = EnvironmentHelper.Common;
+    for (const mod of ["Membership", "Attendance", "Content", "Giving", "Messaging", "Doing", "Reporting", "Ask"])
+      (common as any)[mod + "Api"] = origin + "/api/" + mod.toLowerCase();
+    common.MessagingApiSocket = origin.replace(/^http/, "ws") + "/api/messaging/socket";
+    common.ContentRoot = origin + "/api/content";
+    common.B1Root = origin;
+    common.B1AdminRoot = origin;
+    common.LessonsRoot = origin + "/unavailable/lessons";
+    common.GoogleAnalyticsTag = "";
+    EnvironmentHelper.LessonsApi = origin + "/api/lessons";
+    EnvironmentHelper.B1Url = origin;
+    EnvironmentHelper.ChurchAppsUrl = origin;
   };
 
   static initDev = () => {

@@ -303,6 +303,7 @@ export const PlanValidation = (props: Props) => {
 
   const getPendingNotifications = () => {
     const pending: AssignmentInterface[] = [];
+    if (process.env.REACT_APP_STAGE === "cloudflare") return pending;
     props.assignments.forEach((a) => {
       if (!a.notified && (!props.plan.confirmationWorkflowId || a.status === "Unconfirmed")) pending.push(a);
     });
@@ -311,6 +312,7 @@ export const PlanValidation = (props: Props) => {
 
   const notifying = React.useRef(false);
   const notify = () => {
+    if (process.env.REACT_APP_STAGE === "cloudflare") return;
     if (notifying.current) return;
     notifying.current = true;
     setNotificationError(null);
@@ -379,6 +381,7 @@ export const PlanValidation = (props: Props) => {
       );
     }
 
+    if (process.env.REACT_APP_STAGE === "cloudflare") return <p>Assignments are saved locally. Message delivery is disabled.</p>;
     if (pending.length === 0) return props.assignments.some((a) => a.personId) ? <p>{Locale.label("plans.planValidation.volNotif")}</p> : null;
     else {
       return (

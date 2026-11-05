@@ -5,7 +5,7 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"
  * dev server or a Playwright run on localhost, which were the project's noisiest "production" issues.
  */
 export function sentryEnabled(stage: string | undefined, hostname: string | undefined): boolean {
-  if (stage === "selfhost") return false;
+  if (stage === "selfhost" || stage === "cloudflare") return false;
   if (!hostname) return true;
   const host = hostname.toLowerCase();
   if (LOCAL_HOSTS.has(host)) return false;

@@ -54,13 +54,13 @@ export const PlanTypePage = () => {
     <>
       <PageHeader title={planType.data.name || Locale.label("plans.planTypePage.planType")} subtitle={ministry.data.name}>
         <HeaderTextButton component={Link} to="/serving/plans" startIcon={<BackIcon />} data-testid="plan-type-plans-link">{Locale.label("components.wrapper.plans", "Plans")}</HeaderTextButton>
-        <HeaderTextButton component={Link} to={`/serving/overview?planTypeId=${planType.data.id}&ministryId=${planType.data.ministryId}`} data-testid="plan-type-overview-link">
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <HeaderTextButton component={Link} to={`/serving/overview?planTypeId=${planType.data.id}&ministryId=${planType.data.ministryId}`} data-testid="plan-type-overview-link">
           {Locale.label("plans.planTypePage.overview")}
-        </HeaderTextButton>
+        </HeaderTextButton>}
         <HeaderTextButton onClick={scrollToGroups} data-testid="plan-type-groups-link">{Locale.label("plans.planTypeGroups.heading")}</HeaderTextButton>
-        <HeaderTextButton startIcon={<SignageIcon />} onClick={() => setShowSignageFeed(true)} data-testid="signage-feed-button">
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <HeaderTextButton startIcon={<SignageIcon />} onClick={() => setShowSignageFeed(true)} data-testid="signage-feed-button">
           {Locale.label("plans.signageFeed.button", "Digital Signage")}
-        </HeaderTextButton>
+        </HeaderTextButton>}
         {canEdit && (
           <HeaderPrimaryButton startIcon={<AddIcon />} onClick={() => setAddRequest((n) => n + 1)} data-testid="add-plan-button">
             {Locale.label("plans.planList.newPlan")}

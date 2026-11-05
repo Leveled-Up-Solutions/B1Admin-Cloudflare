@@ -166,7 +166,7 @@ export const PlanList = memo((props: Props) => {
     </Menu>
   );
 
-  const scheduleLessonVerb = (
+  const scheduleLessonVerb = process.env.REACT_APP_STAGE !== "cloudflare" && (
     <Box component="span" ref={lessonAnchorRef}>
       <TextAction onClick={() => setLessonMenuAnchor(lessonAnchorRef.current)} data-testid="schedule-lesson-button">
         <Box component="span" sx={toolLinkSx}><MenuBookIcon />{Locale.label("plans.planList.scheduleLesson", "Schedule Lesson")}</Box>
@@ -194,9 +194,9 @@ export const PlanList = memo((props: Props) => {
         {canEdit && (
           <VerbRow plain>
             {scheduleLessonVerb}
-            <TextAction onClick={() => setShowTemplates(true)} data-testid="plan-templates-button">
+            {process.env.REACT_APP_STAGE !== "cloudflare" && <TextAction onClick={() => setShowTemplates(true)} data-testid="plan-templates-button">
               <Box component="span" sx={toolLinkSx}><TemplatesIcon />{Locale.label("plans.templates.button", "Templates")}</Box>
-            </TextAction>
+            </TextAction>}
           </VerbRow>
         )}
       </Stack>

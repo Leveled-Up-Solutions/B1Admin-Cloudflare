@@ -37,7 +37,7 @@ const GroupsPage = () => {
   const { confirm, ConfirmDialogElement } = useConfirmDelete();
 
   const canEditGroups = UserHelper.checkAccess(Permissions.membershipApi.groups.edit);
-  const canViewHealth = UserHelper.checkAccess(Permissions.membershipApi.groupMembers.view);
+  const canViewHealth = process.env.REACT_APP_STAGE !== "cloudflare" && UserHelper.checkAccess(Permissions.membershipApi.groupMembers.view);
 
   const groupsQuery = useQuery<GroupInterface[]>({
     queryKey: [showArchived ? "/groups?archived=1" : "/groups/tag/standard", "MembershipApi"],
@@ -89,7 +89,7 @@ const GroupsPage = () => {
     ApiHelper.post("/groups", [group], "MembershipApi").then(() => groupsQuery.refetch());
   };
 
-  const canApproveRequests = UserHelper.checkAccess(Permissions.membershipApi.groupMembers.edit);
+  const canApproveRequests = process.env.REACT_APP_STAGE !== "cloudflare" && UserHelper.checkAccess(Permissions.membershipApi.groupMembers.edit);
   const { data: pendingRequests = [] } = useQuery<GroupJoinRequestInterface[]>({
     queryKey: ["/groupjoinrequests/pending", "MembershipApi"],
     placeholderData: [],

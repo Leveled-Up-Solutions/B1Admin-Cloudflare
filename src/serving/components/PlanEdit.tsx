@@ -41,13 +41,13 @@ export const PlanEdit = (props: Props) => {
 
   const templatesQuery = useQuery<any[]>({
     queryKey: [`/plantemplates/ministry/${props.plan?.ministryId}`, "DoingApi"],
-    enabled: !props.plan?.id && !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !props.plan?.id && !!props.plan?.ministryId,
     placeholderData: []
   });
   const templates = templatesQuery.data || [];
   const confirmationWorkflows = useQuery<{ id: string; name: string }[]>({
     queryKey: [`/plans/confirmationWorkflows?ministryId=${props.plan?.ministryId || ""}`, "DoingApi"],
-    enabled: !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !!props.plan?.ministryId,
     placeholderData: []
   });
 
@@ -293,7 +293,7 @@ export const PlanEdit = (props: Props) => {
             <Controller name="showVolunteerNames" control={control} render={({ field }) => (
               <FormControlLabel control={<Checkbox checked={field.value ?? true} onChange={(ev) => field.onChange(ev.target.checked)} />} label={Locale.label("plans.planEdit.showVolunteerNames")} />
             )} />
-            <Controller name="confirmationWorkflowId" control={control} render={({ field }) => (
+            {process.env.REACT_APP_STAGE !== "cloudflare" && <Controller name="confirmationWorkflowId" control={control} render={({ field }) => (
               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel>{Locale.label("plans.confirmation.workflow", "Confirmation workflow")}</InputLabel>
                 <Select {...field} label={Locale.label("plans.confirmation.workflow", "Confirmation workflow")} data-testid="plan-confirmation-workflow">
@@ -303,13 +303,13 @@ export const PlanEdit = (props: Props) => {
                 </Select>
                 <FormHelperText>{Locale.label("plans.confirmation.help", "Create a Serving Assignment Confirmation workflow under Serving → Workflows, then select it here. Publishing and notifying starts one card per new request. Accepted requests receive service reminders; unanswered requests use this workflow.")}</FormHelperText>
               </FormControl>
-            )} />
+            )} />}
             <Controller name="prepared" control={control} render={({ field }) => (
               <FormControlLabel control={<Checkbox checked={field.value ?? false} onChange={(ev) => field.onChange(ev.target.checked)} data-testid="prepared-checkbox" />} label={Locale.label("plans.planEdit.prepared") || "Penciled in (hide assignments from volunteers until published)"} />
             )} />
-            <Controller name="autoReplaceOnDecline" control={control} render={({ field }) => (
+            {process.env.REACT_APP_STAGE !== "cloudflare" && <Controller name="autoReplaceOnDecline" control={control} render={({ field }) => (
               <FormControlLabel control={<Checkbox checked={field.value ?? false} onChange={(ev) => field.onChange(ev.target.checked)} data-testid="auto-replace-checkbox" />} label={Locale.label("plans.planEdit.autoReplaceOnDecline") || "Automatically schedule a replacement when a volunteer declines"} />
-            )} />
+            )} />}
           </>
         )}
       </FormCard>

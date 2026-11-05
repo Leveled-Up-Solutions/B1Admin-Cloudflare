@@ -147,7 +147,7 @@ export const TaskPage = () => {
         </dd>
       </Box>
       <Box sx={{ mt: 3 }}>
-        <TaskReminderEdit taskId={task.data.id || ""} dueDate={task.data.dueDate} />
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <TaskReminderEdit taskId={task.data.id || ""} dueDate={task.data.dueDate} />}
       </Box>
     </Box>
   );
@@ -158,7 +158,7 @@ export const TaskPage = () => {
         {task.data.taskType === "directoryUpdate" && <RequestedChanges task={task.data} />}
         {task.data.taskType === "accountDeletion" && <AccountDeletionRequest task={task.data} />}
         {task.data.taskType === "groupJoinRequest" && <GroupJoinRequestTask task={task.data} />}
-        <Notes context={context as UserContextInterface} conversationId={task.data.conversationId || ""} createConversation={handleCreateConversation as () => Promise<string>} />
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <Notes context={context as UserContextInterface} conversationId={task.data.conversationId || ""} createConversation={handleCreateConversation as () => Promise<string>} />}
       </RecordLayout>
       {modalField !== "" && <ContentPicker onClose={handleModalClose} onSelect={handleContentPicked} allowNone={modalField === "associatedWith"} />}
     </PageContainer>

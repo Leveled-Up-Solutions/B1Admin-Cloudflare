@@ -1,0 +1,12 @@
+{
+  "id": "/portal",
+  "name": "Church Community Member Portal",
+  "short_name": "Community",
+  "description": "Your church member directory, groups, calendar and sermons.",
+  "start_url": "/portal",
+  "scope": "/portal",
+  "display": "standalone",
+  "background_color": "#f8faf6",
+  "theme_color": "#2d6555",
+  "icons": [{ "src": "/portal-icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

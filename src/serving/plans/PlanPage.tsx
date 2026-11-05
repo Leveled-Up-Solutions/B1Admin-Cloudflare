@@ -103,7 +103,9 @@ export const PlanPage = () => {
               {editing ? Locale.label("common.done") : Locale.label("common.edit")}
             </Button>
           )}
-          <Button variant="outlined" startIcon={<PrintIcon />} href={`/serving/plans/print/${plan.id}`} target="_blank" rel="noopener" data-testid="print-plan-link">{Locale.label("common.print")}</Button>
+          {process.env.REACT_APP_STAGE === "cloudflare"
+            ? <Button variant="outlined" startIcon={<PrintIcon />} component={RouterLink} to={`/serving/plans/print/${plan.id}`} data-testid="print-plan-link">{Locale.label("common.print")}</Button>
+            : <Button variant="outlined" startIcon={<PrintIcon />} href={`/serving/plans/print/${plan.id}`} target="_blank" rel="noopener" data-testid="print-plan-link">{Locale.label("common.print")}</Button>}
         </>}>
         {planType?.id && <TextAction small to={`/serving/planTypes/${planType.id}`} component={RouterLink}>{planType.name}</TextAction>}
         <TextAction small to="/serving/plans" component={RouterLink} data-testid="plan-plans-link">{Locale.label("plans.planList.plans")}</TextAction>
