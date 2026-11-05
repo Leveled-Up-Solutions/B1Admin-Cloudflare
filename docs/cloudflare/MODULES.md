@@ -23,7 +23,7 @@ Attendance, child/self check-in, donations/manual gift entry, payment gateways, 
 | Future giving | Manual records, allocations, batches and, only if separately authorized, gateways | Membership donor identity and explicit permissions | Requires a separate implementation and financial integrity verification |
 | Future workflows | Persisted steps, assignment coordination and retries | Membership, schedules and explicitly enabled delivery adapters | Do not model a distributed workflow as a long-running SQL transaction |
 
-The current implementation's route inventory and integration tests are the source of truth for what runs. A module should be advertised in navigation or capability discovery only after its required routes, authorization and persistence are implemented. Unsupported routes must fail explicitly rather than silently proxying to ChurchApps production or returning invented empty data.
+The supported-contract notes, `/api/instance` capability descriptor and integration tests describe what runs. `upstream-routes.json` is the upstream baseline inventory, not a list of implemented Cloudflare routes. A module should be advertised in navigation or capability discovery only after its required routes, authorization and persistence are implemented. Unsupported routes must fail explicitly rather than silently proxying to ChurchApps production or returning invented empty data.
 
 ## Selected existing Plans contracts
 
@@ -102,3 +102,5 @@ Upstream `TaskRepo.withAssignmentLock` uses MySQL `GET_LOCK` / `RELEASE_LOCK` ac
 Wire contracts and host routing are separate concerns. Configure supported clients to use this installation's API base and socket URL; inspect hardcoded API, transfer/SSO, content and stock-media URLs. Do not transmit this installation's tokens to upstream hosts. Keep unsupported integrations visibly unavailable. Future website APIs should expose a narrow published/read projection and use a versioned contract without depending on the full admin application's permissions or internal database schema.
 
 Administrative realtime boundary: the church-wide refresh feed exposes only bounded resource/ID metadata and is restricted to bootstrap administrators or explicit global Settings Edit. Publishing remains bootstrap-admin-only. The Durable Object revalidates the current grant and session before history, connection, delivery, messages and alarms; group-scoped grants never subscribe to whole-church metadata.
+
+The realtime feed is a backend administrative API at `/api/messaging/realtime`, tested with an authenticated WebSocket client. It is not connected to automatic browser UI synchronization. The inherited frontend socket setting still names an unsupported local `/api/messaging/socket` compatibility endpoint; browser token handoff and the broader ChurchApps socket protocol remain unported. No production socket fallback is used.

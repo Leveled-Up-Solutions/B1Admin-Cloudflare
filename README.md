@@ -15,11 +15,11 @@ This is a local development milestone using synthetic records. It is not a compl
 
 The frontend's Cloudflare mode uses this installation's API. Supported request/response contracts retain ChurchApps shapes where practical. Other suite clients still need their API hosts and authentication behavior verified; matching endpoint names alone does not establish interoperability.
 
-Giving, child check-in, outbound email/SMS/push, advertising, payment gateways, external content providers and workflow automation are excluded. Fair volunteer rotation and station-specific qualification policies are a later design task; this milestone first ports the existing Serving workflow.
+Giving, all check-in, outbound email/SMS/push, advertising, payment gateways, external content providers and workflow automation are excluded. Fair volunteer rotation and station-specific qualification policies are a later design task; this milestone first ports the existing Serving workflow.
 
 ## Run locally
 
-Use Node.js 22 and Corepack/Yarn for the upstream frontend. The Worker package has its own npm lockfile.
+Use Node.js 22.22 or newer in the Node 22 line and Corepack/Yarn for the upstream frontend. The Worker package has its own npm lockfile.
 
 ```sh
 corepack yarn install --immutable
