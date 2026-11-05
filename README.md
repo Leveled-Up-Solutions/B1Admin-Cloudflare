@@ -6,10 +6,10 @@ This is a local development milestone using synthetic records. It is not a compl
 
 ## Scope
 
-- People, households, directory visibility, groups and member access.
+- People and original household editing, supported advanced directory search, group membership and join approvals.
 - Existing Serving/Plans and My Work workflows: service plans, positions, assignments, service order, scheduling preferences, blockout dates and manual tasks.
-- Calendars and events, sermon archive and R2 file storage.
-- Administrative roles/permissions and audit records, using the existing screens.
+- Calendars with bounded recurrence and occurrence editing, sermon archive and R2 file storage.
+- Administrative roles, exact group permissions and audit records, using the existing screens. Manual one-time account setup links and password changes with session revocation.
 - A browser-based member portal/PWA; native mobile applications are not required for this milestone.
 - Explicit APIs for a separate future church website. This repository does **not** rebuild `pottershandsministries.org`.
 
@@ -37,13 +37,16 @@ Read [the running and verification guide](docs/cloudflare/RUNNING.md) for the cu
 ## Verify
 
 ```sh
+corepack yarn typecheck
 corepack yarn check:cloudflare
 corepack yarn test:cloudflare
 corepack yarn build:cloudflare
 npm run build --prefix cloudflare
 ```
 
-The last command builds a Worker deployment bundle with `wrangler deploy --dry-run`; it does not deploy. Tests use local Workers/D1/R2 simulation. Browser testing and any remaining failures are recorded separately in the running guide; this README does not claim every upstream screen or external integration has been tested.
+For the full compiled browser suite, install Chromium with `yarn playwright install chromium`, then run `yarn test:cloudflare:browser`. It creates fresh temporary local D1/R2/DO state and stops its own loopback server afterward.
+
+The Worker build command builds a deployment bundle with `wrangler deploy --dry-run`; it does not deploy. Tests use local Workers/D1/R2 simulation. Executed browser checks and remaining limitations are recorded separately in the running guide; this README does not claim every upstream screen or external integration has been tested.
 
 ## Architecture and attribution
 

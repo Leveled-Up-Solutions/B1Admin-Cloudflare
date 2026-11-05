@@ -19,7 +19,7 @@ The original **StreamingServices / Edit** UI permission controls sermon administ
 
 ## Verification
 
-The modified sermon components and new archive-file component passed esbuild TypeScript/JSX syntax transpilation. Full application type checking still includes upstream diagnostics; none were reported in these sermon components.
+The modified sermon components and new archive-file component passed TypeScript/JSX syntax transpilation. The follow-up frontend cleanup also passes both full application and tooling TypeScript configurations with strict checking enabled.
 
 `tests/cloudflare/sermons.spec.ts` passed against the compiled local Worker at `127.0.0.1:8787` using installed Chrome. It exercises the original playlist and sermon editors, saves and reopens metadata, uploads a synthetic text archive to local R2, downloads and compares its bytes, explicitly publishes and unpublishes the sermon, and deletes the attachment, sermon and playlist through the UI. Member API assertions verify that drafts are hidden, published files download through `/api/member/v1/files/:id/download`, and unpublished files return 404. The run observed no external requests, browser errors or failed administration API responses. All created synthetic records were removed.
 
