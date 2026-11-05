@@ -5,7 +5,8 @@ import {
   RadioButtonUnchecked as EmptyCircleIcon,
   Description as DescriptionIcon
 } from "@mui/icons-material";
-import { type PersonInterface, type FormSubmissionInterface, type QuestionInterface, type AnswerInterface } from "@churchapps/helpers";
+import { type PersonInterface, type QuestionInterface, type AnswerInterface } from "@churchapps/helpers";
+import type { FormSubmissionInterface } from "../../helpers/Interfaces";
 import { ApiHelper, DateHelper, DisplayBox, Loading, Locale, SmallButton, UserHelper } from "@churchapps/apphelper";
 import { useReactToPrint } from "react-to-print";
 import { FormSubmissionEdit } from "@churchapps/apphelper/forms";
@@ -53,7 +54,7 @@ export const PersonForms: React.FC<Props> = (props) => {
   const churchName = useContext(UserContext)?.userChurch?.church?.name || "";
   const handlePrint = useReactToPrint({ contentRef: printRef, documentTitle: `${forms.find((f) => f.id === selectedFormId)?.name || "Form"} - ${person?.name?.display || ""}` });
 
-  const personFormSubmissions = useMemo(
+  const personFormSubmissions = useMemo<FormSubmissionInterface[]>(
     () => (person?.formSubmissions || []).filter((fs) => fs.form?.contentType === "person" || fs.contentType === "person"),
     [person?.formSubmissions]
   );

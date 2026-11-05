@@ -5,6 +5,7 @@ import { Element, YoutubeBackground } from "@churchapps/apphelper/website";
 import "../admin/elements/SafeRawHTMLElement";
 import { StyleHelper } from "@churchapps/apphelper/website";
 import type { SectionInterface, GlobalStyleInterface, ElementInterface } from "../../helpers/Interfaces";
+import { toWebsiteElement } from "../websiteRendererData";
 
 interface Props {
   church: any;
@@ -20,7 +21,7 @@ interface ElementRendererProps {
 }
 
 const ElementRenderer: React.FC<ElementRendererProps> = ({ element, churchSettings, textColor }) => {
-  return <Element element={element} churchSettings={churchSettings} textColor={textColor} />;
+  return <Element element={toWebsiteElement(element)} churchSettings={churchSettings} textColor={textColor} />;
 };
 
 interface SectionProps {

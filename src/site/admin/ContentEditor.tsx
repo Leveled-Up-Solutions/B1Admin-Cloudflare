@@ -38,6 +38,7 @@ import { AiRewriteDialog } from "../components/AiRewriteDialog";
 import { WEBSITE_ELEMENT_TYPES } from "./websiteContent";
 import { A11yPanel } from "./A11yPanel";
 import { checkPageAccessibility } from "./a11yChecker";
+import { toWebsiteSection } from "../websiteRendererData";
 
 const editorTheme = (themeId: ThemeId, brand: string) => createTheme(createAppTheme("light", themeId, brand), {
   components: {
@@ -160,12 +161,13 @@ export function ContentEditor(props: Props) {
     return `${selectors.join(", ")} { display: block !important; opacity: 0.45; outline: 2px dashed #9e9e9e; outline-offset: -2px; }`;
   };
 
+  const rendererSections = useMemo(() => (container?.sections || []).map(toWebsiteSection), [container?.sections]);
   const css = useMemo(
-    () => StyleHelper.getCss(container?.sections || [], deviceType) + "\n" + getEditorVisibilityCss(container?.sections || [], deviceType),
-    [container?.sections, deviceType]
+    () => StyleHelper.getCss(rendererSections, deviceType) + "\n" + getEditorVisibilityCss(container?.sections || [], deviceType),
+    [rendererSections, container?.sections, deviceType]
   );
 
-  const fontUrls = useMemo(() => StyleHelper.getFontUrls(container?.sections || []), [container?.sections]);
+  const fontUrls = useMemo(() => StyleHelper.getFontUrls(rendererSections), [rendererSections]);
 
   const hoverCss = useMemo(() => EDITOR_HOVER_CSS + getSelectionSuppressCss(selectedElementId), [selectedElementId]);
 
@@ -461,7 +463,7 @@ export function ContentEditor(props: Props) {
       return;
     }
 
-    let target: { sectionId: string; blockId?: string; parentId?: string; sort: number } | null = null;
+    let target: { sectionId: string; blockId?: string; parentId?: string | null; sort: number } | null = null;
     if (selectedElementId) {
       const path = findElementPath(selectedElementId);
       if (path?.section) target = { sectionId: path.section.id || "", blockId: path.section.blockId, parentId: path.element.parentId, sort: (path.element.sort || 0) + 0.1 };

@@ -4,15 +4,21 @@ import { CurrencyHelper, type QuestionInterface } from "@churchapps/helpers";
 import { ApiHelper, Locale } from "@churchapps/apphelper";
 import { type FundInterface } from "@churchapps/helpers";
 
+// Payment configuration stores both FundId and Amount. The installed package
+// incorrectly declares choices as a one-element tuple instead of an array.
+type PaymentQuestion = Omit<QuestionInterface, "choices"> & {
+  choices?: Array<{ value?: string; text?: string }>;
+};
+
 interface Props {
-  question: QuestionInterface;
-  updatedFunction: (question: QuestionInterface) => void;
+  question: PaymentQuestion;
+  updatedFunction: (question: PaymentQuestion) => void;
 }
 
 export const PaymentEdit: React.FC<Props> = (props) => {
-  const [funds, setFunds] = React.useState([]);
-  const [fundId, setFundId] = React.useState(props.question.choices?.find((c: any) => c.text === "FundId")?.value || "");
-  const [amount, setAmount] = React.useState(props.question.choices?.find((c: any) => c.text === "Amount")?.value || 0);
+  const [funds, setFunds] = React.useState<FundInterface[]>([]);
+  const [fundId, setFundId] = React.useState(props.question.choices?.find(c => c.text === "FundId")?.value || "");
+  const [amount, setAmount] = React.useState<string | number>(props.question.choices?.find(c => c.text === "Amount")?.value || 0);
   const [currency, setCurrency] = React.useState<string>("usd");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent) => {
@@ -27,10 +33,10 @@ export const PaymentEdit: React.FC<Props> = (props) => {
   };
 
   React.useEffect(() => {
-    ApiHelper.get("/funds", "GivingApi").then((data: any) => {
+    ApiHelper.get("/funds", "GivingApi").then((data: FundInterface[]) => {
       setFunds(data);
       if (fundId === "" && data.length > 0) {
-        setFundId(data[0].id);
+        setFundId(data[0].id || "");
         props.updatedFunction({ ...props.question, choices: [{ value: data[0].id, text: "FundId" }, { value: String(amount), text: "Amount" }] });
       }
     });

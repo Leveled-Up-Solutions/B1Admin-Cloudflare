@@ -14,6 +14,7 @@ import { hasExtractableContent } from "./templates/sectionTemplates";
 import { getElementTypeMeta } from "./elements/elementTypeMeta";
 import { trackSave } from "./saveStatusTracker";
 import "./elements/SafeRawHTMLElement";
+import { toWebsiteElement } from "../websiteRendererData";
 
 interface Props {
   first?: boolean,
@@ -293,7 +294,7 @@ export const Section: React.FC<Props> = props => {
     const result: React.ReactElement[] = [];
     props.section?.elements?.forEach(e => {
       const textColor = StyleHelper.getTextColor(props.section?.textColor || "", {}, props.churchSettings);
-      const elementComponent = <Element key={e.id} element={e} onEdit={props.onEdit} onMove={props.onMove} church={props.church} churchSettings={props.churchSettings} textColor={textColor} />;
+      const elementComponent = <Element key={e.id} element={toWebsiteElement(e)} onEdit={props.onEdit} onMove={props.onMove} church={props.church} churchSettings={props.churchSettings} textColor={textColor} />;
 
       // Wrap with ElementSelection if selection handlers are provided
       if (props.onElementClick && props.onElementDelete && props.onElementDuplicate && props.onElementMove && props.onElementUpdate) {
