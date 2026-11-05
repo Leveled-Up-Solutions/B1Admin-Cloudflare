@@ -20,8 +20,7 @@ export const CloudflareRecovery = ({ token, onDone }: Props) => {
       const result = await ApiHelper.postAnonymous("/users/recovery/complete", { recoveryToken: token, newPassword: password, ...(preview.requiresMfa ? { mfaCode: code } : {}) }, "MembershipApi");
       if (result?.success !== true || result?.sessionsRevoked !== true) throw new Error("Recovery could not be confirmed.");
       setPassword(""); setConfirm(""); setCode(""); onDone(result.email);
-    } catch (err) { setError(err instanceof Error ? err.message : "Recovery failed."); }
-    finally { setBusy(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Recovery failed."); } finally { setBusy(false); }
   }
   return <Stack component="form" spacing={2} onSubmit={complete} aria-label="Recover account">
     <Typography variant="h2">Recover your local account</Typography>

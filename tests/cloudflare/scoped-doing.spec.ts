@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("scoped Serving and My Work work without directory grants and ministry membership does not grant edit", async ({ page, request, baseURL }) => {
+test("scoped Serving and My Work work without directory grants and ministry membership does not grant edit", async ({ page, request, baseURL }, testInfo) => {
   const login = await request.post("/api/membership/users/login", { data: { email: "admin@example.test", password: "LocalDemo2026!" } });
   expect(login.ok()).toBeTruthy();
   const headers = { Authorization: `Bearer ${(await login.json()).userChurches[0].jwt}` };
@@ -10,8 +10,10 @@ test("scoped Serving and My Work work without directory grants and ministry memb
     return response.json();
   }
   const stamp = String(Date.now());
-  let roleId = "", ministryId = "", teamId = "", planId = "", planTypeId = "", viewerMembershipId = "";
+  let roleId = "", ministryId = "", teamId = "", planId = "", privatePlanId = "", planTypeId = "", viewerMembershipId = "";
+  let workflowFailed = false;
   const task = await api("/doing/tasks/task-demo");
+  const seedPlan = await api("/doing/plans/plan-demo");
   const problems: string[] = [], directoryCalls: string[] = [];
   page.on("pageerror", error => problems.push(error.message));
   page.on("request", req => { if (/\/api\/membership\/(people|groupmembers)/i.test(new URL(req.url()).pathname)) directoryCalls.push(req.url()); });
@@ -37,6 +39,8 @@ test("scoped Serving and My Work work without directory grants and ministry memb
     const [viewerMembership] = await api("/membership/groupmembers", "POST", [{ groupId: ministryId, personId: "person-jordan" }]); viewerMembershipId = viewerMembership.id;
     const [planType] = await api("/doing/planTypes", "POST", [{ ministryId, name: `Scoped plan type ${stamp}` }]); planTypeId = planType.id;
     const [plan] = await api("/doing/plans", "POST", [{ ministryId, planTypeId, name: `Scoped service ${stamp}`, serviceDate: "2027-12-12", serviceOrder: false, prepared: false }]); planId = plan.id;
+    expect(seedPlan.ministryId).not.toBe(ministryId);
+    const [privatePlan] = await api("/doing/plans", "POST", [{ ministryId: seedPlan.ministryId, planTypeId: seedPlan.planTypeId, name: `Unscoped private service ${stamp}`, serviceDate: "2027-12-12", serviceOrder: false, prepared: true }]); privatePlanId = privatePlan.id;
     await api("/doing/positions", "POST", [{ planId, groupId: teamId, categoryName: "Volunteers", name: "Scoped welcome position", count: 1 }]);
     await api("/doing/tasks", "POST", [{ ...task, assignedToType: "group", assignedToId: ministryId, title: `Scoped work ${stamp}`, status: "Open" }]);
     const [role] = await api("/membership/roles", "POST", [{ name: `Scoped Doing ${stamp}` }]); roleId = role.id;
@@ -70,7 +74,10 @@ test("scoped Serving and My Work work without directory grants and ministry memb
     await expect(page.getByRole("dialog").getByRole("tab", { name: /person/i })).toHaveCount(0);
     await page.getByRole("dialog").getByRole("row").filter({ hasText: ministry.name }).click();
     await expect(page.getByTestId("task-assigned-label")).toHaveText(ministry.name);
-    expect((await request.get("/api/doing/plans/plan-demo", { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
+    // Existing member relationships still expose the published seed plan. A private
+    // plan outside the granted ministry isolates the staff-scope rejection instead.
+    expect((await request.get("/api/doing/plans/plan-demo", { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(200);
+    expect((await request.get("/api/doing/plans/" + privatePlanId, { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
     expect((await request.get("/api/membership/people", { headers: { Authorization: `Bearer ${token}` } })).status()).toBe(403);
     expect(directoryCalls).toEqual([]);
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
@@ -88,14 +95,31 @@ test("scoped Serving and My Work work without directory grants and ministry memb
     await expect(page.getByTestId("add-task-button")).toHaveCount(0);
     expect(problems).toEqual([]);
     await page.getByRole("button", { name: "Sign out", exact: true }).click();
+  } catch (error) {
+    workflowFailed = true;
+    throw error;
   } finally {
-    await api("/doing/tasks", "POST", [task]);
-    if (roleId) await api("/membership/roles/" + roleId, "DELETE");
-    if (planId) await api("/doing/plans/" + planId, "DELETE");
-    if (planTypeId) await api("/doing/planTypes/" + planTypeId, "DELETE");
-    if (viewerMembershipId) await api("/membership/groupmembers/" + viewerMembershipId, "DELETE");
-    if (teamId) await api("/membership/groups/" + teamId, "DELETE");
-    if (ministryId) await api("/membership/groups/" + ministryId, "DELETE");
-    await api("/membership/users/logout", "POST", {});
+    const cleanupErrors: string[] = [];
+    // Unmount the app before deleting fixtures so outstanding UI queries cannot
+    // race cleanup and appear to be authorization failures in the workflow.
+    await page.goto("about:blank").catch(error => cleanupErrors.push(String(error)));
+    const cleanup = [
+      () => api("/doing/tasks", "POST", [task]),
+      ...(roleId ? [() => api("/membership/roles/" + roleId, "DELETE")] : []),
+      ...(planId ? [() => api("/doing/plans/" + planId, "DELETE")] : []),
+      ...(privatePlanId ? [() => api("/doing/plans/" + privatePlanId, "DELETE")] : []),
+      ...(planTypeId ? [() => api("/doing/planTypes/" + planTypeId, "DELETE")] : []),
+      ...(viewerMembershipId ? [() => api("/membership/groupmembers/" + viewerMembershipId, "DELETE")] : []),
+      ...(teamId ? [() => api("/membership/groups/" + teamId, "DELETE")] : []),
+      ...(ministryId ? [() => api("/membership/groups/" + ministryId, "DELETE")] : []),
+      () => api("/membership/users/logout", "POST", {})
+    ];
+    for (const operation of cleanup) {
+      try { await operation(); } catch (error) { cleanupErrors.push(String(error)); }
+    }
+    if (cleanupErrors.length) {
+      await testInfo.attach("fixture-cleanup-errors", { body: cleanupErrors.join("\n"), contentType: "text/plain" });
+      if (!workflowFailed) expect(cleanupErrors, "Fixture cleanup must succeed").toEqual([]);
+    }
   }
 });

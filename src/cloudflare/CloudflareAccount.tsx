@@ -32,9 +32,7 @@ export const CloudflareAccount = ({ onSessionsRevoked, token, email }: Props) =>
       let result: { success: boolean; sessionsRevoked: boolean };
       if (token !== undefined) {
         if (!token) throw new Error("Sign in again before changing your password.");
-        const response = await fetch("/api/membership/users/updatePassword", {
-          method: "POST", cache: "no-store", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(data)
-        });
+        const response = await fetch("/api/membership/users/updatePassword", { method: "POST", cache: "no-store", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }, body: JSON.stringify(data) });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.errors?.[0] || "Could not change your password. Sign in again if your session expired.");
         result = payload;
@@ -43,8 +41,7 @@ export const CloudflareAccount = ({ onSessionsRevoked, token, email }: Props) =>
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setChanged(true);
       // The server already revoked every session; the host clears memory and returns to sign-in.
       onSessionsRevoked("password");
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not change your password."); }
-    finally { setBusy(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not change your password."); } finally { setBusy(false); }
   }
 
   return <Container maxWidth="sm" sx={{ py: 4 }}>

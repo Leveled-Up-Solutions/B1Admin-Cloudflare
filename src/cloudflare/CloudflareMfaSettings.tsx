@@ -43,8 +43,7 @@ export const CloudflareMfaSettings = ({ token, onRevokedPending, onSessionsRevok
         else if (Array.isArray(result.backupCodes) && result.backupCodes.length) setCodes(result.backupCodes);
         else throw new Error("Backup codes could not be loaded. Sign in again and use local recovery if needed.");
       }
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not update authenticator settings."); }
-    finally { setBusy(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not update authenticator settings."); } finally { setBusy(false); }
   }
   return <Paper sx={{ p: { xs: 3, sm: 4 }, mt: 3 }}><Stack spacing={2} aria-label="Authenticator settings">
     <Typography variant="h2">Two-factor authentication</Typography>

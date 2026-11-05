@@ -82,8 +82,7 @@ export const CloudflareLogin = () => {
       returnToSignIn();
       setEmail(result.email);
       setSuccess("Invitation accepted. Sign in with your email and password.");
-    } catch (err) { setError(err instanceof Error ? err.message : "Could not accept this invitation."); }
-    finally { setBusy(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not accept this invitation."); } finally { setBusy(false); }
   }
 
   async function login(event: React.FormEvent) {
@@ -120,8 +119,7 @@ export const CloudflareLogin = () => {
       // Memory-only session for this development milestone. A reload requires sign-in.
       const from = location.state?.from?.pathname;
       navigate(typeof from === "string" && /^\/(?!\/)/.test(from) ? from : "/", { replace: true });
-    } catch (err) { setError(err instanceof Error ? err.message : "Sign-in failed."); }
-    finally { setBusy(false); }
+    } catch (err) { setError(err instanceof Error ? err.message : "Sign-in failed."); } finally { setBusy(false); }
   }
 
   return <Box sx={{ minHeight: "100dvh", display: "grid", placeItems: "center", p: 3, bgcolor: "background.default" }}>
