@@ -59,6 +59,34 @@ test('standard upstream filters combine with AND and preserve nested person DTOs
     'search-alpha',
   ]);
 });
+test('literal Unicode search strings longer than D1 LIKE limits support containment and edges', async () => {
+  const value = 'é'.repeat(35) + '_%';
+  await h.db
+    .prepare("UPDATE people SET firstName=?, contactInfo=json_set(contactInfo,'$.city',?) WHERE id='search-undated'")
+    .bind(value, 'prefix-' + value + '-suffix')
+    .run();
+  for (const [operator, query] of [
+    ['contains', value],
+    ['startsWith', 'prefix-' + value],
+    ['endsWith', value + '-suffix'],
+  ]) {
+    assert.deepEqual(ids(await (await search([{ field: 'city', operator, value: query }])).json()), ['search-undated']);
+  }
+  const ordinary = await h.req('/membership/people/search?term=' + encodeURIComponent(value), { token: viewer });
+  assert.equal(ordinary.status, 200);
+  assert.deepEqual(ids(await ordinary.json()), ['search-undated']);
+  assert.deepEqual(
+    ids(
+      await (
+        await search([
+          { field: 'city', operator: 'endsWith', value: '' },
+          { field: 'id', operator: 'equals', value: 'search-undated' },
+        ])
+      ).json(),
+    ),
+    ['search-undated'],
+  );
+});
 test('date/month/age filters exclude missing dates and use civil dates', async () => {
   assert.deepEqual(ids(await (await search([{ field: 'birthMonth', operator: 'equals', value: '2' }])).json()), [
     'search-alpha',

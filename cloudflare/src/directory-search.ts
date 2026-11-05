@@ -184,13 +184,17 @@ export async function advancedPeopleSearch(ctx: Context, input: unknown): Promis
         params.push(numeric ? Number(value) : value);
         return `${column} ${compare} ?${numeric || dateColumn ? '' : ' COLLATE NOCASE'}`;
       }
-      const escaped = value.replace(/[\\%_]/g, '\\$&');
-      params.push((operator !== 'startsWith' ? '%' : '') + escaped + (operator !== 'endsWith' ? '%' : ''));
-      return `${column} LIKE ? ESCAPE '\\'`;
+      // D1 limits LIKE patterns to 50 bytes; literal searches use string operations instead.
+      if (operator === 'endsWith') {
+        params.push(value, value);
+        return `substr(lower(${column}),length(${column})-length(?)+1)=lower(?)`;
+      }
+      params.push(value);
+      return `instr(lower(${column}),lower(?))${operator === 'startsWith' ? '=1' : '>0'}`;
     });
     clauses.push('(' + expression.join(' OR ') + ')');
   }
-  // <=40 conditions and the three-phone expansion stay under D1's 100-bind limit.
+  // Account for phone expansion and suffix comparisons before D1's 100-bind limit.
   if (params.length > 100) throw new HttpError(400, 'Too many search parameters');
   return all(
     ctx,

@@ -178,16 +178,15 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     const term = String(input.term || url.searchParams.get('term') || '')
       .trim()
       .slice(0, 100);
-    const pattern = '%' + term.replace(/[\\%_]/g, '\\$&') + '%';
     return json(
       (
         await all(
           ctx,
-          "SELECT * FROM people WHERE churchId=? AND removed=0 AND (firstName||' '||lastName LIKE ? ESCAPE '\\' OR (?=0 AND email LIKE ? ESCAPE '\\')) ORDER BY lastName,firstName LIMIT 200",
+          "SELECT * FROM people WHERE churchId=? AND removed=0 AND (instr(lower(firstName||' '||lastName),lower(?))>0 OR (?=0 AND instr(lower(email),lower(?))>0)) ORDER BY lastName,firstName LIMIT 200",
           cid,
-          pattern,
+          term,
           onlyNames ? 1 : 0,
-          pattern,
+          term,
         )
       ).map(serialize),
     );
@@ -425,10 +424,10 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       (
         await all(
           ctx,
-          `SELECT g.*,gm.leader FROM groups g JOIN group_members gm ON gm.groupId=g.id AND gm.churchId=g.churchId WHERE gm.churchId=? AND gm.personId=? ${tag ? 'AND g.tags LIKE ?' : ''} ORDER BY g.name,g.id`,
+          `SELECT g.*,gm.leader FROM groups g JOIN group_members gm ON gm.groupId=g.id AND gm.churchId=g.churchId WHERE gm.churchId=? AND gm.personId=? ${tag ? "AND instr(','||g.tags||',',','||?||',')>0" : ''} ORDER BY g.name,g.id`,
           cid,
           principal.personId,
-          ...(tag ? ['%' + tag + '%'] : []),
+          ...(tag ? [tag] : []),
         )
       )
         .filter((row) => groupReadable(ctx, row.id))
@@ -456,9 +455,9 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     requireGroupRead(ctx);
     const rows = await all(
       ctx,
-      'SELECT id,categoryName FROM groups WHERE churchId=? AND tags LIKE ? ORDER BY categoryName',
+      "SELECT id,categoryName FROM groups WHERE churchId=? AND instr(','||tags||',',','||?||',')>0 ORDER BY categoryName",
       cid,
-      '%' + ctx.path.split('/').pop() + '%',
+      ctx.path.split('/').pop(),
     );
     return json(
       [...new Set(rows.filter((row) => groupReadable(ctx, row.id)).map((row) => row.categoryName))].map(
@@ -477,10 +476,10 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       (
         await all(
           ctx,
-          `SELECT g.*, (SELECT count(*) FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id) memberCount FROM groups g WHERE g.churchId=? AND g.archived=? ${tag ? 'AND g.tags LIKE ?' : ''} ORDER BY g.name`,
+          `SELECT g.*, (SELECT count(*) FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id) memberCount FROM groups g WHERE g.churchId=? AND g.archived=? ${tag ? "AND instr(','||g.tags||',',','||?||',')>0" : ''} ORDER BY g.name`,
           cid,
           archiveFlag,
-          ...(tag ? ['%' + tag + '%'] : []),
+          ...(tag ? [tag] : []),
         )
       )
         .filter((row) => groupReadable(ctx, row.id))
