@@ -23,15 +23,22 @@ const supported = [
   'membership.groupScopedPermissions',
   'membership.manualInvitations',
   'membership.passwordChange',
+  'membership.totpMfa',
+  'membership.localRecovery',
+  'membership.doingScopedPermissions',
   'membership.groups',
   'content.calendars',
   'content.events',
   'content.calendarRecurrence',
   'member.portal',
+  'member.profileAndHousehold',
+  'member.churchSelection',
   'doing.plans',
   'doing.manualTasks',
   'content.sermons',
   'content.files',
+  'content.multipartUploads',
+  'content.byteRanges',
   'messaging.refresh',
 ];
 const unsupported = [
@@ -40,9 +47,8 @@ const unsupported = [
   'childCheckin',
   'oauth',
   'sso',
-  'mfa',
   'registration',
-  'passwordReset',
+  'selfServicePasswordReset',
   'email',
   'sms',
   'push',
@@ -65,11 +71,18 @@ function decorate(response: Response, origin: string | null): Response {
   const headers = new Headers(response.headers);
   headers.set('X-Content-Type-Options', 'nosniff');
   headers.set('Referrer-Policy', 'no-referrer');
-  headers.set('Cache-Control', 'no-store');
+  if (!headers.has('Cache-Control')) headers.set('Cache-Control', 'no-store');
   headers.set('Vary', 'Origin');
   if (origin) {
     headers.set('Access-Control-Allow-Origin', origin);
-    headers.set('Access-Control-Allow-Headers', 'Authorization,Content-Type,X-File-Name,X-Content-Type,X-Content-Id');
+    headers.set(
+      'Access-Control-Allow-Headers',
+      'Authorization,Content-Type,X-File-Name,X-Content-Type,X-Content-Id,Range,If-Range,If-None-Match,If-Modified-Since',
+    );
+    headers.set(
+      'Access-Control-Expose-Headers',
+      'Accept-Ranges,Content-Range,Content-Length,ETag,Last-Modified,Content-Disposition',
+    );
     headers.set('Access-Control-Allow-Methods', 'GET,HEAD,POST,PUT,DELETE,OPTIONS');
   }
   return new Response(response.body, { status: response.status, headers });
@@ -100,7 +113,7 @@ export default {
       if (path === '/capabilities' || path === '/instance')
         return decorate(
           json({
-            version: '0.2.0',
+            version: '0.3.0',
             stage: 'development-milestone',
             apiBase: '/api',
             apis: Object.fromEntries(

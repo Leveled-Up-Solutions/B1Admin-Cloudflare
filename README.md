@@ -8,9 +8,9 @@ This is a local development milestone using synthetic records. It is not a compl
 
 - People and original household editing, supported advanced directory search, group membership and join approvals.
 - Existing Serving/Plans and My Work workflows: service plans, positions, assignments, service order, scheduling preferences, blockout dates and manual tasks.
-- Calendars with bounded recurrence and occurrence editing, sermon archive and R2 file storage.
-- Administrative roles, exact group permissions and audit records, using the existing screens. Manual one-time account setup links and password changes with session revocation.
-- A browser-based member portal/PWA; native mobile applications are not required for this milestone.
+- Calendars with bounded recurrence and occurrence editing, sermon archive and resumable R2 file storage.
+- Administrative roles, exact group/ministry/task permissions and audit records, using the existing screens. Manual account setup links, password changes, authenticator MFA and offline local recovery with session revocation.
+- A member portal/PWA with own-profile and household flows and explicit church selection; native mobile applications are not required for this milestone.
 - Explicit APIs for a separate future church website. This repository does **not** rebuild `pottershandsministries.org`.
 
 The frontend's Cloudflare mode uses this installation's API. Supported request/response contracts retain ChurchApps shapes where practical. Other suite clients still need their API hosts and authentication behavior verified; matching endpoint names alone does not establish interoperability.
@@ -30,7 +30,7 @@ corepack yarn setup:cloudflare
 corepack yarn dev:cloudflare
 ```
 
-Open `http://localhost:8787`. The setup script creates a local session secret, applies local D1 migrations and loads synthetic examples. The documented development account is `admin@example.test` with password `LocalDemo2026!`; these are public fixtures, never production credentials.
+Open `http://localhost:8787` for administration or `/portal` for members. The setup script creates local session and MFA encryption keys, applies local D1 migrations and loads synthetic examples. The documented development account is `admin@example.test` with password `LocalDemo2026!`; these are public fixtures, never production credentials.
 
 Read [the running and verification guide](docs/cloudflare/RUNNING.md) for the current commands, additional demo accounts and limitations. Do not point the synthetic seed process at a live database.
 
