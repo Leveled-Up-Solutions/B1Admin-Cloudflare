@@ -31,16 +31,16 @@ export const PlanList = memo((props: Props) => {
   const [showTemplates, setShowTemplates] = React.useState(false);
   const [lessonMenuAnchor, setLessonMenuAnchor] = React.useState<null | HTMLElement>(null);
   const lessonAnchorRef = React.useRef<HTMLSpanElement>(null);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.ministry.id);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && (myMinistriesQuery.data || []).some((g) => g.id === props.ministry.id);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
 
   const plansQuery = useQuery<PlanInterface[]>({
     queryKey: props.planTypeId ? [`/plans/types/${props.planTypeId}`, "DoingApi"] : ["/plans", "DoingApi"],

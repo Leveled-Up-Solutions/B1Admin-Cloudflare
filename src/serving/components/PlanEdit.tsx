@@ -237,7 +237,7 @@ export const PlanEdit = (props: Props) => {
             )} />
           </Grid>
         </Grid>
-        <CampusSelect control={control} testId="plan-campus-select" />
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <CampusSelect control={control} testId="plan-campus-select" />}
         {!props.plan?.id && templates.length > 0 && (
           <FormControl fullWidth>
             <InputLabel id="templateId">{Locale.label("plans.templates.startFrom") || "Start from template"}</InputLabel>

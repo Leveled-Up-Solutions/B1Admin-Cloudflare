@@ -3,7 +3,7 @@ import { CardWithHeader } from "../../components/ui";
 import { Alert, Button } from "@mui/material";
 import { ApiHelper, ArrayHelper, CommonEnvironmentHelper, DateHelper, Locale, type PersonInterface, UserHelper } from "@churchapps/apphelper";
 import { type AssignmentInterface, type BlockoutDateInterface, type PositionInterface, type TimeInterface } from "@churchapps/helpers";
-import { type PlanInterface, type SchedulingPreferenceInterface } from "../../helpers";
+import { type PlanInterface, type SchedulingPreferenceInterface, hasPlansEditAccess } from "../../helpers";
 import { useConfirmDelete } from "../../hooks";
 
 interface Props {
@@ -23,6 +23,7 @@ export const PlanValidation = (props: Props) => {
   const [notificationError, setNotificationError] = React.useState<string | null>(null);
   const [errors, setErrors] = React.useState<JSX.Element[]>([]);
   const { canEdit } = props;
+  const limitedAvailability = process.env.REACT_APP_STAGE === "cloudflare" && !hasPlansEditAccess();
   const [plans, setPlans] = React.useState<PlanInterface[]>([]);
   const [planTimeConflicts, setPlanTimeConflicts] = React.useState<{ time: TimeInterface; overlapingTimes: TimeInterface[] }[]>([]);
   const [externalPositions, setExternalPositions] = React.useState<PositionInterface[]>();
@@ -228,6 +229,7 @@ export const PlanValidation = (props: Props) => {
   };
 
   const loadPreferenceData = () => {
+    if (limitedAvailability) { setPreferences([]); setMonthCounts([]); return; }
     const personIds = ArrayHelper.getUniqueValues(props.assignments, "personId").filter((id) => id);
     if (personIds.length === 0) {
       setPreferences([]);
@@ -248,6 +250,7 @@ export const PlanValidation = (props: Props) => {
   };
 
   const getAll = async () => {
+    if (limitedAvailability) { clearExternal(); return; }
     if (props.assignments.length > 0) {
       const data = await ApiHelper.get(`/times/all`, "DoingApi");
       if (!data?.length) clearExternal();
@@ -400,6 +403,7 @@ export const PlanValidation = (props: Props) => {
       <CardWithHeader title={Locale.label("plans.planValidation.val")}>
         {notificationError && <Alert severity="error">{notificationError}</Alert>}
         {props.plan?.confirmationWorkflowId && <Alert severity="info" sx={{ mb: 2 }}>{Locale.label("plans.confirmation.enabled", "New requests use the confirmation workflow. App alerts stay enabled. Follow-ups stop when each request is accepted or declined.")}</Alert>}
+        {limitedAvailability && <Alert severity="info">Availability outside this plan is not checked with your current permission.</Alert>}
         {getErrorList()}
         {getNotificationLink()}
       </CardWithHeader>

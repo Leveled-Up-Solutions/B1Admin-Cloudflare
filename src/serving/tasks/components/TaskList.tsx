@@ -28,7 +28,10 @@ export const TaskList = memo((props: Props) => {
   });
 
   const groupMembers = useQuery<GroupMemberInterface[]>({
-    queryKey: ["/groupmembers?personId=" + UserHelper.person?.id, "MembershipApi"],
+    queryKey: process.env.REACT_APP_STAGE === "cloudflare" ? ["/taskGroupScopes", "DoingApi"] : ["/groupmembers?personId=" + UserHelper.person?.id, "MembershipApi"],
+    queryFn: () => process.env.REACT_APP_STAGE === "cloudflare"
+      ? ApiHelper.get("/taskGroupScopes", "DoingApi").then((groups: {id: string}[]) => groups.map(group => ({ groupId: group.id })))
+      : ApiHelper.get("/groupmembers?personId=" + UserHelper.person?.id, "MembershipApi"),
     enabled: !!UserHelper.person?.id,
     placeholderData: []
   });

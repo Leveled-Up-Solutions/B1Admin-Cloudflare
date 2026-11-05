@@ -1,24 +1,22 @@
 import type { Context } from './types';
 import { all, first, HttpError, id, json, now, records, requiredString } from './http';
-import { allowed } from './permissions';
+import { requireDoing, hasDoingAccess, doingScopeSql, doingSnapshot, doingWriteGuard } from './doing-permissions';
 
 type Row = Record<string, any>;
-function access(ctx: Context, action: 'View' | 'Edit', planTypeId?: string): void {
-  if (
-    !allowed(ctx, 'DoingApi', 'Plans', action, planTypeId) &&
-    !(action === 'View' && allowed(ctx, 'DoingApi', 'Plans', 'Edit', planTypeId))
-  )
-    throw new HttpError(403, `Plans ${action.toLowerCase()} permission required`);
-}
 function contentType(value: unknown): 'planType' {
   if (value !== 'planType') throw new HttpError(501, 'Only planType group associations are implemented');
   return 'planType';
 }
-async function planType(ctx: Context, planTypeId: string): Promise<void> {
-  if (
-    !(await first(ctx, 'SELECT id FROM doing_plan_types WHERE churchId=? AND id=?', ctx.principal.churchId, planTypeId))
-  )
-    throw new HttpError(404, 'Plan type not found');
+async function planType(ctx: Context, planTypeId: string, action: 'View' | 'Edit'): Promise<Row> {
+  const row = await first(
+    ctx,
+    'SELECT * FROM doing_plan_types WHERE churchId=? AND id=?',
+    ctx.principal.churchId,
+    planTypeId,
+  );
+  if (!row) throw new HttpError(404, 'Plan type not found');
+  requireDoing(ctx, 'Plans', action, row.ministryId);
+  return row;
 }
 async function group(ctx: Context, groupId: string): Promise<void> {
   if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', ctx.principal.churchId, groupId)))
@@ -39,12 +37,11 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
   if (ctx.request.method === 'GET' && parts[0]?.toLowerCase() === 'content' && parts.length === 3) {
     contentType(parts[1]);
     const contentId = requiredString(parts[2], 'contentId', 100);
-    access(ctx, 'View', contentId);
-    await planType(ctx, contentId);
+    await planType(ctx, contentId, 'View');
     return json(
       await all(
         ctx,
-        'SELECT * FROM associated_groups WHERE churchId=? AND contentType=? AND contentId=? ORDER BY groupId,id',
+        'SELECT ag.*,g.name groupName FROM associated_groups ag JOIN groups g ON g.churchId=ag.churchId AND g.id=ag.groupId WHERE ag.churchId=? AND ag.contentType=? AND ag.contentId=? ORDER BY ag.groupId,ag.id',
         cid,
         'planType',
         contentId,
@@ -52,18 +49,19 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
     );
   }
   if (ctx.request.method === 'GET' && parts[0]?.toLowerCase() === 'group' && parts.length === 2) {
-    // A group read can span several plan types, so it requires a module-wide grant.
-    access(ctx, 'View');
+    if (!hasDoingAccess(ctx, 'Plans', 'View')) throw new HttpError(403, 'Plans view permission required');
     const groupId = requiredString(parts[1], 'groupId', 100);
     const type = ctx.url.searchParams.get('contentType');
     if (type !== null) contentType(type);
     await group(ctx, groupId);
+    const scope = doingScopeSql(ctx, 'Plans', 'pt.ministryId');
     return json(
       await all(
         ctx,
-        'SELECT * FROM associated_groups WHERE churchId=? AND groupId=? ORDER BY contentId,id',
+        `SELECT ag.*,g.name groupName FROM associated_groups ag JOIN groups g ON g.churchId=ag.churchId AND g.id=ag.groupId JOIN doing_plan_types pt ON pt.churchId=ag.churchId AND pt.id=ag.contentId WHERE ag.churchId=? AND ag.groupId=? AND ${scope.sql} ORDER BY ag.contentId,ag.id`,
         cid,
         groupId,
+        ...scope.values,
       ),
     );
   }
@@ -81,7 +79,7 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
         ? await first(ctx, 'SELECT * FROM associated_groups WHERE churchId=? AND id=?', cid, entityId)
         : null;
       if (input.id && !previous) throw new HttpError(404, 'Association not found');
-      if (previous) access(ctx, 'Edit', previous.contentId);
+      const source = previous ? await planType(ctx, previous.contentId, 'Edit') : null;
       const merged = { ...previous, ...input };
       const type = contentType(merged.contentType);
       const contentId = requiredString(merged.contentId, 'contentId', 100);
@@ -89,8 +87,7 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
       const settings = merged.settings ?? 'both';
       if (!['past', 'future', 'both'].includes(settings))
         throw new HttpError(400, 'Settings must be past, future, or both');
-      access(ctx, 'Edit', contentId);
-      await planType(ctx, contentId);
+      const target = await planType(ctx, contentId, 'Edit');
       await group(ctx, groupId);
       const row = {
         id: entityId,
@@ -101,6 +98,17 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
         settings,
       };
       statements.push(
+        ...doingWriteGuard(ctx, {
+          grants: [target, ...(source ? [source] : [])].map((type) => ({ content: 'Plans', scope: type.ministryId })),
+          snapshots: [
+            doingSnapshot('doing_plan_types', target),
+            ...(source ? [doingSnapshot('doing_plan_types', source)] : []),
+            previous
+              ? doingSnapshot('associated_groups', previous)
+              : { table: 'associated_groups', id: entityId, absent: true },
+          ],
+          checks: [{ sql: 'EXISTS(SELECT 1 FROM groups WHERE churchId=? AND id=?)', values: [cid, groupId] }],
+        }),
         previous
           ? ctx.env.DB.prepare(
               'UPDATE associated_groups SET contentType=?,contentId=?,groupId=?,settings=? WHERE churchId=? AND id=?',
@@ -118,8 +126,12 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
   if (ctx.request.method === 'DELETE' && parts.length === 1) {
     const row = await first(ctx, 'SELECT * FROM associated_groups WHERE churchId=? AND id=?', cid, parts[0]);
     if (!row) throw new HttpError(404, 'Association not found');
-    access(ctx, 'Edit', row.contentId);
+    const type = await planType(ctx, row.contentId, 'Edit');
     await ctx.env.DB.batch([
+      ...doingWriteGuard(ctx, {
+        grants: [{ content: 'Plans', scope: type.ministryId }],
+        snapshots: [doingSnapshot('doing_plan_types', type), doingSnapshot('associated_groups', row)],
+      }),
       ctx.env.DB.prepare('DELETE FROM associated_groups WHERE churchId=? AND id=?').bind(cid, row.id),
       audit(ctx, 'associatedGroups.delete', row.id),
     ]);

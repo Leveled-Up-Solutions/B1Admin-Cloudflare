@@ -1,5 +1,6 @@
 import React from "react";
 import { Locale, Loading } from "@churchapps/apphelper";
+import { canCreateTask } from "./permissions";
 import { TaskList } from "./components/TaskList";
 import { WorkflowCard } from "./workflows/components/WorkflowCard";
 import { WorkflowCardDrawer } from "./workflows/components/WorkflowCardDrawer";
@@ -40,7 +41,7 @@ export const TasksPage = () => {
     <>
       <PageHeader title={Locale.label("tasks.myWork.title")} subtitle={Locale.label("tasks.myWork.subtitle")}>
         {process.env.REACT_APP_STAGE !== "cloudflare" && <HeaderTextButton component={RouterLink} to="/serving/tasks/workflows" data-testid="tasks-workflows-link">{Locale.label("tasks.workflowsPage.title")}</HeaderTextButton>}
-        {!adding && (
+        {!adding && canCreateTask() && (
           <HeaderPrimaryButton startIcon={<AddIcon />} onClick={openAdd} data-testid="add-task-button" aria-label={Locale.label("tasks.taskList.addTaskAria")}>
             {Locale.label("tasks.taskList.addTask")}
           </HeaderPrimaryButton>

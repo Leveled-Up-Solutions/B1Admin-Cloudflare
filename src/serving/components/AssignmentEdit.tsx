@@ -2,7 +2,8 @@ import React, { useEffect } from "react";
 import { Table, TableCell, TableRow, Avatar, IconButton, Tooltip, Typography } from "@mui/material";
 import { Tune as TuneIcon } from "@mui/icons-material";
 import { type AssignmentInterface, type GroupMemberInterface, type PositionInterface } from "@churchapps/helpers";
-import { ApiHelper, Locale, PersonHelper } from "@churchapps/apphelper";
+import { ApiHelper, Locale, PersonHelper, UserHelper, Permissions } from "@churchapps/apphelper";
+import { hasPlansEditAccess } from "../../helpers/PlanPermissionHelper";
 import { FormCard } from "../../components/ui";
 import { PersonAdd } from "../../components";
 import { useConfirmDelete } from "../../hooks";
@@ -21,7 +22,9 @@ export const AssignmentEdit = (props: Props) => {
   const [preferencePerson, setPreferencePerson] = React.useState<{ id: string; name: string } | null>(null);
   const { confirm, ConfirmDialogElement } = useConfirmDelete();
   // Positions without a Volunteer Group can be filled by anyone in the church.
-  const useSearch = !props.position?.groupId;
+  const unrestricted = process.env.REACT_APP_STAGE !== "cloudflare" || hasPlansEditAccess();
+  const peopleSearch = process.env.REACT_APP_STAGE !== "cloudflare" || UserHelper.checkAccess(Permissions.membershipApi.people.view) || UserHelper.checkAccess(Permissions.membershipApi.people.edit);
+  const useSearch = !props.position?.groupId && unrestricted && peopleSearch;
 
   const handleSave = () => {
     props.updatedFunction(true);
@@ -34,7 +37,7 @@ export const AssignmentEdit = (props: Props) => {
 
   const loadData = () => {
     if (!props.position?.groupId) return;
-    ApiHelper.get("/groupmembers?groupId=" + props.position.groupId, "MembershipApi").then((data: any) => {
+    ApiHelper.get(process.env.REACT_APP_STAGE === "cloudflare" ? "/positionMembers/" + props.position.id : "/groupmembers?groupId=" + props.position.groupId, process.env.REACT_APP_STAGE === "cloudflare" ? "DoingApi" : "MembershipApi").then((data: any) => {
       setGroupMembers(data);
     });
   };
@@ -66,7 +69,7 @@ export const AssignmentEdit = (props: Props) => {
       rows.push(
         <TableRow key={i}>
           <TableCell>
-            <Avatar src={PersonHelper.getPhotoUrl(gm.person!)} sx={{ width: 32, height: 32 }} />
+            <Avatar src={process.env.REACT_APP_STAGE === "cloudflare" ? "/apphelper/images/person.png" : PersonHelper.getPhotoUrl(gm.person!)} sx={{ width: 32, height: 32 }} />
           </TableCell>
           <TableCell style={{ width: "80%" }}>
             <button
@@ -77,14 +80,14 @@ export const AssignmentEdit = (props: Props) => {
             </button>
           </TableCell>
           <TableCell align="right" className="rowActions">
-            <Tooltip title={Locale.label("plans.schedulingPreference.title") || "Scheduling Preferences"}>
+            {unrestricted && <Tooltip title={Locale.label("plans.schedulingPreference.title") || "Scheduling Preferences"}>
               <IconButton
                 size="small"
                 onClick={() => setPreferencePerson({ id: gm.personId, name: personName })}
                 data-testid={"preferences-button-" + gm.personId}>
                 <TuneIcon fontSize="small" />
               </IconButton>
-            </Tooltip>
+            </Tooltip>}
           </TableCell>
         </TableRow>
       );
@@ -117,6 +120,8 @@ export const AssignmentEdit = (props: Props) => {
               filterList={props.assignedPersonIds || []}
             />
           </>
+        ) : !props.position.groupId ? (
+          <Typography color="text.secondary">Choose a volunteer group for this position to assign its members.</Typography>
         ) : (
           <Table size="small">{getMembers()}</Table>
         )}

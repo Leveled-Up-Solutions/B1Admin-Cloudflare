@@ -27,7 +27,7 @@ export const ServingPage = () => {
   const canEditGroups = UserHelper.checkAccess(Permissions.membershipApi.groups.edit);
 
   const ministries = useQuery<GroupInterface[]>({
-    queryKey: isAdmin ? ["/groups/tag/ministry", "MembershipApi"] : ["/groups/my/ministry", "MembershipApi"],
+    queryKey: process.env.REACT_APP_STAGE === "cloudflare" ? ["/ministryScopes", "DoingApi"] : isAdmin ? ["/groups/tag/ministry", "MembershipApi"] : ["/groups/my/ministry", "MembershipApi"],
     placeholderData: []
   });
 
@@ -37,7 +37,7 @@ export const ServingPage = () => {
 
   const groupMembers = useQuery<GroupMemberInterface[]>({
     queryKey: ["/groupMembers", "MembershipApi", groupIds],
-    enabled: isAdmin && groupIds.length > 0,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && isAdmin && groupIds.length > 0,
     placeholderData: [],
     queryFn: async () => {
       if (groupIds.length === 0) return [];
@@ -55,7 +55,7 @@ export const ServingPage = () => {
     ministries.refetch();
   };
 
-  const groups = isAdmin
+  const groups = isAdmin && process.env.REACT_APP_STAGE !== "cloudflare"
     ? (ministries.data || []).filter((g) => {
       if (showAllMinistries) return true;
       const members = ArrayHelper.getAll(groupMembers.data || [], "groupId", g.id);
@@ -143,7 +143,7 @@ export const ServingPage = () => {
             options={visibleGroups.map((g) => ({ value: g.id || "", label: g.name || "" }))}
           />
         )}
-        {isAdmin && (
+        {isAdmin && process.env.REACT_APP_STAGE !== "cloudflare" && (
           <PillTabs
             aria-label={Locale.label("plans.servingPage.whichMinistries", "Which ministries")}
             value={showAllMinistries ? "all" : "mine"}

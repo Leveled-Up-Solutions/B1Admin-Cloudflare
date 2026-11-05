@@ -8,6 +8,7 @@ import { Search as SearchIcon, Group as GroupIcon, Check as CheckIcon } from "@m
 
 interface Props {
   addFunction: (group: GroupInterface) => void;
+  editOnly?: boolean;
 }
 
 export const SelectGroup: React.FC<Props> = (props: Props) => {
@@ -16,7 +17,8 @@ export const SelectGroup: React.FC<Props> = (props: Props) => {
   const [searchText, setSearchText] = useState("");
 
   const loadData = () => {
-    ApiHelper.get("/groups", "MembershipApi").then((data: any) => {
+    ApiHelper.get(process.env.REACT_APP_STAGE === "cloudflare" ? "/taskGroupScopes" : "/groups", process.env.REACT_APP_STAGE === "cloudflare" ? "DoingApi" : "MembershipApi").then((data: any) => {
+      if (process.env.REACT_APP_STAGE === "cloudflare" && props.editOnly) data = data.filter((group: {canEdit: boolean}) => group.canEdit);
       setGroups(data);
       setSearchResults(data);
     });

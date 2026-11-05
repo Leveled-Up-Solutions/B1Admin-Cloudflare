@@ -1,5 +1,7 @@
 import type { Context } from './types';
 import { allowed } from './permissions';
+import { validatePermissionScope } from './permission-scopes';
+import { roleWriteGuard } from './role-write';
 import { all, first, body, json, HttpError, requiredString, id, now } from './http';
 
 const catalog: Record<string, Record<string, string[]>> = {
@@ -104,14 +106,9 @@ async function validatePermission(ctx: Context, row: Record<string, any>) {
   if (!catalog[apiName]?.[contentType]?.includes(action))
     throw new HttpError(400, 'Permission is not supported by this instance');
   if (row.contentId !== undefined && row.contentId !== null && typeof row.contentId !== 'string')
-    throw new HttpError(400, 'contentId must be a group ID or an empty string');
+    throw new HttpError(400, 'contentId must be a resource ID or an empty string');
   const contentId = row.contentId ? requiredString(row.contentId, 'contentId') : '';
-  if (contentId) {
-    if (apiName !== 'MembershipApi' || !['Groups', 'Group Members'].includes(contentType))
-      throw new HttpError(501, 'Only group-scoped permissions are supported');
-    if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', ctx.principal.churchId, contentId)))
-      throw new HttpError(400, 'Permission scope must be an existing group in this church');
-  }
+  await validatePermissionScope(ctx, { apiName, contentType, contentId, action });
   if (
     ctx.principal.role !== 'admin' &&
     (contentType === 'Roles' || !allowed(ctx, apiName, contentType, action, contentId))
@@ -189,6 +186,31 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
     access(ctx, 'View');
     return json(permissionCatalog);
   }
+  if (path === '/membership/permissionscopes' && method === 'GET') {
+    access(ctx, 'View');
+    const groups = await all(ctx, 'SELECT id,name,tags FROM groups WHERE churchId=? ORDER BY name,id LIMIT 1000', cid);
+    const candidates = [
+      { apiName: 'MembershipApi', contentType: 'Groups' },
+      { apiName: 'MembershipApi', contentType: 'Group Members' },
+      { apiName: 'DoingApi', contentType: 'Plans' },
+      { apiName: 'DoingApi', contentType: 'Tasks' },
+    ];
+    return json(
+      groups
+        .map((group) => ({
+          id: group.id,
+          name: group.name,
+          permissions: candidates.filter(
+            (permission) =>
+              (permission.contentType !== 'Plans' || (group.tags || '').split(',').includes('ministry')) &&
+              ['View', 'Edit'].some((action) =>
+                allowed(ctx, permission.apiName, permission.contentType, action, group.id),
+              ),
+          ),
+        }))
+        .filter((group) => group.permissions.length),
+    );
+  }
   if (!/^\/membership\/(roles|rolepermissions|rolemembers)(?:\/|$)/.test(path)) return undefined;
   access(ctx, method === 'GET' ? 'View' : 'Edit');
   if ((path === '/membership/roles' || path.startsWith('/membership/roles/church/')) && method === 'GET') {
@@ -214,6 +236,7 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       const name = requiredString(row.name, 'role name', 100);
       if (name.toLowerCase() === 'domain admins') throw new HttpError(400, 'Domain Admins is a reserved role name');
       statements.push(
+        ...roleWriteGuard(ctx, { roleIds: existing ? [rid] : [], table: 'roles', id: rid, existing }),
         ctx.env.DB.prepare(
           'INSERT INTO roles(id,churchId,name) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name WHERE roles.churchId=excluded.churchId',
         ).bind(rid, cid, name),
@@ -228,8 +251,9 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
   if (roleMatch && (method === 'GET' || method === 'DELETE')) {
     const rid = roleMatch[1];
     if (method === 'GET') return json(await role(ctx, rid));
-    await editableRole(ctx, rid);
+    const existing = await editableRole(ctx, rid);
     await ctx.env.DB.batch([
+      ...roleWriteGuard(ctx, { roleIds: [rid], table: 'roles', id: rid, existing }),
       ctx.env.DB.prepare('DELETE FROM roles WHERE churchId=? AND id=?').bind(cid, rid),
       audit(ctx, 'permission.role.delete', rid),
     ]);
@@ -302,9 +326,16 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       const permission = await validatePermission(ctx, row);
       const pid = row.id ? requiredString(row.id, 'id') : id();
       await ownId(ctx, 'role_permissions', pid);
-      const existing = await first(ctx, 'SELECT roleId FROM role_permissions WHERE churchId=? AND id=?', cid, pid);
+      const existing = await first(ctx, 'SELECT * FROM role_permissions WHERE churchId=? AND id=?', cid, pid);
       if (existing) await editableRole(ctx, existing.roleId);
       statements.push(
+        ...roleWriteGuard(ctx, {
+          roleIds: existing ? [rid, existing.roleId] : [rid],
+          table: 'role_permissions',
+          id: pid,
+          existing,
+          grant: permission,
+        }),
         ctx.env.DB.prepare(
           'INSERT INTO role_permissions(id,churchId,roleId,apiName,contentType,contentId,action) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET roleId=excluded.roleId,apiName=excluded.apiName,contentType=excluded.contentType,contentId=excluded.contentId,action=excluded.action WHERE role_permissions.churchId=excluded.churchId',
         ).bind(pid, cid, rid, permission.apiName, permission.contentType, permission.contentId, permission.action),
@@ -367,6 +398,14 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       const dateAdded = existing?.dateAdded || now(),
         addedBy = existing?.addedBy || ctx.principal.userId;
       statements.push(
+        ...roleWriteGuard(ctx, {
+          roleIds: existing ? [rid, existing.roleId] : [rid],
+          table: 'role_members',
+          id: mid,
+          existing,
+          assignUserId: userId,
+          delegateRoleId: rid,
+        }),
         ctx.env.DB.prepare(
           'INSERT INTO role_members(id,churchId,roleId,userId,addedBy,dateAdded) VALUES(?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET roleId=excluded.roleId,userId=excluded.userId WHERE role_members.churchId=excluded.churchId',
         ).bind(mid, cid, rid, userId, addedBy, dateAdded),
@@ -397,6 +436,7 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
     if (resource === 'rolemembers' && ctx.principal.role !== 'admin' && row.userId === ctx.principal.userId)
       throw new HttpError(403, 'You cannot change your own role membership');
     await ctx.env.DB.batch([
+      ...roleWriteGuard(ctx, { roleIds: [row.roleId], table, id: recordId, existing: row }),
       ctx.env.DB.prepare(`DELETE FROM ${table} WHERE churchId=? AND id=?`).bind(cid, recordId),
       audit(ctx, `permission.${resource}.delete`, recordId),
     ]);

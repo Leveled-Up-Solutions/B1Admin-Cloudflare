@@ -16,16 +16,16 @@ interface Props {
 export const PlanTypeList = React.memo(({ ministry }: Props) => {
   const [showAdd, setShowAdd] = React.useState(false);
   const [editItem, setEditItem] = React.useState<PlanTypeInterface | null>(null);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(ministry.id);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && (myMinistriesQuery.data || []).some((g) => g.id === ministry.id);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
 
   const planTypes = useQuery<PlanTypeInterface[]>({
     queryKey: [`/planTypes/ministryId/${ministry.id}`, "DoingApi"],

@@ -152,7 +152,9 @@ export const PrintPlan = () => {
 
     const peopleIds = ArrayHelper.getUniqueValues(assignmentsData, "personId");
     if (peopleIds.length > 0) {
-      const peopleData = await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi");
+      const peopleData = process.env.REACT_APP_STAGE === "cloudflare"
+        ? await ApiHelper.get("/planPeople/" + params.id, "DoingApi")
+        : await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi");
       setPeople(peopleData);
     }
 

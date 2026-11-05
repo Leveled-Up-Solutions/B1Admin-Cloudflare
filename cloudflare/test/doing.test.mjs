@@ -326,7 +326,7 @@ test('removed people cannot self-signup even with an existing session', async ()
           json: { positionId: position.id },
         })
       ).status,
-      409,
+      403,
     );
   } finally {
     await h.db.prepare("UPDATE people SET removed=0 WHERE id='person-alex'").run();

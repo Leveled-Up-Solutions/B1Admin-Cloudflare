@@ -1,6 +1,13 @@
 import type { Context } from './types';
-import { allowed } from './permissions';
-import { all, first, json, body, records, requireAdmin, requiredString, HttpError, id, now } from './http';
+import {
+  doingAllowed,
+  doingScopes,
+  doingScopeSql,
+  doingSnapshot,
+  doingWriteGuard,
+  requireDoing,
+} from './doing-permissions';
+import { all, first, json, body, records, requiredString, HttpError, id, now } from './http';
 const projection = `SELECT t.*, cp.firstName||' '||cp.lastName createdByLabel,
  COALESCE(ap.firstName||' '||ap.lastName,ag.name) assignedToLabel,
  COALESCE(sp.firstName||' '||sp.lastName,sg.name) associatedWithLabel
@@ -24,8 +31,7 @@ async function access(ctx: Context, taskId: string) {
   const row = await first(ctx, projection + ' WHERE t.churchId=? AND t.id=?', ctx.principal.churchId, taskId);
   if (!row) throw new HttpError(404, 'Task not found');
   if (
-    !allowed(ctx, 'DoingApi', 'Tasks', 'View') &&
-    !allowed(ctx, 'DoingApi', 'Tasks', 'Edit') &&
+    !doingAllowed(ctx, 'Tasks', 'View', row.assignedGroupId) &&
     row.createdById !== ctx.principal.personId &&
     row.assignedPersonId !== ctx.principal.personId &&
     row.associatedPersonId !== ctx.principal.personId &&
@@ -84,8 +90,9 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
   if (path === '/doing/tasks/timeline' && method === 'GET') {
     const value = ctx.url.searchParams.get('taskIds');
     const ids = queryIds(value ? value.split(',') : []);
-    const staff = allowed(ctx, 'DoingApi', 'Tasks', 'View') || allowed(ctx, 'DoingApi', 'Tasks', 'Edit');
-    const accessSql = `(t.createdById=? OR t.assignedPersonId=? OR t.associatedPersonId=? OR t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?))`;
+    const staff = doingAllowed(ctx, 'Tasks', 'View');
+    const scope = doingScopeSql(ctx, 'Tasks', 't.assignedGroupId');
+    const accessSql = `(t.createdById=? OR t.assignedPersonId=? OR t.associatedPersonId=? OR t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?) OR ${scope.sql})`;
     const rows = await all(
       ctx,
       projection +
@@ -97,7 +104,7 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
       pid,
       pid,
       JSON.stringify(ids),
-      ...(staff ? [] : [pid, pid, pid, cid, pid]),
+      ...(staff ? [] : [pid, pid, pid, cid, pid, ...scope.values]),
     );
     return json(rows.map((row) => ({ ...dto(row), postType: 'task', postId: row.id })));
   }
@@ -107,11 +114,12 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
         await all(
           ctx,
           projection +
-            ' WHERE t.churchId=? AND t.status=? AND (t.createdById=? OR t.assignedPersonId=?) ORDER BY t.taskNumber,t.id',
+            ' WHERE t.churchId=? AND t.status=? AND (t.createdById=? OR t.assignedPersonId=? OR t.assignedGroupId IN (SELECT value FROM json_each(?))) ORDER BY t.taskNumber,t.id',
           cid,
           path.endsWith('/closed') ? 'Closed' : 'Open',
           pid,
           pid,
+          JSON.stringify(doingScopes(ctx, 'Tasks', 'View')),
         )
       ).map(dto),
     );
@@ -120,10 +128,8 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
     if (!['Open', 'Closed'].includes(input.status)) throw new HttpError(400, 'Invalid group task query');
     const ids = queryIds(input.groupIds);
     if (!ids.length) return json([]);
-    const own =
-      !allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
-        ? ' AND t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?)'
-        : '';
+    const scope = doingScopeSql(ctx, 'Tasks', 't.assignedGroupId');
+    const own = ` AND (${scope.sql} OR t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?))`;
     return json(
       (
         await all(
@@ -133,15 +139,14 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
           cid,
           input.status,
           JSON.stringify(ids),
-          ...(!allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
-            ? [cid, pid]
-            : []),
+          ...scope.values,
+          cid,
+          pid,
         )
       ).map(dto),
     );
   }
   if (path === '/doing/tasks' && method === 'POST') {
-    requireAdmin(ctx);
     if (ctx.url.searchParams.has('type')) throw new HttpError(501, 'Self-service workflow tasks are not ported');
     const input = await records(ctx.request),
       statements: D1PreparedStatement[] = [],
@@ -162,12 +167,15 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
       if (ids.includes(taskId)) throw new HttpError(400, 'Duplicate task ID in request');
       const exists = await first(ctx, 'SELECT churchId FROM tasks WHERE id=?', taskId);
       if (exists && exists.churchId !== cid) throw new HttpError(404, 'Task not found');
-      const existing = exists ? dto(await access(ctx, taskId)) : null;
+      const existingRow = exists ? await access(ctx, taskId) : null;
+      const existing = existingRow ? dto(existingRow) : null;
       const row = { ...existing, ...item };
       const title = requiredString(row.title, 'title', 500);
       const status = row.status || 'Open';
       if (!['Open', 'Closed'].includes(status)) throw new HttpError(400, 'Invalid task status');
       const [assignedPersonId, assignedGroupId] = await relation(ctx, row.assignedToType, row.assignedToId);
+      requireDoing(ctx, 'Tasks', 'Edit', assignedGroupId);
+      if (existingRow) requireDoing(ctx, 'Tasks', 'Edit', existingRow.assignedGroupId);
       const [associatedPersonId, associatedGroupId] = await relation(
         ctx,
         row.associatedWithType,
@@ -176,6 +184,27 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
       );
       const deadline = dueDate(row.dueDate);
       statements.push(
+        ...doingWriteGuard(ctx, {
+          grants: [
+            { content: 'Tasks', scope: assignedGroupId },
+            ...(existingRow ? [{ content: 'Tasks' as const, scope: existingRow.assignedGroupId }] : []),
+          ],
+          snapshots: [existingRow ? doingSnapshot('tasks', existingRow) : { table: 'tasks', id: taskId, absent: true }],
+          checks: [
+            ...[assignedPersonId, associatedPersonId]
+              .filter(Boolean)
+              .map((personId) => ({
+                sql: 'EXISTS(SELECT 1 FROM people WHERE churchId=? AND id=? AND removed=0)',
+                values: [cid, personId!],
+              })),
+            ...[assignedGroupId, associatedGroupId]
+              .filter(Boolean)
+              .map((groupId) => ({
+                sql: 'EXISTS(SELECT 1 FROM groups WHERE churchId=? AND id=?)',
+                values: [cid, groupId!],
+              })),
+          ],
+        }),
         ctx.env.DB.prepare(
           `INSERT INTO tasks(id,churchId,taskNumber,title,status,dateCreated,dateClosed,dueDate,createdById,assignedPersonId,assignedGroupId,associatedPersonId,associatedGroupId) VALUES(?,?,(SELECT COALESCE(MAX(taskNumber),0)+1 FROM tasks WHERE churchId=?),?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,status=excluded.status,dateClosed=excluded.dateClosed,dueDate=excluded.dueDate,assignedPersonId=excluded.assignedPersonId,assignedGroupId=excluded.assignedGroupId,associatedPersonId=excluded.associatedPersonId,associatedGroupId=excluded.associatedGroupId WHERE tasks.churchId=excluded.churchId`,
         ).bind(

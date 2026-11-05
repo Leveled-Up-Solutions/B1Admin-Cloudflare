@@ -35,16 +35,16 @@ const flatCardSx = { "& .MuiPaper-root": { border: 0, boxShadow: "none", bgcolor
 
 export const Assignment = (props: Props) => {
   const [plan, setPlan] = React.useState<PlanInterface | null>(props.plan || null);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.plan?.ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!props.plan?.ministryId,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && !!props.plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === props.plan.ministryId);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
   const [positions, setPositions] = React.useState<PositionInterface[]>([]);
   const [assignments, setAssignments] = React.useState<AssignmentInterface[]>([]);
   const [people, setPeople] = React.useState<PersonInterface[]>([]);
@@ -144,24 +144,22 @@ export const Assignment = (props: Props) => {
     setAssignments(d);
     setLoaded(true);
 
-    const groupIds = ArrayHelper.getUniqueValues(positionsData, "groupId").filter(id => id);
-    if (groupIds.length > 0) {
-      ApiHelper.get("/groups/ids?ids=" + groupIds.join(","), "MembershipApi").then((data: GroupInterface[]) => {
-        setGroups(data);
-      });
-    }
-
-    ApiHelper.get("/times/plan/" + props.plan?.id, "DoingApi").then((data: any) => {
-      setTimes(data);
-    });
-    ApiHelper.get("/blockoutDates/upcoming", "DoingApi").then((data: any) => {
-      setBlockoutDates(data);
-    });
-    const peopleIds = ArrayHelper.getUniqueValues(d, "personId");
-    if (peopleIds.length > 0) {
-      ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi").then((data: PersonInterface[]) => {
-        setPeople(data);
-      });
+    if (process.env.REACT_APP_STAGE === "cloudflare") {
+      const [teams, roster, planTimes] = await Promise.all([
+        ApiHelper.get("/planTeams/" + props.plan.id, "DoingApi"),
+        ApiHelper.get("/planPeople/" + props.plan.id, "DoingApi"),
+        ApiHelper.get("/times/plan/" + props.plan.id, "DoingApi")
+      ]);
+      setGroups(teams); setPeople(roster); setTimes(planTimes);
+      // Scoped plan editors may not inspect other people's availability.
+      setBlockoutDates(hasPlansEditAccess() ? await ApiHelper.get("/blockoutDates/upcoming", "DoingApi") : []);
+    } else {
+      const groupIds = ArrayHelper.getUniqueValues(positionsData, "groupId").filter(id => id);
+      if (groupIds.length > 0) ApiHelper.get("/groups/ids?ids=" + groupIds.join(","), "MembershipApi").then(setGroups);
+      ApiHelper.get("/times/plan/" + props.plan?.id, "DoingApi").then(setTimes);
+      ApiHelper.get("/blockoutDates/upcoming", "DoingApi").then(setBlockoutDates);
+      const peopleIds = ArrayHelper.getUniqueValues(d, "personId");
+      if (peopleIds.length > 0) ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi").then(setPeople);
     }
   }, [props.plan]);
 

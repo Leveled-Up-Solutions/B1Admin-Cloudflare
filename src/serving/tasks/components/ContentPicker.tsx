@@ -1,10 +1,11 @@
 import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Paper } from "@mui/material";
 import React from "react";
 import { SelectGroup } from ".";
-import { Locale, PersonHelper, type PersonInterface } from "@churchapps/apphelper";
+import { Locale, PersonHelper, UserHelper, Permissions, type PersonInterface } from "@churchapps/apphelper";
 import { type GroupInterface } from "@churchapps/helpers";
 import { PersonAdd } from "../../../components";
 import { Person as PersonIcon, Group as GroupIcon, Close as CloseIcon } from "@mui/icons-material";
+import { canEditTask } from "../permissions";
 import { SmartTabs } from "../../../components/ui";
 
 interface Props {
@@ -12,10 +13,12 @@ interface Props {
   onSelect: (contentType: string, contentId: string, label: string) => void;
   /** Offer a "No person or group" choice; it calls onSelect with empty values. */
   allowNone?: boolean;
+  assignment?: boolean;
 }
 
 export const ContentPicker: React.FC<Props> = (props) => {
-  const [activeKey, setActiveKey] = React.useState("person");
+  const allowPerson = process.env.REACT_APP_STAGE !== "cloudflare" || ((UserHelper.checkAccess(Permissions.membershipApi.people.view) || UserHelper.checkAccess(Permissions.membershipApi.people.edit)) && (!props.assignment || canEditTask()));
+  const [activeKey, setActiveKey] = React.useState(allowPerson ? "person" : "group");
   const handlePersonAdd = (p: PersonInterface) => {
     props.onSelect("person", p?.id || "", p?.name?.display || Locale.label("person.unknown"));
   };
@@ -46,11 +49,11 @@ export const ContentPicker: React.FC<Props> = (props) => {
       ),
       content: (
         <Box sx={{ pt: 2 }}>
-          <SelectGroup addFunction={handleGroupAdd} />
+          <SelectGroup addFunction={handleGroupAdd} editOnly={props.assignment} />
         </Box>
       )
     }
-  ];
+  ].filter(tab => tab.key !== "person" || allowPerson);
 
   return (
     <Dialog open={true} onClose={props.onClose} maxWidth="sm" fullWidth>

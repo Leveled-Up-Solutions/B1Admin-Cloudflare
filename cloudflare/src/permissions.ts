@@ -66,6 +66,36 @@ export function allowed(ctx: Context, api: string, content: string, action: stri
     !!(contentId && values.includes(`${api}_${content}_${contentId}_${action}`))
   );
 }
+function scopedDoingGrant(ctx: Context, content: string, read: boolean): boolean {
+  const prefix = `DoingApi_${content}_`;
+  const actions = read ? ['View', 'Edit'] : ['Edit'];
+  return (ctx.principal.permissions || []).some((key) =>
+    actions.some((action) => {
+      const suffix = `_${action}`;
+      return key.startsWith(prefix) && key.endsWith(suffix) && key.length > prefix.length + suffix.length;
+    }),
+  );
+}
+/** A scoped grant admits only its implemented resource family. The handler must still
+ * authorize the concrete resource; scoped admission never grants writeAuthorized. */
+function scopedDoingRoute(path: string, method: string, content: string): boolean {
+  if (method === 'GET' && path === (content === 'Tasks' ? '/doing/taskgroupscopes' : '/doing/ministryscopes'))
+    return true;
+  if (
+    content === 'Plans' &&
+    method === 'GET' &&
+    /^\/doing\/(ministryteams|planteams|planpeople|positionmembers)\/[^/]+$/.test(path)
+  )
+    return true;
+  const family =
+    content === 'Tasks'
+      ? /^\/doing\/tasks(?:\/|$)/
+      : /^\/doing\/(plantypes|plans|positions|times|planitems|planitemtimes|assignments)(?:\/|$)/;
+  return (
+    ['GET', 'POST', 'DELETE'].includes(method) &&
+    (family.test(path) || (content === 'Plans' && /^\/membership\/associatedgroups(?:\/|$)/.test(path)))
+  );
+}
 /** These exact routes have their own ownership/publication checks; this never grants staff writes. */
 function selfServiceRoute(method: string, path: string): boolean {
   if (method === 'POST')
@@ -142,7 +172,7 @@ export function authorizeStaffRoute(ctx: Context): void {
   } else if (path.startsWith('/content/')) {
     api = 'ContentApi';
     content = 'Content';
-  } else if (path.startsWith('/doing/tasks')) {
+  } else if (path.startsWith('/doing/tasks') || path === '/doing/taskgroupscopes') {
     api = 'DoingApi';
     content = 'Tasks';
   } else if (path.startsWith('/doing/')) {
@@ -163,7 +193,10 @@ export function authorizeStaffRoute(ctx: Context): void {
   if (content === 'Group Members') pass ||= allowed(ctx, api, 'Groups', 'Edit', resourceId);
   if (api === 'ContentApi' && /^\/content\/(sermons|playlists|files)/.test(path))
     pass ||= allowed(ctx, api, 'StreamingServices', 'Edit');
+  const scopedPass =
+    !pass && api === 'DoingApi' && scopedDoingRoute(path, method, content) && scopedDoingGrant(ctx, content, read);
+  pass ||= scopedPass;
   if (!pass && selfServiceRoute(method, path)) return;
   if (!pass) throw new HttpError(403, `${content} ${read ? 'view' : 'edit'} permission required`);
-  ctx.writeAuthorized = !read;
+  ctx.writeAuthorized = !read && !scopedPass;
 }

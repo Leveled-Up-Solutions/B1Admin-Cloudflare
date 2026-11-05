@@ -255,7 +255,7 @@ export const NewTask = (props: Props) => {
         </Stack>
       </Stack>
 
-      {modalField !== "" && <ContentPicker onClose={handleModalClose} onSelect={handleContentPicked} allowNone={modalField === "associatedWith"} />}
+      {modalField !== "" && <ContentPicker onClose={handleModalClose} onSelect={handleContentPicked} allowNone={modalField === "associatedWith"} assignment={modalField === "assignedTo"} />}
     </Surface>
   );
 };

@@ -1,9 +1,15 @@
 import React, { useState, useCallback } from "react";
 import { RoleCheck } from "./";
 import { ApiHelper, type PermissionInterface, Locale } from "@churchapps/apphelper";
-import { type RoleInterface, type RolePermissionInterface, type GroupInterface } from "@churchapps/helpers";
+import { type RoleInterface, type RolePermissionInterface } from "@churchapps/helpers";
 import { Accordion, AccordionSummary, AccordionDetails, Typography, Icon, TextField, MenuItem, Alert } from "@mui/material";
 import { SettingsPanel } from "./SettingsPanel";
+
+interface PermissionScope {
+  id: string;
+  name: string;
+  permissions: { apiName: string; contentType: string }[];
+}
 
 interface Props {
   role: RoleInterface;
@@ -12,7 +18,7 @@ interface Props {
 export const RolePermissions: React.FC<Props> = (props) => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionInterface[]>([]);
   const [permissions, setPermissions] = useState<PermissionInterface[]>([]);
-  const [groups, setGroups] = useState<GroupInterface[]>([]);
+  const [groups, setGroups] = useState<PermissionScope[]>([]);
   const [scope, setScope] = useState("");
   const [scopeError, setScopeError] = useState("");
   const cloudflare = process.env.REACT_APP_STAGE === "cloudflare";
@@ -21,7 +27,9 @@ export const RolePermissions: React.FC<Props> = (props) => {
   const [filter, setFilter] = useState("");
 
   const search = filter.trim().toLowerCase();
-  const scopedPermissions = scope ? permissions.filter(p => p.apiName === "MembershipApi" && ["Groups", "Group Members"].includes(p.section || "")) : permissions;
+  const selectedScope = groups.find(group => group.id === scope);
+  const scopeKinds = selectedScope?.permissions || rolePermissions.filter(grant => grant.contentId === scope).map(grant => ({ apiName: grant.apiName, contentType: grant.contentType }));
+  const scopedPermissions = scope ? permissions.filter(permission => scopeKinds.some(kind => kind.apiName === permission.apiName && kind.contentType === permission.section)) : permissions;
   const visible = search
     ? scopedPermissions.filter((p) => `${p.displayAction || ""} ${p.displaySection || ""} ${p.section || ""}`.toLowerCase().includes(search))
     : scopedPermissions;
@@ -95,7 +103,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
   React.useEffect(() => {
     if (!cloudflare) return;
     let active = true;
-    ApiHelper.get("/groups", "MembershipApi").then((data: GroupInterface[]) => { if (active) setGroups(data); }).catch(() => { if (active) setScopeError("Group scopes could not be loaded. Global permissions remain available."); });
+    ApiHelper.get("/permissionScopes", "MembershipApi").then((data: PermissionScope[]) => { if (active) setGroups(data); }).catch(() => { if (active) setScopeError("Permission scopes could not be loaded. Global permissions remain available."); });
     return () => { active = false; };
   }, [cloudflare]);
 
@@ -104,8 +112,8 @@ export const RolePermissions: React.FC<Props> = (props) => {
       {cloudflare && <><TextField select fullWidth size="small" label="Permission scope" value={scope} onChange={event => { setScope(event.target.value); setFilter(""); }} data-testid="role-permission-scope" sx={{ mb: 2 }}>
         <MenuItem value="">All groups and church resources</MenuItem>
         {groups.map(group => <MenuItem value={group.id} key={group.id}>{group.name}</MenuItem>)}
-        {rolePermissions.filter(grant => grant.contentId && !groups.some(group => group.id === grant.contentId)).filter((grant, index, array) => array.findIndex(item => item.contentId === grant.contentId) === index).map(grant => <MenuItem value={grant.contentId} key={grant.contentId}>Unavailable group ({grant.contentId})</MenuItem>)}
-      </TextField><Typography variant="body2" sx={{ mb: 2 }}>{scope ? "These permissions apply only to the selected group. Existing global grants still apply." : "These permissions apply across the church. Choose a group to manage only its Groups and Group Members grants."}</Typography>{scopeError && <Alert severity="warning">{scopeError}</Alert>}</>}
+        {rolePermissions.filter(grant => grant.contentId && !groups.some(group => group.id === grant.contentId)).filter((grant, index, array) => array.findIndex(item => item.contentId === grant.contentId) === index).map(grant => <MenuItem value={grant.contentId} key={grant.contentId}>Unavailable scope ({grant.contentId})</MenuItem>)}
+      </TextField><Typography variant="body2" sx={{ mb: 2 }}>{scope ? "Group permissions cover this group, Plans cover this ministry, and Tasks cover work assigned to this group. Existing global grants still apply." : "These permissions apply across the church. Choose a group or ministry to manage its available scoped permissions."}</Typography>{scopeError && <Alert severity="warning">{scopeError}</Alert>}</>}
       <TextField
         fullWidth
         size="small"

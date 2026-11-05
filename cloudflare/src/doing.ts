@@ -1,7 +1,16 @@
 import type { Context } from './types';
 import { allowed } from './permissions';
+import {
+  doingAllowed,
+  doingScopeSql,
+  doingSnapshot,
+  doingWriteGuard,
+  hasDoingAccess,
+  requireDoing,
+  type DoingSnapshot,
+} from './doing-permissions';
 import { churchTimeZone, localDay, shiftServiceTime, validTimeZone } from './plan-time';
-import { all, first, body, records, requiredString, requireAdmin, HttpError, id, now, json } from './http';
+import { all, first, body, records, requiredString, HttpError, id, now, json } from './http';
 type Row = Record<string, any>;
 const tables: Record<string, string> = {
   plans: 'doing_plans',
@@ -101,6 +110,119 @@ async function load(ctx: Context, resource: string, recordId: string): Promise<R
   if (!row) throw new HttpError(404, 'Record not found');
   return row;
 }
+async function resourceScope(
+  ctx: Context,
+  resource: string,
+  row: Row,
+): Promise<{ ministryId: string; snapshots: DoingSnapshot[] }> {
+  const snapshots: DoingSnapshot[] = [];
+  if (resource === 'plantypes') return { ministryId: row.ministryId, snapshots };
+  let plan = row;
+  if (resource !== 'plans') {
+    let planId = row.planId;
+    if (resource === 'assignments' || resource === 'planitemtimes') {
+      const parentResource = resource === 'assignments' ? 'positions' : 'planitems';
+      const parent = await load(ctx, parentResource, resource === 'assignments' ? row.positionId : row.planItemId);
+      snapshots.push(doingSnapshot(tables[parentResource], parent));
+      planId = parent.planId;
+    }
+    plan = await load(ctx, 'plans', planId);
+    snapshots.push(doingSnapshot(tables.plans, plan));
+  }
+  if (plan.planTypeId) snapshots.push(doingSnapshot(tables.plantypes, await load(ctx, 'plantypes', plan.planTypeId)));
+  return { ministryId: plan.ministryId, snapshots };
+}
+function resourceScopeSql(ctx: Context, resource: string) {
+  const table = tables[resource];
+  let expression = `${table}.ministryId`;
+  if (['positions', 'times', 'planitems'].includes(resource))
+    expression = `(SELECT pl.ministryId FROM doing_plans pl WHERE pl.churchId=${table}.churchId AND pl.id=${table}.planId)`;
+  if (resource === 'assignments')
+    expression = `(SELECT pl.ministryId FROM doing_positions p JOIN doing_plans pl ON pl.churchId=p.churchId AND pl.id=p.planId WHERE p.churchId=${table}.churchId AND p.id=${table}.positionId)`;
+  if (resource === 'planitemtimes')
+    expression = `(SELECT pl.ministryId FROM doing_plan_items i JOIN doing_plans pl ON pl.churchId=i.churchId AND pl.id=i.planId WHERE i.churchId=${table}.churchId AND i.id=${table}.planItemId)`;
+  return doingScopeSql(ctx, 'Plans', expression);
+}
+async function planPoolCheck(ctx: Context, sourcePlanId: string, ministryId: string, assignments = true) {
+  const sql = `NOT EXISTS(SELECT 1 FROM doing_positions pos WHERE pos.churchId=? AND pos.planId=? AND pos.groupId IS NOT NULL
+    AND NOT EXISTS(SELECT 1 FROM groups g WHERE g.churchId=pos.churchId AND g.id=pos.groupId AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0))
+    ${
+      assignments
+        ? `AND NOT EXISTS(SELECT 1 FROM doing_assignments a JOIN doing_positions pos ON pos.churchId=a.churchId AND pos.id=a.positionId
+      WHERE a.churchId=? AND pos.planId=? AND NOT EXISTS(SELECT 1 FROM group_members gm JOIN groups g ON g.churchId=gm.churchId AND g.id=gm.groupId
+      JOIN people p ON p.churchId=gm.churchId AND p.id=gm.personId AND p.removed=0 WHERE gm.churchId=a.churchId AND gm.groupId=pos.groupId AND gm.personId=a.personId
+      AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0))`
+        : ''
+    }`;
+  const values = [
+    ctx.principal.churchId,
+    sourcePlanId,
+    ministryId,
+    ...(assignments ? [ctx.principal.churchId, sourcePlanId, ministryId] : []),
+  ];
+  if (!(await first(ctx, `SELECT 1 allowed WHERE ${sql}`, ...values)))
+    throw new HttpError(
+      403,
+      'Copying or moving outside destination volunteer pools requires global Plans edit permission',
+    );
+  return { sql, values };
+}
+async function resourceWriteGuard(
+  ctx: Context,
+  resource: string,
+  row: Row,
+  previous: Row | null,
+): Promise<D1PreparedStatement[]> {
+  const snapshots: DoingSnapshot[] = [
+    previous ? doingSnapshot(tables[resource], previous) : { table: tables[resource], id: row.id, absent: true },
+  ];
+  const grants: { content: 'Plans'; scope?: string }[] = [];
+  const checks: { sql: string; values: (string | number | null)[] }[] = [];
+  if (['blockoutdates', 'schedulingpreferences'].includes(resource)) {
+    if (row.personId !== ctx.principal.personId || (previous && previous.personId !== ctx.principal.personId)) {
+      requireDoing(ctx, 'Plans', 'Edit');
+      grants.push({ content: 'Plans' });
+    }
+  } else {
+    for (const candidate of [row, ...(previous ? [previous] : [])]) {
+      const context = await resourceScope(ctx, resource, candidate);
+      requireDoing(ctx, 'Plans', 'Edit', context.ministryId);
+      grants.push({ content: 'Plans', scope: context.ministryId });
+      snapshots.push(...context.snapshots);
+    }
+    if (resource === 'plans' && previous && row.ministryId !== previous.ministryId) {
+      if (doingAllowed(ctx, 'Plans', 'Edit')) grants.push({ content: 'Plans' });
+      else checks.push(await planPoolCheck(ctx, previous.id, row.ministryId));
+    }
+    if (['positions', 'assignments'].includes(resource)) {
+      // Scoped editors use the existing position volunteer-group pool. A global
+      // editor retains upstream's manual override, but that grant must stay live.
+      if (doingAllowed(ctx, 'Plans', 'Edit')) grants.push({ content: 'Plans' });
+      else {
+        const position = resource === 'positions' ? row : await load(ctx, 'positions', row.positionId);
+        const plan = await load(ctx, 'plans', position.planId);
+        if (position.groupId || resource === 'assignments') {
+          const sql = `EXISTS(SELECT 1 FROM groups g WHERE g.churchId=? AND g.id=? AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0
+            ${resource === 'assignments' ? 'AND EXISTS(SELECT 1 FROM group_members gm JOIN people p ON p.churchId=gm.churchId AND p.id=gm.personId AND p.removed=0 WHERE gm.churchId=g.churchId AND gm.groupId=g.id AND gm.personId=?)' : ''})`;
+          const values = [
+            ctx.principal.churchId,
+            position.groupId || '',
+            plan.ministryId,
+            ...(resource === 'assignments' ? [row.personId] : []),
+          ];
+          if (!(await first(ctx, `SELECT 1 allowed WHERE ${sql}`, ...values)))
+            throw new HttpError(403, 'Scoped plans editors must use this ministry volunteer group');
+          checks.push({ sql, values });
+        }
+      }
+    }
+  }
+  return doingWriteGuard(ctx, {
+    grants: [...new Map(grants.map((grant) => [JSON.stringify(grant), grant])).values()],
+    snapshots: [...new Map(snapshots.map((snapshot) => [JSON.stringify(snapshot), snapshot])).values()],
+    checks,
+  });
+}
 function statement(ctx: Context, resource: string, row: Row, existing: boolean): D1PreparedStatement {
   const columns = Object.keys(row).filter((k) => !['id', 'churchId'].includes(k));
   return existing
@@ -115,7 +237,7 @@ function statement(ctx: Context, resource: string, row: Row, existing: boolean):
 }
 async function visiblePlan(ctx: Context, planId: string): Promise<Row> {
   const plan = await load(ctx, 'plans', planId);
-  if (!allowed(ctx, 'DoingApi', 'Plans', 'View') && !allowed(ctx, 'DoingApi', 'Plans', 'Edit')) {
+  if (!doingAllowed(ctx, 'Plans', 'View', plan.ministryId)) {
     if (plan.prepared) throw new HttpError(403, 'Plan access denied');
     const assigned = await first(
       ctx,
@@ -159,17 +281,15 @@ export async function groupPlans(ctx: Context, groupId: string): Promise<Respons
     allowed(ctx, 'DoingApi', 'Plans', 'View') ||
     allowed(ctx, 'DoingApi', 'Plans', 'Edit') ||
     allowed(ctx, 'MembershipApi', 'Groups', 'Edit');
-  if (
-    !staff &&
-    !(await first(
-      ctx,
-      'SELECT id FROM group_members WHERE churchId=? AND groupId=? AND personId=?',
-      cid,
-      groupId,
-      ctx.principal.personId,
-    ))
-  )
-    throw new HttpError(403, 'Group membership required');
+  const member = await first(
+    ctx,
+    'SELECT id FROM group_members WHERE churchId=? AND groupId=? AND personId=?',
+    cid,
+    groupId,
+    ctx.principal.personId,
+  );
+  if (!staff && !member && !hasDoingAccess(ctx, 'Plans', 'View')) throw new HttpError(403, 'Group membership required');
+  const scope = staff || member ? { sql: '1', values: [] } : doingScopeSql(ctx, 'Plans', 'pl.ministryId');
   const today = localDay(Date.now(), await churchTimeZone(ctx));
   return json(
     (
@@ -181,6 +301,7 @@ export async function groupPlans(ctx: Context, groupId: string): Promise<Respons
   ) SELECT DISTINCT pl.* FROM doing_plans pl JOIN associated_groups ag ON ag.churchId=pl.churchId AND ag.contentId=pl.planTypeId AND ag.contentType='planType'
   JOIN ancestors a ON a.id=ag.groupId WHERE pl.churchId=? AND pl.prepared=0
   AND (ag.settings='both' OR ag.settings='past' AND pl.serviceDate<=? OR ag.settings='future' AND pl.serviceDate>=?)
+  AND ${scope.sql}
   ORDER BY pl.serviceDate DESC,pl.id`,
         cid,
         groupId,
@@ -188,6 +309,7 @@ export async function groupPlans(ctx: Context, groupId: string): Promise<Respons
         cid,
         today,
         today,
+        ...scope.values,
       )
     ).map(model),
   );
@@ -321,7 +443,6 @@ async function clean(ctx: Context, resource: string, input: Row, previous: Row |
 }
 async function save(ctx: Context, resource: string, inputs: Row[]): Promise<Response> {
   const ownResource = ['blockoutdates', 'schedulingpreferences'].includes(resource);
-  if (!ownResource) requireAdmin(ctx);
   const statements: D1PreparedStatement[] = [];
   const output: Row[] = [];
   const seen = new Set<string>();
@@ -343,15 +464,19 @@ async function save(ctx: Context, resource: string, inputs: Row[]): Promise<Resp
       throw new HttpError(403, 'Own records only');
     if (seen.has(row.id)) throw new HttpError(400, 'Duplicate ID in request');
     seen.add(row.id);
-    statements.push(statement(ctx, resource, row, !!previous), audit(ctx, `doing.${resource}.save`, row.id));
+    statements.push(
+      ...(await resourceWriteGuard(ctx, resource, row, previous)),
+      statement(ctx, resource, row, !!previous),
+      audit(ctx, `doing.${resource}.save`, row.id),
+    );
     output.push(model(row));
   }
   await batch(ctx, statements);
   return json(output);
 }
 async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
-  requireAdmin(ctx);
   const source = await load(ctx, 'plans', sourceId);
+  requireDoing(ctx, 'Plans', 'Edit', source.ministryId);
   const input = await body(ctx.request);
   const copyMode = input.copyMode || 'all';
   if (!['none', 'positions', 'all'].includes(copyMode)) throw new HttpError(400, 'Invalid copy mode');
@@ -360,7 +485,19 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
     target ||
     (await clean(ctx, 'plans', { ...source, ...input, id: undefined, prepared: input.prepared ?? true }, null));
   if (target && target.id === source.id) throw new HttpError(400, 'Cannot copy a plan into itself');
-  const statements: D1PreparedStatement[] = [];
+  const statements: D1PreparedStatement[] = [
+    ...(await resourceWriteGuard(ctx, 'plans', source, source)),
+    ...(await resourceWriteGuard(ctx, 'plans', row, target)),
+  ];
+  if (copyMode !== 'none')
+    statements.push(
+      ...doingWriteGuard(
+        ctx,
+        doingAllowed(ctx, 'Plans', 'Edit')
+          ? { grants: [{ content: 'Plans' }] }
+          : { checks: [await planPoolCheck(ctx, source.id, row.ministryId, copyMode === 'all')] },
+      ),
+    );
   if (!target) statements.push(statement(ctx, 'plans', row, false));
   const timeMap = new Map<string, string>();
   const posMap = new Map<string, string>();
@@ -390,6 +527,8 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
       source.id,
     )) {
       const old = position.id;
+      if (!doingAllowed(ctx, 'Plans', 'Edit'))
+        statements.push(...doingWriteGuard(ctx, { snapshots: [doingSnapshot(tables.positions, position)] }));
       position.id = id();
       position.planId = row.id;
       posMap.set(old, position.id);
@@ -402,6 +541,8 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
         ctx.principal.churchId,
         source.id,
       )) {
+        if (!doingAllowed(ctx, 'Plans', 'Edit'))
+          statements.push(...doingWriteGuard(ctx, { snapshots: [doingSnapshot(tables.assignments, assignment)] }));
         assignment.id = id();
         assignment.positionId = posMap.get(assignment.positionId);
         assignment.status = 'Unconfirmed';
@@ -461,6 +602,70 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
   const action = parts[1]?.toLowerCase();
   const recordId = parts[1];
   const method = ctx.request.method;
+  if (method === 'GET' && parts.length === 1 && ['ministryscopes', 'taskgroupscopes'].includes(resource)) {
+    const content = resource === 'ministryscopes' ? 'Plans' : 'Tasks';
+    if (!hasDoingAccess(ctx, content, 'View')) throw new HttpError(403, `${content} view permission required`);
+    const scope = doingScopeSql(ctx, content, 'g.id');
+    const rows = await all(
+      ctx,
+      `SELECT g.id,g.name FROM groups g WHERE g.churchId=? AND ${scope.sql}
+      ${content === 'Plans' ? "AND instr(','||g.tags||',',',ministry,')>0" : ''} ORDER BY g.name,g.id`,
+      ctx.principal.churchId,
+      ...scope.values,
+    );
+    return json(rows.map((row) => ({ ...row, canEdit: doingAllowed(ctx, content, 'Edit', row.id) })));
+  }
+  if (
+    method === 'GET' &&
+    parts.length === 2 &&
+    ['ministryteams', 'planteams', 'planpeople', 'positionmembers'].includes(resource)
+  ) {
+    const cid = ctx.principal.churchId;
+    const position = resource === 'positionmembers' ? await load(ctx, 'positions', recordId) : null;
+    const plan = resource === 'ministryteams' ? null : await load(ctx, 'plans', position ? position.planId : recordId);
+    const ministryId = plan ? plan.ministryId : recordId;
+    requireDoing(ctx, 'Plans', 'View', ministryId);
+    if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', cid, ministryId)))
+      throw new HttpError(404, 'Ministry not found');
+    if (['ministryteams', 'planteams'].includes(resource))
+      return json(
+        await all(
+          ctx,
+          `SELECT g.id,g.name,g.categoryName,(SELECT COUNT(*) FROM group_members gm JOIN people p ON p.churchId=gm.churchId AND p.id=gm.personId AND p.removed=0 WHERE gm.churchId=g.churchId AND gm.groupId=g.id) memberCount
+      FROM groups g WHERE g.churchId=? AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0 ORDER BY g.name,g.id`,
+          cid,
+          ministryId,
+        ),
+      );
+    const person = (row: Row) => ({
+      id: row.personId,
+      name: { first: row.firstName, last: row.lastName, display: `${row.firstName} ${row.lastName}`.trim() },
+    });
+    if (position) {
+      const rows = await all(
+        ctx,
+        `SELECT gm.id,gm.groupId,gm.personId,p.firstName,p.lastName FROM group_members gm
+        JOIN groups g ON g.churchId=gm.churchId AND g.id=gm.groupId JOIN people p ON p.churchId=gm.churchId AND p.id=gm.personId
+        WHERE gm.churchId=? AND gm.groupId=? AND p.removed=0 AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0 ORDER BY p.firstName,p.lastName,p.id`,
+        cid,
+        position.groupId || '',
+        ministryId,
+      );
+      return json(
+        rows.map((row) => ({ id: row.id, groupId: row.groupId, personId: row.personId, person: person(row) })),
+      );
+    }
+    const rows = await all(
+      ctx,
+      `SELECT p.id personId,p.firstName,p.lastName FROM people p WHERE p.churchId=? AND p.removed=0 AND (
+      EXISTS(SELECT 1 FROM doing_assignments a JOIN doing_positions pos ON pos.churchId=a.churchId AND pos.id=a.positionId WHERE a.churchId=p.churchId AND a.personId=p.id AND pos.planId=?) OR
+      EXISTS(SELECT 1 FROM group_members gm JOIN groups g ON g.churchId=gm.churchId AND g.id=gm.groupId WHERE gm.churchId=p.churchId AND gm.personId=p.id AND g.categoryName=? AND instr(','||g.tags||',',',team,')>0)) ORDER BY p.firstName,p.lastName,p.id`,
+      cid,
+      plan!.id,
+      ministryId,
+    );
+    return json(rows.map(person));
+  }
   const table = tables[resource];
   if (!table) return undefined;
   if (resource === 'plans' && action === 'copy' && parts[2] && method === 'POST') return copyPlan(ctx, parts[2]);
@@ -472,7 +677,15 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     const plan = await load(ctx, 'plans', position.planId);
     if (plan.prepared) throw new HttpError(409, 'Plan is not published');
     const status = action === 'accept' ? 'Accepted' : 'Declined';
+    const guard = doingWriteGuard(ctx, {
+      snapshots: [
+        doingSnapshot(table, assignment),
+        doingSnapshot(tables.positions, position),
+        doingSnapshot(tables.plans, plan),
+      ],
+    });
     const result = await batch(ctx, [
+      ...guard,
       ctx.env.DB.prepare(
         'UPDATE doing_assignments SET status=? WHERE churchId=? AND id=? AND personId=? AND EXISTS(SELECT 1 FROM doing_positions p JOIN doing_plans pl ON pl.churchId=p.churchId AND pl.id=p.planId WHERE p.churchId=doing_assignments.churchId AND p.id=doing_assignments.positionId AND pl.prepared=0)',
       ).bind(status, ctx.principal.churchId, assignment.id, ctx.principal.personId),
@@ -480,7 +693,7 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
         'INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?,?,?,?,?,? WHERE changes()>0',
       ).bind(id(), ctx.principal.churchId, ctx.principal.userId, `doing.assignments.${action}`, assignment.id, now()),
     ]);
-    if (!result[0].meta.changes) throw new HttpError(409, 'Assignment changed; reload your schedule');
+    if (!result[guard.length].meta.changes) throw new HttpError(409, 'Assignment changed; reload your schedule');
     return json(model({ ...assignment, status }));
   }
   if (resource === 'assignments' && action === 'signup' && method === 'POST') {
@@ -488,6 +701,7 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     const positionId = requiredString(input.positionId, 'positionId');
     const assignmentId = id();
     await batch(ctx, [
+      ...doingWriteGuard(ctx, {}),
       ctx.env.DB.prepare(
         "INSERT INTO doing_assignments(id,churchId,positionId,personId,status,selfSignup) VALUES(?,?,?,?,'Accepted',1)",
       ).bind(assignmentId, ctx.principal.churchId, positionId, ctx.principal.personId),
@@ -510,6 +724,19 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     if (Date.parse(time?.startTime || plan.serviceDate) - (plan.signupDeadlineHours || 0) * 3600000 <= Date.now())
       throw new HttpError(409, 'Removal deadline has passed');
     await batch(ctx, [
+      ...doingWriteGuard(ctx, {
+        snapshots: [
+          doingSnapshot(table, assignment),
+          doingSnapshot(tables.positions, position),
+          doingSnapshot(tables.plans, plan),
+        ],
+        checks: [
+          {
+            sql: "julianday('now')<julianday(COALESCE((SELECT MIN(startTime) FROM doing_times WHERE churchId=? AND planId=?),?))-?/24.0",
+            values: [ctx.principal.churchId, plan.id, plan.serviceDate, plan.signupDeadlineHours || 0],
+          },
+        ],
+      }),
       ctx.env.DB.prepare('DELETE FROM doing_assignments WHERE churchId=? AND id=? AND personId=?').bind(
         ctx.principal.churchId,
         assignment.id,
@@ -520,7 +747,6 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     return json({});
   }
   if (resource === 'planitems' && action === 'sort' && method === 'POST') {
-    requireAdmin(ctx);
     const input = await body(ctx.request);
     const previous = await load(ctx, resource, requiredString(input.id, 'id', 100));
     const row = await clean(ctx, resource, input, previous);
@@ -533,7 +759,11 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     ) UPDATE doing_plan_items SET sort=(SELECT n FROM ranks WHERE ranks.id=doing_plan_items.id)
     WHERE churchId=? AND planId=? AND parentId IS ?`,
       ).bind(row.churchId, row.planId, parentId, row.churchId, row.planId, parentId);
-    const statements = [statement(ctx, resource, row, true), normalize(row.parentId)];
+    const statements = [
+      ...(await resourceWriteGuard(ctx, resource, row, previous)),
+      statement(ctx, resource, row, true),
+      normalize(row.parentId),
+    ];
     if (previous.parentId !== row.parentId) statements.push(normalize(previous.parentId));
     statements.push(audit(ctx, 'doing.planitems.sort', row.id));
     await batch(ctx, statements);
@@ -541,9 +771,9 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
   }
   if (method === 'POST' && !action) return save(ctx, resource, await records(ctx.request));
   if (method === 'DELETE' && resource === 'positions' && recordId && parts.length === 2) {
-    requireAdmin(ctx);
-    await load(ctx, resource, recordId);
+    const previous = await load(ctx, resource, recordId);
     await batch(ctx, [
+      ...(await resourceWriteGuard(ctx, resource, previous, previous)),
       ctx.env.DB.prepare('UPDATE doing_plan_items SET positionId=NULL WHERE churchId=? AND positionId=?').bind(
         ctx.principal.churchId,
         recordId,
@@ -565,8 +795,9 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     if (['blockoutdates', 'schedulingpreferences'].includes(resource)) {
       if (!allowed(ctx, 'DoingApi', 'Plans', 'Edit') && previous.personId !== ctx.principal.personId)
         throw new HttpError(403, 'Own records only');
-    } else requireAdmin(ctx);
+    }
     await batch(ctx, [
+      ...(await resourceWriteGuard(ctx, resource, previous, previous)),
       ctx.env.DB.prepare(`DELETE FROM ${table} WHERE churchId=? AND id=?`).bind(ctx.principal.churchId, recordId),
       audit(ctx, `doing.${resource}.delete`, recordId),
     ]);
@@ -632,14 +863,16 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     );
   }
   if (resource === 'assignments' && action === 'monthcounts') {
-    if (isMember) throw new HttpError(403, 'Staff access required');
+    if (!hasDoingAccess(ctx, 'Plans', 'View')) throw new HttpError(403, 'Staff access required');
     const month = day(ctx.url.searchParams.get('date') || now()).slice(0, 7);
+    const scope = doingScopeSql(ctx, 'Plans', 'pl.ministryId');
     return json(
       await all(
         ctx,
-        "SELECT a.personId,COUNT(*) AS count FROM doing_assignments a JOIN doing_positions p ON p.churchId=a.churchId AND p.id=a.positionId JOIN doing_plans pl ON pl.churchId=p.churchId AND pl.id=p.planId WHERE a.churchId=? AND a.status<>'Declined' AND substr(pl.serviceDate,1,7)=? GROUP BY a.personId",
+        `SELECT a.personId,COUNT(*) AS count FROM doing_assignments a JOIN doing_positions p ON p.churchId=a.churchId AND p.id=a.positionId JOIN doing_plans pl ON pl.churchId=p.churchId AND pl.id=p.planId WHERE a.churchId=? AND a.status<>'Declined' AND substr(pl.serviceDate,1,7)=? AND ${scope.sql} GROUP BY a.personId`,
         churchId,
         month,
+        ...scope.values,
       ),
     );
   }
@@ -676,13 +909,16 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
   }
   if (action === 'ids') {
     const ids = listIds(ctx.url.searchParams.get('ids'));
+    const scopedStaff = hasDoingAccess(ctx, 'Plans', 'View');
+    const scope = scopedStaff ? resourceScopeSql(ctx, resource) : { sql: '1', values: [] };
     const rows = await all(
       ctx,
-      `SELECT * FROM ${table} WHERE churchId=? AND id IN (SELECT value FROM json_each(?))`,
+      `SELECT * FROM ${table} WHERE churchId=? AND id IN (SELECT value FROM json_each(?)) AND ${scope.sql}`,
       churchId,
       JSON.stringify(ids),
+      ...scope.values,
     );
-    if (isMember)
+    if (!scopedStaff)
       for (const row of rows) {
         if (resource === 'plans') await visiblePlan(ctx, row.id);
         else if (row.planId) await visiblePlan(ctx, row.planId);
@@ -698,10 +934,23 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
       parts[2] === 'ids' || action === 'plans'
         ? listIds(ctx.url.searchParams.get('planIds'))
         : [requiredString(parts[2], 'planId')];
-    if (isMember) for (const planId of planIds) await visiblePlan(ctx, planId);
+    const existingIds =
+      planIds.length === 1
+        ? planIds
+        : (
+            await all(
+              ctx,
+              'SELECT id FROM doing_plans WHERE churchId=? AND id IN (SELECT value FROM json_each(?))',
+              churchId,
+              JSON.stringify(planIds),
+            )
+          ).map((row) => row.id);
+    for (const planId of existingIds) {
+      const plan = await visiblePlan(ctx, planId);
+      if (resource === 'assignments') requireDoing(ctx, 'Plans', 'View', plan.ministryId);
+    }
     let sql: string;
     if (resource === 'assignments') {
-      if (isMember) throw new HttpError(403, 'Use your own assignments');
       sql = `SELECT a.*,p.planId FROM doing_assignments a JOIN doing_positions p ON p.churchId=a.churchId AND p.id=a.positionId WHERE a.churchId=? AND p.planId IN (SELECT value FROM json_each(?))`;
     } else if (resource === 'planitemtimes')
       sql = `SELECT pit.* FROM doing_plan_item_times pit JOIN doing_plan_items i ON i.churchId=pit.churchId AND i.id=pit.planItemId WHERE pit.churchId=? AND i.planId IN (SELECT value FROM json_each(?))`;
@@ -720,7 +969,8 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     );
   }
   if (resource === 'plans' && action === 'types') {
-    if (isMember) throw new HttpError(403, 'Staff access required');
+    const type = await load(ctx, 'plantypes', requiredString(parts[2], 'planTypeId'));
+    requireDoing(ctx, 'Plans', 'View', type.ministryId);
     return json(
       (
         await all(
@@ -733,7 +983,7 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     );
   }
   if (resource === 'plantypes' && action === 'ministryid') {
-    if (isMember) throw new HttpError(403, 'Staff access required');
+    requireDoing(ctx, 'Plans', 'View', requiredString(parts[2], 'ministryId'));
     return json(
       await all(
         ctx,
@@ -744,30 +994,37 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     );
   }
   if (!action || (resource === 'times' && action === 'all')) {
-    if (isMember) throw new HttpError(403, 'Staff access required');
+    if (!hasDoingAccess(ctx, 'Plans', 'View')) throw new HttpError(403, 'Staff access required');
     const ministry = ctx.url.searchParams.get('ministryId');
     const filter = ['plans', 'plantypes'].includes(resource) && ministry;
+    const scope = ['blockoutdates', 'schedulingpreferences'].includes(resource)
+      ? { sql: '1', values: [] }
+      : resourceScopeSql(ctx, resource);
     return json(
       (
         await all(
           ctx,
-          `SELECT * FROM ${table} WHERE churchId=? ${filter ? 'AND ministryId=?' : ''} ORDER BY ${resource === 'plans' ? 'serviceDate DESC' : 'id'} LIMIT 1000`,
+          `SELECT * FROM ${table} WHERE churchId=? ${filter ? 'AND ministryId=?' : ''} AND ${scope.sql} ORDER BY ${resource === 'plans' ? 'serviceDate DESC' : 'id'} LIMIT 1000`,
           churchId,
           ...(filter ? [ministry] : []),
+          ...scope.values,
         )
       ).map(model),
     );
   }
   if (parts.length === 2) {
     const row = await load(ctx, resource, recordId);
-    if (isMember) {
-      if (resource === 'plans') await visiblePlan(ctx, row.id);
-      else if (row.planId) await visiblePlan(ctx, row.planId);
-      else if (resource === 'assignments' && row.personId === ctx.principal.personId) {
-        const position = await load(ctx, 'positions', row.positionId);
-        await visiblePlan(ctx, position.planId);
-      } else throw new HttpError(403, 'Staff access required');
-    }
+    if (resource === 'plantypes') requireDoing(ctx, 'Plans', 'View', row.ministryId);
+    else if (resource === 'plans') await visiblePlan(ctx, row.id);
+    else if (row.planId) await visiblePlan(ctx, row.planId);
+    else if (resource === 'assignments') {
+      const position = await load(ctx, 'positions', row.positionId);
+      const plan = await visiblePlan(ctx, position.planId);
+      if (row.personId !== ctx.principal.personId) requireDoing(ctx, 'Plans', 'View', plan.ministryId);
+    } else if (resource === 'planitemtimes') {
+      const item = await load(ctx, 'planitems', row.planItemId);
+      await visiblePlan(ctx, item.planId);
+    } else if (isMember) throw new HttpError(403, 'Staff access required');
     return json(model(row));
   }
   return undefined;

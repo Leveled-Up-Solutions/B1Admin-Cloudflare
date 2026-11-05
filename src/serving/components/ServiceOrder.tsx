@@ -58,16 +58,16 @@ function instructionToPlanItem(item: InstructionItem, providerId?: string, provi
 export const ServiceOrder = memo((props: Props) => {
   const [planItems, setPlanItems] = React.useState<PlanItemInterface[]>([]);
   const [loaded, setLoaded] = React.useState(false);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.plan?.ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!props.plan?.ministryId,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && !!props.plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === props.plan.ministryId);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
   const [editPlanItem, setEditPlanItem] = React.useState<PlanItemInterface | null>(null);
   const [showHeaderDrop, setShowHeaderDrop] = React.useState(false);
   const [showItemDrop, setShowItemDrop] = React.useState(false);
@@ -128,7 +128,9 @@ export const ServiceOrder = memo((props: Props) => {
         ApiHelper.get("/assignments/plan/" + props.plan.id, "DoingApi")
       ]);
       const peopleIds = ArrayHelper.getUniqueValues(assignmentsData || [], "personId");
-      const people: PersonInterface[] = peopleIds.length > 0 ? await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi") : [];
+      const people: PersonInterface[] = process.env.REACT_APP_STAGE === "cloudflare"
+        ? await ApiHelper.get("/planPeople/" + props.plan.id, "DoingApi")
+        : peopleIds.length > 0 ? await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi") : [];
       setPositions(positionsData || []);
       setPositionLabels(buildPositionLabels(positionsData || [], assignmentsData || [], people));
     } catch (error) {

@@ -36,11 +36,17 @@ export function groupWriteGuard(ctx: Context, mutation: Mutation): D1PreparedSta
     if (mutation.existing) permissions.push(grant(true, mutation.existing.groupId));
   }
   const checks = [
-    `EXISTS(SELECT 1 FROM user_churches uc JOIN users u ON u.id=uc.userId JOIN sessions s ON s.userId=u.id
-    WHERE uc.churchId=? AND uc.userId=? AND s.id=? AND s.expiresAt>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND u.disabled=0 AND u.passwordState='active'
+    `EXISTS(SELECT 1 FROM user_churches uc JOIN users u ON u.id=uc.userId JOIN people actorPerson ON actorPerson.churchId=uc.churchId AND actorPerson.id=uc.personId AND actorPerson.removed=0 JOIN sessions s ON s.userId=u.id
+    WHERE uc.churchId=? AND uc.userId=? AND uc.personId=? AND s.id=? AND s.expiresAt>strftime('%Y-%m-%dT%H:%M:%fZ','now') AND u.disabled=0 AND u.passwordState='active'
     AND s.passwordVersion=u.passwordVersion AND ${permissions.join(' AND ')})`,
   ];
-  const values: (string | number | null)[] = [cid, ctx.principal.userId, ctx.principal.sessionId, ...grantValues];
+  const values: (string | number | null)[] = [
+    cid,
+    ctx.principal.userId,
+    ctx.principal.personId,
+    ctx.principal.sessionId,
+    ...grantValues,
+  ];
   const table = mutation.kind === 'group' ? 'groups' : 'group_members';
   if (mutation.existing) {
     const column = mutation.kind === 'group' ? 'parentId' : 'groupId';

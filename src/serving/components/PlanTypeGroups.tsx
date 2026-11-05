@@ -1,7 +1,7 @@
 import React from "react";
 import { Box, Button, Typography, Table, TableBody, TableCell, TableRow, TableHead, Select, MenuItem, Autocomplete, TextField, Dialog, DialogTitle, DialogContent, DialogActions } from "@mui/material";
 import { Add as AddIcon, Groups as GroupsIcon, Delete as DeleteIcon } from "@mui/icons-material";
-import { ApiHelper, Locale, Loading } from "@churchapps/apphelper";
+import { ApiHelper, Locale, Loading, UserHelper, Permissions } from "@churchapps/apphelper";
 import { AppIconButton } from "../../components/ui/AppIconButton";
 import { useQuery } from "@tanstack/react-query";
 import { type GroupInterface } from "@churchapps/helpers";
@@ -18,16 +18,16 @@ type TimeFilter = "past" | "future" | "both";
 const CONTENT_TYPE = "planType";
 
 export const PlanTypeGroups = React.memo(({ planTypeId, ministryId }: Props) => {
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!ministryId,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && !!ministryId && (myMinistriesQuery.data || []).some((g) => g.id === ministryId);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
   const [showPicker, setShowPicker] = React.useState(false);
   const [pickerValue, setPickerValue] = React.useState<GroupInterface | null>(null);
   const { confirm, ConfirmDialogElement } = useConfirmDelete();
@@ -38,8 +38,10 @@ export const PlanTypeGroups = React.memo(({ planTypeId, ministryId }: Props) => 
     placeholderData: []
   });
 
+  const canBrowseGroups = process.env.REACT_APP_STAGE !== "cloudflare" || UserHelper.checkAccess({ api: "MembershipApi", contentType: "Groups", action: "View" }) || UserHelper.checkAccess(Permissions.membershipApi.groups.edit);
   const groups = useQuery<GroupInterface[]>({
     queryKey: ["/groups/tag/standard", "MembershipApi"],
+    enabled: canBrowseGroups,
     placeholderData: []
   });
 
@@ -85,7 +87,7 @@ export const PlanTypeGroups = React.memo(({ planTypeId, ministryId }: Props) => 
     return (
       <TableRow key={assoc.id}>
         <TableCell>
-          <Typography sx={{ fontWeight: 600 }}>{group?.name || assoc.groupId}</Typography>
+          <Typography sx={{ fontWeight: 600 }}>{group?.name || (assoc as AssociatedGroupInterface & {groupName?: string}).groupName || assoc.groupId}</Typography>
           {group?.categoryName && (
             <Typography variant="body2" color="text.secondary">{group.categoryName}</Typography>
           )}
