@@ -36,7 +36,7 @@ Independent focused reviews found and fixed substantive issues, including stale 
 
 The isolated Playwright configuration refuses non-loopback targets and does not call the upstream demo-reset pretest. `yarn test:cloudflare:browser` creates fresh temporary local D1/R2/Durable Object state, runs all tests against the compiled single-Worker app on port 8790, and stops that server. The persistent preview is untouched. Repeated tests against shared preview state can correctly reach the login throttle; the isolated runner avoids weakening that control.
 
-The final combined suite passed all 18 tests. Exercised flows include:
+The complete combined suite passed all 18 tests locally and in the PR-triggered Linux CI run. A duplicate push run exposed a print-view test assertion that could match the previous page during lazy navigation and omitted the printed colon. The assertion now waits for the actual print column and exact rendered label; five consecutive local repetitions passed (9.6 seconds), with no application code change. The current PR checks record the subsequent full runs. Exercised flows include:
 
 - Original people create/edit/search/soft-delete, household member moves and roles, and supported original advanced search filters.
 - Group roster changes, manual request-to-join approval and decline, member/leader request views, exact-group role assignment and restricted group administration.

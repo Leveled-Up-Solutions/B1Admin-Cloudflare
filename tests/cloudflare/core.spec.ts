@@ -120,7 +120,8 @@ test("original plan displays service order and supports manual position changes"
   await expect(page.getByRole("button", { name: /Sound-board Engineer.*Sound Board Team/ })).toBeVisible();
   await page.getByTestId("print-plan-link").click();
   await expect(page).toHaveURL(/\/serving\/plans\/print\/plan-demo$/);
-  await expect(page.getByText("Welcome and introductions", { exact: true }).first()).toBeVisible();
+  // Wait for the print view itself; the previous route can remain visible while its lazy module loads.
+  await expect(page.locator(".printOrderColumn").getByText("Welcome and introductions:", { exact: true })).toBeVisible();
   expect(failed).toEqual([]);
   expect(errors).toEqual([]);
 });
