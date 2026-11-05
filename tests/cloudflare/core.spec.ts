@@ -22,7 +22,7 @@ test("sign-in and core navigation stay on this installation", async ({ page, bas
   page.on("pageerror", error => errors.push(error.message));
   page.on("response", response => { if (response.url().includes("/api/") && response.status() >= 400) failedApi.push(`${response.status()} ${response.url()}`); });
   await login(page);
-  for (const name of ["People", "Groups", "Calendars & scheduling", "Serving / Plans", "My Work", "Sermons", "Roles", "Audit log"]) {
+  for (const name of ["People", "Groups", "Calendars & scheduling", "Serving / Plans", "My Work", "Sermons", "Roles", "Audit log", "My account"]) {
     await page.getByRole("link", { name, exact: true }).first().click();
     await expect(page.locator("h1").first()).toBeVisible();
     await page.waitForLoadState("networkidle");
@@ -65,6 +65,7 @@ test("calendar events support explicit timezone scheduling and deletion", async 
   await page.getByLabel(/^Time zone/).fill("America/New_York");
   await page.getByRole("button", { name: "Save calendar", exact: true }).click();
   await expect(page.getByText("Calendar saved.", { exact: true })).toBeVisible();
+  await page.getByLabel("View from", { exact: true }).fill("2027-01-01");
   await page.getByRole("button", { name: "New event", exact: true }).click();
   await page.getByLabel(/^Event title/).fill("Synthetic planning meeting");
   await page.getByLabel(/^Start/).fill("2027-01-10T09:00");

@@ -7,6 +7,8 @@ import { queryClient } from "../queryClient";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import { CloudflarePerson, CloudflareGroup } from "./CloudflareRecords";
 import { CloudflareCalendars } from "./CloudflareCalendars";
+import { CloudflareChurchSettings } from "./CloudflareChurchSettings";
+import { CloudflareAccount } from "./CloudflareAccount";
 
 const PeoplePage = React.lazy(() => import("../people/PeoplePage").then(m => ({ default: m.PeoplePage })));
 const GroupsPage = React.lazy(() => import("../groups/GroupsPage"));
@@ -66,13 +68,16 @@ export const CloudflareApp = () => {
   UserHelper.person = context.person;
   UserHelper.currentUserChurch = context.userChurch;
   UserHelper.userChurches = context.userChurches;
+  function clearSession(passwordChanged = false) {
+    ApiHelper.clearPermissions();
+    queryClient.clear();
+    context.setUser(null!); context.setPerson(null!); context.setUserChurch(null!); context.setUserChurches([]);
+    navigate("/login", { replace: true, state: { passwordChanged } });
+  }
   async function logout() {
     try {
       await ApiHelper.post("/users/logout", {}, "MembershipApi");
-      ApiHelper.clearPermissions();
-      queryClient.clear();
-      context.setUser(null!); context.setPerson(null!); context.setUserChurch(null!); context.setUserChurches([]);
-      navigate("/login", { replace: true });
+      clearSession();
     } catch { setLogoutError("Could not revoke the session. Please try again."); }
   }
   return <Box sx={{ minHeight: "100dvh" }}>
@@ -81,14 +86,17 @@ export const CloudflareApp = () => {
         <Typography component={Link} to="/" sx={{ color: "text.primary", fontWeight: 700, textDecoration: "none", mr: 2 }}>B1Admin · Cloudflare</Typography>
         {modules.map(m => <Button key={m.path} component={Link} to={m.path}>{m.title}</Button>)}
         {UserHelper.checkAccess(Permissions.membershipApi.roles.view) && <Button component={Link} to="/settings/roles">Roles</Button>}
-        {UserHelper.checkAccess(Permissions.membershipApi.roles.view) && <Button component={Link} to="/settings/auditlog">Audit log</Button>}
-        <Box sx={{ flexGrow: 1 }} /><Button component={Link} to="/portal">Member portal</Button><Button onClick={logout}>Sign out</Button>
+        {UserHelper.checkAccess(Permissions.membershipApi.settings.edit) && <Button component={Link} to="/settings/auditlog">Audit log</Button>}
+        {UserHelper.checkAccess(Permissions.membershipApi.settings.edit) && <Button component={Link} to="/settings/church">Church settings</Button>}
+        <Box sx={{ flexGrow: 1 }} /><Button component={Link} to="/account">My account</Button><Button component={Link} to="/portal">Member portal</Button><Button onClick={logout}>Sign out</Button>
       </Toolbar>
     </AppBar>
     <Alert severity="info" sx={{ borderRadius: 0 }}>Development workspace · synthetic records · directory, groups, calendars & serving · sign in again after reloading.</Alert>
     {logoutError && <Alert severity="error">{logoutError}</Alert>}
     <ErrorBoundary><Suspense fallback={<Container sx={{ py: 4 }}>Loading…</Container>}><Routes>
       <Route path="/" element={<Overview />} />
+      <Route path="/settings/church" element={<CloudflareChurchSettings />} />
+      <Route path="/account" element={<CloudflareAccount onSessionsRevoked={() => clearSession(true)} />} />
       <Route path="/people" element={<PeoplePage />} />
       <Route path="/people/:id" element={<CloudflarePerson />} />
       <Route path="/groups" element={<GroupsPage />} />

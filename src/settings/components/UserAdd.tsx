@@ -3,7 +3,7 @@ import { ApiHelper, UserHelper, type PersonInterface, ErrorMessages, type UserIn
 import { FormCard } from "../../components/ui";
 import { type RoleInterface, type RoleMemberInterface, type LoadCreateUserRequestInterface, type HouseholdInterface } from "@churchapps/helpers";
 import { AssociatePerson } from "./";
-import { TextField } from "@mui/material";
+import { Alert, Button, Stack, TextField, Typography } from "@mui/material";
 import { SendInviteDialog } from "../../components";
 
 interface Props {
@@ -33,6 +33,26 @@ export const UserAdd = (props: Props) => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [savedPersonId, setSavedPersonId] = useState<string>("");
   const [unlinked, setUnlinked] = useState<{ personId: string; userId: string } | null>(null);
+  const [localInvitation, setLocalInvitation] = useState<{ id?: string; mode: string; invitationUrl: string; expiresAt?: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const canIssueLocalInvitation = process.env.REACT_APP_STAGE === "cloudflare" && (UserHelper.currentUserChurch as UserChurchInterface & { role?: string })?.role === "admin";
+
+  const issueLocalInvitation = async () => {
+    if (!selectedPerson?.id || isSubmitting) return;
+    setIsSubmitting(true); setErrors([]); setCopied(false);
+    try {
+      const result = await ApiHelper.post("/users/invitations", { personId: selectedPerson.id, roleId: props.role.id }, "MembershipApi");
+      if (typeof result.invitationUrl !== "string" || !/^\/login(?:\?auth=[^#]+)?$/.test(result.invitationUrl)) throw new Error("The account link could not be verified.");
+      setLocalInvitation({ ...result, invitationUrl: new URL(result.invitationUrl, window.location.origin).href });
+    } catch { setErrors(["The setup link could not be created. Check that the person has a valid email and that you are a domain administrator."]); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const copyLocalInvitation = async () => {
+    if (!localInvitation) return;
+    try { await navigator.clipboard.writeText(localInvitation.invitationUrl); setCopied(true); }
+    catch { setErrors(["Copy is unavailable in this browser. Select and copy the link from the field below."]); }
+  };
 
   const showInviteOrFinish = (emailAddr: string, personName: string) => {
     if (process.env.REACT_APP_STAGE === "cloudflare" || !emailAddr) {
@@ -85,7 +105,7 @@ export const UserAdd = (props: Props) => {
     if (selectedPerson.id && selectedPerson.id === savedPersonId) return;
     const { first, last } = selectedPerson.name;
     const userEmail = showEmailField ? email : (selectedPerson.contactInfo.email || "");
-    const userId = (unlinked?.personId === selectedPerson.id) ? unlinked.userId : (await createUserAndToGroup(first || "", last || "", userEmail)).id || "";
+    const userId = (unlinked && unlinked.personId === selectedPerson.id) ? unlinked.userId : (await createUserAndToGroup(first || "", last || "", userEmail)).id || "";
     try {
       await linkUserAndPerson(userId, selectedPerson.id || "");
 
@@ -167,13 +187,14 @@ export const UserAdd = (props: Props) => {
   const handleAssociatePerson = async (person: PersonInterface) => {
     if (isSubmitting) return;
     setSelectedPerson(person);
+    setLocalInvitation(null); setCopied(false); setErrors([]);
 
     if (process.env.REACT_APP_STAGE === "cloudflare") {
       setIsSubmitting(true);
       try {
         await ApiHelper.post("/rolemembers/", [{ roleId: props.role.id, personId: person.id }], "MembershipApi");
         props.updatedFunction();
-      } catch { setErrors(["Choose a person with an existing local account. The role could not be saved."]); }
+      } catch { setErrors(["The role could not be saved. If this person needs a local account, a domain administrator can create a setup link below."]); }
       finally { setIsSubmitting(false); }
       return;
     }
@@ -270,7 +291,7 @@ export const UserAdd = (props: Props) => {
   }
 
   return (
-    <FormCard icon="lock" title={Locale.label("settings.userAdd.addTo") + props.role.name} onSave={handleSave} onCancel={props.updatedFunction} isSubmitting={isSubmitting} disabled={isSubmitting}>
+    <FormCard icon="lock" title={Locale.label("settings.userAdd.addTo") + props.role.name} onSave={localInvitation && localInvitation.mode !== "login" ? props.updatedFunction : handleSave} saveText={localInvitation && localInvitation.mode !== "login" ? "Done" : undefined} onCancel={props.updatedFunction} isSubmitting={isSubmitting} disabled={isSubmitting}>
       <ErrorMessages errors={errors} />
       {(!showNameFields || editMode) && (
         <AssociatePerson
@@ -278,13 +299,24 @@ export const UserAdd = (props: Props) => {
           handleAssociatePerson={handleAssociatePerson}
           searchStatus={handleSearchStatus}
           filterList={props.roleMembers.map((rm) => rm.personId || "")}
-          onChangeClick={() => setShowEmailField(false)}
+          onChangeClick={() => { setShowEmailField(false); setLocalInvitation(null); setCopied(false); }}
           showChangeOption={!editMode}
         />
       )}
       {nameField}
       {emailField}
       {message}
+      {canIssueLocalInvitation && selectedPerson && !localInvitation && <Stack spacing={1}>
+        <Typography>A setup link lets this person choose their own password or confirm an existing account. The role is assigned when they accept.</Typography>
+        {!selectedPerson.contactInfo?.email && <Alert severity="info">Add a valid email to this person's record before creating a setup link.</Alert>}
+        <Button variant="outlined" disabled={isSubmitting || !selectedPerson.contactInfo?.email} onClick={issueLocalInvitation}>Create account setup link</Button>
+      </Stack>}
+      {localInvitation && <Stack spacing={2}>
+        <Alert severity="info">{localInvitation.mode === "login" ? "This person already has a local account. Save to add their existing account to this role." : "Share this one-time link with the selected person yourself. Nothing has been emailed. The link is shown only here and expires after 24 hours."}</Alert>
+        <TextField fullWidth label="Account setup link" value={localInvitation.invitationUrl} slotProps={{ input: { readOnly: true } }} onFocus={event => event.target.select()} />
+        <Button variant="outlined" onClick={copyLocalInvitation}>{copied ? "Link copied" : "Copy setup link"}</Button>
+        {localInvitation.expiresAt && <Typography variant="body2">Expires {new Date(localInvitation.expiresAt).toLocaleString()}.</Typography>}
+      </Stack>}
       {inviteDialog}
     </FormCard>
   );

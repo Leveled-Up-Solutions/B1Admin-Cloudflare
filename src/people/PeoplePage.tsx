@@ -8,7 +8,7 @@ import { B1AdminPersonHelper, EnvironmentHelper } from "../helpers";
 import { PeopleSearch } from "./components/PeopleSearch";
 import { SavedLists, type ListConditions, type ListInterface } from "./components/SavedLists";
 import { buildRulesFromCriteria } from "./components/listRules";
-import { type ActiveFilter } from "./components/AdvancedPeopleSearch";
+import { AdvancedPeopleSearch, type ActiveFilter } from "./components/AdvancedPeopleSearch";
 import { Add as AddIcon, HomeOutlined as HouseholdsIcon, PersonSearch as PersonSearchIcon, TableRowsOutlined as TableIcon } from "@mui/icons-material";
 import { EmptyState, ExportButton, HeaderPrimaryButton, HeaderTextButton, PageContainer, PageHeader, Surface, ViewToggle } from "../components/ui";
 import { CreatePerson } from "../components";
@@ -72,6 +72,7 @@ export const PeoplePage = memo(() => {
   const canEdit = UserHelper.checkAccess(Permissions.membershipApi.people.edit);
   const canBulkEdit = canEdit && !EnvironmentHelper.isCloudflare;
   const [simpleSearch, setSimpleSearch] = React.useState("");
+  const [advancedSearchOpen, setAdvancedSearchOpen] = React.useState(false);
   const currentPersonId = UserHelper.currentUserChurch?.person?.id || "";
 
   const peopleQuery = useQuery<PersonInterface[]>({
@@ -497,6 +498,10 @@ export const PeoplePage = memo(() => {
               onReportCriteria={setSaveableCriteria}
             />}
 
+            {EnvironmentHelper.isCloudflare && (canEdit || UserHelper.checkAccess(Permissions.membershipApi.people.view)) && <>
+              <Button onClick={() => setAdvancedSearchOpen(value => !value)} aria-expanded={advancedSearchOpen} sx={{ alignSelf: "flex-start" }}>Advanced search</Button>
+              {advancedSearchOpen && <AdvancedPeopleSearch embedded updateSearchResults={people => { setSearchResults(people); setIsSearchPerformed(true); }} resetSearchResults={resetSearchResults} />}
+            </>}
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" useFlexGap flexWrap="wrap" spacing={1} sx={{ minHeight: 40 }} data-testid="people-results-bar">
                 {canBulkEdit && selectedPersonIds.length > 0 ? (

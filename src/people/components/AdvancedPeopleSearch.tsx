@@ -1,11 +1,14 @@
 import React, { memo, useCallback, useState, useMemo, useEffect, useRef } from "react";
 import { B1AdminPersonHelper } from ".";
+import { hasCloudflarePermission } from "../../cloudflare/permissions";
+import { EnvironmentHelper } from "../../helpers";
 import { useCampuses } from "../../hooks/useCampuses";
 import { type GroupMemberInterface, type SearchCondition, type GroupInterface, type ServiceInterface, type ServiceTimeInterface, type QuestionInterface, type FormSubmissionInterface } from "@churchapps/helpers";
 import { ArrayHelper, ApiHelper, Locale, DateHelper, Permissions } from "@churchapps/apphelper";
 import { FormCard } from "../../components/ui";
 import { type PersonInterface, type FundDonationInterface, type FundInterface } from "@churchapps/helpers";
 import {
+  Alert,
   Button,
   Box,
   Accordion,
@@ -182,12 +185,16 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
   const [groups, setGroups] = useState<GroupInterface[]>([]);
   const [funds, setFunds] = useState<FundInterface[]>([]);
   // Membership campuses mastered in membership module; attendance copy is deprecated.
-  const membershipCampuses = useCampuses();
+  const membershipCampuses = useCampuses(!EnvironmentHelper.isCloudflare);
+  const [searchError, setSearchError] = useState("");
   const [services, setServices] = useState<ServiceInterface[]>([]);
   const [serviceTimes, setServiceTimes] = useState<ServiceTimeInterface[]>([]);
   const [customFieldQuestions, setCustomFieldQuestions] = useState<QuestionInterface[]>([]);
   const [personFields, setPersonFields] = useState<PersonFieldInterface[]>([]);
   const [loadedCategories, setLoadedCategories] = useState<string[]>([]);
+  const canFilterGroups = !EnvironmentHelper.isCloudflare || (ApiHelper.getConfig("MembershipApi")?.permissions || []).some(permission =>
+    (permission.contentType === "Group Members" && ["View", "Edit"].includes(permission.action || "")) ||
+    (permission.contentType === "Groups" && permission.action === "Edit"));
 
 
   const filterCategories = useMemo(() => {
@@ -346,7 +353,7 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
     };
 
     // Add group membership if permissions allow
-    if (Permissions.membershipApi.groupMembers) {
+    if (Permissions.membershipApi.groupMembers && canFilterGroups) {
       categories.membership.push({
         key: "groupMember",
         label: Locale.label("people.editCondition.groupMem"),
@@ -376,15 +383,24 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
       });
     }
 
+    if (EnvironmentHelper.isCloudflare) {
+      categories.names = categories.names.filter(field => !["prefix", "suffix"].includes(field.key));
+      categories.membership = categories.membership.filter(field => field.key !== "campusId");
+      delete categories.activity;
+      delete categories.customFields;
+    }
     return categories;
-  }, [groups, membershipCampuses, customFieldQuestions, personFields]);
+  }, [groups, membershipCampuses, customFieldQuestions, personFields, canFilterGroups]);
 
   const loadCategoryData = useCallback(async (category: string) => {
     if (loadedCategories.includes(category)) return;
 
-    if (category === "membership" && Permissions.membershipApi.groupMembers) {
+    if (category === "membership" && Permissions.membershipApi.groupMembers && canFilterGroups) {
       const groupData = await ApiHelper.get("/groups", "MembershipApi");
-      setGroups(groupData);
+      setGroups(EnvironmentHelper.isCloudflare ? groupData.filter((group: GroupInterface) =>
+        hasCloudflarePermission(Permissions.membershipApi.groupMembers.view, group.id) ||
+        hasCloudflarePermission(Permissions.membershipApi.groupMembers.edit, group.id) ||
+        hasCloudflarePermission(Permissions.membershipApi.groups.edit, group.id)) : groupData);
     }
 
     if (category === "activity") {
@@ -420,7 +436,7 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
     }
 
     setLoadedCategories((prev) => [...prev, category]);
-  }, [loadedCategories]);
+  }, [loadedCategories, canFilterGroups]);
 
   const handleCategoryExpand = (category: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
     if (isExpanded) {
@@ -498,10 +514,15 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
       hadFiltersRef.current = true;
       props.onReportCriteria?.(activeFilters);
       debounceTimerRef.current = setTimeout(async () => {
-        const postConditions = await convertConditions();
-        const data: any = await ApiHelper.post("/people/advancedSearch", postConditions, "MembershipApi");
-        if (seq !== searchSeqRef.current) return;
-        props.updateSearchResults(data.map((d: PersonInterface) => B1AdminPersonHelper.getExpandedPersonObject(d)));
+        try {
+          setSearchError("");
+          const postConditions = await convertConditions();
+          const data: PersonInterface[] = await ApiHelper.post("/people/advancedSearch", postConditions, "MembershipApi");
+          if (seq !== searchSeqRef.current) return;
+          props.updateSearchResults(data.map((d: PersonInterface) => B1AdminPersonHelper.getExpandedPersonObject(d)));
+        } catch {
+          if (seq === searchSeqRef.current) setSearchError("Search failed. Please check the selected filters.");
+        }
       }, 500);
     } else {
       props.onReportCriteria?.(null);
@@ -554,7 +575,8 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
           const members: GroupMemberInterface[] = await ApiHelper.get(`/groupmembers?groupId=${filter.value}`, "MembershipApi");
           const peopleIds = ArrayHelper.getIds(members, "personId");
           // The Api's "notIn" on id ORs per-value notEqual checks, so exclude one id per condition instead.
-          if (filter.operator === "notIn") peopleIds.forEach((pid) => result.push({ field: "id", operator: "notEqual", value: pid }));
+          if (filter.operator === "notIn" && !EnvironmentHelper.isCloudflare) peopleIds.forEach((pid) => result.push({ field: "id", operator: "notEqual", value: pid }));
+          else if (filter.operator === "notIn") result.push({ field: "id", operator: "notIn", value: peopleIds.join(",") });
           else result.push({ field: "id", operator: "in", value: peopleIds.join(",") });
           break;
         case "memberDonations":
@@ -888,6 +910,7 @@ export const AdvancedPeopleSearch = memo(function AdvancedPeopleSearch(props: Pr
         </Paper>
       )}
 
+      {searchError && <Alert severity="error">{searchError}</Alert>}
       <Typography variant="caption" color="text.secondary" sx={{ mb: 2, display: "block" }}>
         {Locale.label("people.peopleSearch.checkBoxes")}
       </Typography>

@@ -91,7 +91,9 @@
     "test:cloudflare": "cd cloudflare && npm test",
     "check:cloudflare": "cd cloudflare && npm run typecheck",
     "dev:cloudflare:ui": "vite --mode cloudflare",
-    "test:cloudflare:ui": "playwright test --config cloudflare.playwright.config.ts"
+    "test:cloudflare:ui": "playwright test --config cloudflare.playwright.config.ts",
+    "typecheck": "tsc -p tsconfig.app.json --noEmit && tsc -p tsconfig.node.json --noEmit",
+    "test:cloudflare:browser": "node scripts/cloudflare-browser-check.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx,js}": [

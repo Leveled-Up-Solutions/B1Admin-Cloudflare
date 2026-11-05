@@ -1,8 +1,8 @@
 import React, { useState, useCallback } from "react";
 import { RoleCheck } from "./";
 import { ApiHelper, type PermissionInterface, Locale } from "@churchapps/apphelper";
-import { type RoleInterface, type RolePermissionInterface } from "@churchapps/helpers";
-import { Accordion, AccordionSummary, AccordionDetails, Typography, Icon, TextField } from "@mui/material";
+import { type RoleInterface, type RolePermissionInterface, type GroupInterface } from "@churchapps/helpers";
+import { Accordion, AccordionSummary, AccordionDetails, Typography, Icon, TextField, MenuItem, Alert } from "@mui/material";
 import { SettingsPanel } from "./SettingsPanel";
 
 interface Props {
@@ -12,14 +12,19 @@ interface Props {
 export const RolePermissions: React.FC<Props> = (props) => {
   const [rolePermissions, setRolePermissions] = useState<RolePermissionInterface[]>([]);
   const [permissions, setPermissions] = useState<PermissionInterface[]>([]);
+  const [groups, setGroups] = useState<GroupInterface[]>([]);
+  const [scope, setScope] = useState("");
+  const [scopeError, setScopeError] = useState("");
+  const cloudflare = process.env.REACT_APP_STAGE === "cloudflare";
 
   const [expanded, setExpanded] = React.useState<string | false>(false);
   const [filter, setFilter] = useState("");
 
   const search = filter.trim().toLowerCase();
+  const scopedPermissions = scope ? permissions.filter(p => p.apiName === "MembershipApi" && ["Groups", "Group Members"].includes(p.section || "")) : permissions;
   const visible = search
-    ? permissions.filter((p) => `${p.displayAction || ""} ${p.displaySection || ""} ${p.section || ""}`.toLowerCase().includes(search))
-    : permissions;
+    ? scopedPermissions.filter((p) => `${p.displayAction || ""} ${p.displaySection || ""} ${p.section || ""}`.toLowerCase().includes(search))
+    : scopedPermissions;
 
   const handleChange = (panel: string) => (_event: React.SyntheticEvent, isExpanded: boolean) => {
     setExpanded(isExpanded ? panel : false);
@@ -30,7 +35,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
   }, [props.role]);
   const handlePermissionChange = useCallback((rp: RolePermissionInterface, checked: boolean) => {
     setRolePermissions((prev) => {
-      const rest = prev.filter((p) => !(p.apiName === rp.apiName && p.contentType === rp.contentType && p.action === rp.action));
+      const rest = prev.filter((p) => !(p.apiName === rp.apiName && p.contentType === rp.contentType && p.action === rp.action && (p.contentId || "") === (rp.contentId || "")));
       return checked ? [...rest, rp] : rest;
     });
   }, []);
@@ -38,10 +43,10 @@ export const RolePermissions: React.FC<Props> = (props) => {
     ApiHelper.get("/permissions", "MembershipApi").then((data: any) => setPermissions(data));
   }, []);
 
-  const isChecked = (p: PermissionInterface) => rolePermissions.some((rp) => rp.apiName === p.apiName && rp.contentType === p.section && rp.action === p.action);
+  const isChecked = (p: PermissionInterface) => rolePermissions.some((rp) => rp.apiName === p.apiName && rp.contentType === p.section && rp.action === p.action && (rp.contentId || "") === scope);
 
   const getSectionCount = (displaySection: string) => {
-    const inSection = permissions.filter((p) => p.displaySection === displaySection);
+    const inSection = scopedPermissions.filter((p) => p.displaySection === displaySection);
     return Locale.label("settings.rolePermissions.countOf")
       .replace("{checked}", inSection.filter(isChecked).length.toString())
       .replace("{total}", inSection.length.toString());
@@ -55,7 +60,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
     sortedPermissions.forEach((p, index) => {
       if (!lastSection.includes(p.displaySection || "")) {
         result.push(
-          <Accordion key={p.displaySection || index} expanded={!!search || expanded === "panel" + index} onChange={handleChange("panel" + index)}>
+          <Accordion key={p.displaySection || index} expanded={!!search || !!scope || expanded === "panel" + index} onChange={handleChange("panel" + index)}>
             <AccordionSummary expandIcon={<Icon>expand_more</Icon>}>
               <Typography sx={{ flexGrow: 1 }}>{p.displaySection}</Typography>
               <Typography variant="body2" color="text.secondary" sx={{ mr: 1 }} data-testid="role-permission-section-count">{getSectionCount(p.displaySection || "")}</Typography>
@@ -75,7 +80,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
     const result: JSX.Element[] = [];
     visible.forEach((p, index) => {
       if (p.displaySection === displaySection) {
-        result.push(<RoleCheck key={index} roleId={props.role.id} rolePermissions={rolePermissions} apiName={p.apiName || ""} contentType={p.section || ""} action={p.action || ""} label={p.displayAction || ""} onChange={handlePermissionChange} />);
+        result.push(<RoleCheck key={`${scope}:${index}`} roleId={props.role.id} rolePermissions={rolePermissions} apiName={p.apiName || ""} contentType={p.section || ""} contentId={scope || undefined} action={p.action || ""} label={p.displayAction || ""} onChange={handlePermissionChange} />);
       }
     });
     return result;
@@ -87,9 +92,20 @@ export const RolePermissions: React.FC<Props> = (props) => {
   React.useEffect(() => {
     if (props.role?.name) loadPermissions();
   }, [props.role, loadPermissions]);
+  React.useEffect(() => {
+    if (!cloudflare) return;
+    let active = true;
+    ApiHelper.get("/groups", "MembershipApi").then((data: GroupInterface[]) => { if (active) setGroups(data); }).catch(() => { if (active) setScopeError("Group scopes could not be loaded. Global permissions remain available."); });
+    return () => { active = false; };
+  }, [cloudflare]);
 
   return (
     <SettingsPanel id="rolePermissionsBox" headerText={Locale.label("settings.rolePermissions.permEdit")} headerIcon="lock" help="docs/b1-admin/settings/roles-permissions">
+      {cloudflare && <><TextField select fullWidth size="small" label="Permission scope" value={scope} onChange={event => { setScope(event.target.value); setFilter(""); }} data-testid="role-permission-scope" sx={{ mb: 2 }}>
+        <MenuItem value="">All groups and church resources</MenuItem>
+        {groups.map(group => <MenuItem value={group.id} key={group.id}>{group.name}</MenuItem>)}
+        {rolePermissions.filter(grant => grant.contentId && !groups.some(group => group.id === grant.contentId)).filter((grant, index, array) => array.findIndex(item => item.contentId === grant.contentId) === index).map(grant => <MenuItem value={grant.contentId} key={grant.contentId}>Unavailable group ({grant.contentId})</MenuItem>)}
+      </TextField><Typography variant="body2" sx={{ mb: 2 }}>{scope ? "These permissions apply only to the selected group. Existing global grants still apply." : "These permissions apply across the church. Choose a group to manage only its Groups and Group Members grants."}</Typography>{scopeError && <Alert severity="warning">{scopeError}</Alert>}</>}
       <TextField
         fullWidth
         size="small"

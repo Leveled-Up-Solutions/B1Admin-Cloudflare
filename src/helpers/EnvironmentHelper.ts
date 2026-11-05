@@ -1,3 +1,4 @@
+import { installCloudflarePermissionChecks } from "../cloudflare/permissions";
 import { CommonEnvironmentHelper, ApiHelper, Locale } from "@churchapps/apphelper";
 import { EnvironmentHelper as WebsiteEnvironmentHelper } from "@churchapps/apphelper/dist/website/helpers/EnvironmentHelper.js";
 
@@ -67,6 +68,7 @@ export class EnvironmentHelper {
   // Every service stays on this installation. Unported APIs fail locally instead of
   // silently sending development records or credentials to hosted ChurchApps services.
   static initCloudflare = () => {
+    installCloudflarePermissionChecks();
     const origin = window.location.origin;
     const common = EnvironmentHelper.Common;
     for (const mod of ["Membership", "Attendance", "Content", "Giving", "Messaging", "Doing", "Reporting", "Ask"])
