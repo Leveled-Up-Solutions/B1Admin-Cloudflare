@@ -68,11 +68,11 @@ export const CloudflareApp = () => {
   UserHelper.person = context.person;
   UserHelper.currentUserChurch = context.userChurch;
   UserHelper.userChurches = context.userChurches;
-  function clearSession(passwordChanged = false) {
+  function clearSession(passwordChanged = false, securityChanged = false) {
     ApiHelper.clearPermissions();
     queryClient.clear();
     context.setUser(null!); context.setPerson(null!); context.setUserChurch(null!); context.setUserChurches([]);
-    navigate("/login", { replace: true, state: { passwordChanged } });
+    navigate("/login", { replace: true, state: { passwordChanged, securityChanged } });
   }
   async function logout() {
     try {
@@ -96,7 +96,7 @@ export const CloudflareApp = () => {
     <ErrorBoundary><Suspense fallback={<Container sx={{ py: 4 }}>Loading…</Container>}><Routes>
       <Route path="/" element={<Overview />} />
       <Route path="/settings/church" element={<CloudflareChurchSettings />} />
-      <Route path="/account" element={<CloudflareAccount onSessionsRevoked={() => clearSession(true)} />} />
+      <Route path="/account" element={<CloudflareAccount onSessionsRevoked={reason => clearSession(reason !== "mfa", reason === "mfa")} />} />
       <Route path="/people" element={<PeoplePage />} />
       <Route path="/people/:id" element={<CloudflarePerson />} />
       <Route path="/groups" element={<GroupsPage />} />

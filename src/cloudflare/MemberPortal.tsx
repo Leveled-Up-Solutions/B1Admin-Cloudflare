@@ -1,15 +1,27 @@
 import React from "react";
 import "./MemberPortal.css";
-import { memberRequest as request, storedMemberToken as storedToken, saveMemberToken as saveToken } from "./memberApi";
+import { memberRequest as request, storedMemberToken as storedToken, saveMemberToken as saveToken, memberErrorMessage, memberSessionExpired } from "./memberApi";
 import { MemberGroupRequests } from "./MemberGroupRequests";
 import { CloudflareAccount } from "./CloudflareAccount";
+import { MemberChurchSelector } from "./MemberChurchSelector";
+import { MemberProfileEditor } from "./MemberProfileEditor";
+import { MemberHousehold } from "./MemberHousehold";
+import type { MemberChurchLink, MemberProfile } from "./memberProfileTypes";
 
 type Row = Record<string, any>;
 type Section = "home" | "sermons" | "groups" | "calendar" | "directory" | "profile" | "serving";
 type InstallEvent = Event & { prompt(): Promise<void>; userChoice: Promise<{ outcome: string }> };
+type LoginChurch = { church: { id: string; name: string }; jwt: string };
+type MfaChallenge = { mfaRequired: true; mfaToken: string; expiresAt: string };
+type MemberLoginResult = MfaChallenge | { userChurches: LoginChurch[] };
 const tabs: { id: Section; label: string }[] = [
-  { id: "home", label: "Home" }, { id: "sermons", label: "Sermons" }, { id: "groups", label: "My groups" },
-  { id: "calendar", label: "Calendar" }, { id: "serving", label: "Serving" }, { id: "directory", label: "Directory" }, { id: "profile", label: "My profile" }
+  { id: "home", label: "Home" },
+  { id: "sermons", label: "Sermons" },
+  { id: "groups", label: "My groups" },
+  { id: "calendar", label: "Calendar" },
+  { id: "serving", label: "Serving" },
+  { id: "directory", label: "Directory" },
+  { id: "profile", label: "My profile" }
 ];
 
 function displayName(person: Row = {}): string { return person.name?.display || [person.name?.first || person.firstName, person.name?.last || person.lastName].filter(Boolean).join(" ") || person.displayName || "Member"; }
@@ -33,23 +45,22 @@ function Sermon({ sermon, token }: { sermon: Row; token: string }) {
   React.useEffect(() => () => { if (playing) URL.revokeObjectURL(playing.url); }, [playing]);
   async function loadFiles() {
     setPending(true); setFileError("");
-    try { const data = await request(`/api/member/v1/sermons/${encodeURIComponent(sermon.id)}/files`, token); if (active.current) setFiles(data); }
-    catch (error: any) { if (active.current) setFileError(error.message); }
-    finally { if (active.current) setPending(false); }
+    try { const data = await request<Row[]>(`/api/member/v1/sermons/${encodeURIComponent(sermon.id)}/files`, token); if (active.current) setFiles(data); } catch (error: any) { if (active.current) setFileError(error.message); } finally { if (active.current) setPending(false); }
   }
   async function openFile(file: Row) {
     setPending(true); setFileError("");
     try {
+      if (Number(file.size) > 26214400) throw new Error("This archive is larger than the member app’s 25 MiB playback and download limit. Ask your church for another way to access it.");
       const response = await fetch(`/api/member/v1/files/${encodeURIComponent(file.id)}/download`, { headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
       if (!response.ok) throw new Error(response.status === 401 ? "Please sign in again to open this file." : "This archive file is no longer available.");
+      if (Number(response.headers.get("Content-Length")) > 26214400) throw new Error("This file is too large to open in the member app.");
       const blob = await response.blob();
       if (!active.current) return;
       if (blob.size > 26214400) throw new Error("This file is too large to open in the member app.");
       const url = URL.createObjectURL(blob);
       if (/^(audio|video)\//.test(file.fileType)) setPlaying({ url, type: file.fileType, name: file.fileName });
       else { const link = document.createElement("a"); link.href = url; link.download = file.fileName; document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
-    } catch (error: any) { if (active.current) setFileError(error.message); }
-    finally { if (active.current) setPending(false); }
+    } catch (error: any) { if (active.current) setFileError(error.message); } finally { if (active.current) setPending(false); }
   }
   const audio = mediaUrl(sermon.audioUrl || sermon.audio);
   const video = mediaUrl(sermon.videoUrl || (sermon.videoType === "url" || sermon.videoType === "custom" ? sermon.videoData : undefined));
@@ -76,22 +87,32 @@ export function MemberPortal() {
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
   const [section, setSection] = React.useState<Section>("home");
-  const [me, setMe] = React.useState<Row | null>(null);
+  const [me, setMe] = React.useState<MemberProfile | null>(null);
+  const [churches, setChurches] = React.useState<MemberChurchLink[]>([]);
+  const [loginChurches, setLoginChurches] = React.useState<LoginChurch[] | null>(null);
+  const [choosingChurch, setChoosingChurch] = React.useState(false);
+  const [challenge, setChallenge] = React.useState<MfaChallenge | null>(null);
+  const [mfaCode, setMfaCode] = React.useState("");
   const [lists, setLists] = React.useState<Record<string, Row[]>>({ directory: [], groups: [], calendar: [], sermons: [], "groups/available": [], assignments: [], signup: [], blockouts: [] });
   const [listErrors, setListErrors] = React.useState<Record<string, string>>({});
   const [search, setSearch] = React.useState("");
   const [refresh, setRefresh] = React.useState(0);
   const [installEvent, setInstallEvent] = React.useState<InstallEvent | null>(null);
   const [installHelp, setInstallHelp] = React.useState(false);
-  const [phone, setPhone] = React.useState("");
-  const [directoryVisible, setDirectoryVisible] = React.useState(false);
-  const [shareEmail, setShareEmail] = React.useState(false);
   const [blockoutStart, setBlockoutStart] = React.useState("");
   const [blockoutEnd, setBlockoutEnd] = React.useState("");
 
-  const clearSession = React.useCallback(() => {
-    saveToken(""); setToken(""); setMe(null); setLists({ directory: [], groups: [], calendar: [], sermons: [], "groups/available": [], assignments: [], signup: [], blockouts: [] }); setListErrors({}); setPassword("");
+  const clearCommunity = React.useCallback(() => {
+    setMe(null); setChurches([]); setLists({ directory: [], groups: [], calendar: [], sermons: [], "groups/available": [], assignments: [], signup: [], blockouts: [] }); setListErrors({}); setSearch(""); setSection("home"); setBlockoutStart(""); setBlockoutEnd("");
   }, []);
+  const clearSession = React.useCallback(() => {
+    saveToken(""); setToken(""); clearCommunity(); setPassword(""); setChallenge(null); setMfaCode(""); setLoginChurches(null); setChoosingChurch(false); setLoading(false);
+  }, [clearCommunity]);
+
+  function activateChurch(church: LoginChurch) {
+    clearCommunity(); setLoginChurches(null); setChoosingChurch(false); setChallenge(null); setMfaCode(""); setPassword(""); setError(""); setNotice("");
+    saveToken(church.jwt); setToken(church.jwt);
+  }
 
   React.useEffect(() => {
     document.title = "Member portal · Church community";
@@ -107,16 +128,16 @@ export function MemberPortal() {
     if (!token) return;
     let active = true;
     setLoading(true); setError("");
-    const names = ["directory", "groups", "calendar", "sermons", "groups/available", "assignments", "signup", "blockouts"];
+    const names = [
+      "directory", "groups", "calendar", "sermons", "groups/available", "assignments", "signup", "blockouts"
+    ];
     (async () => {
       try {
-        const profile = await request("/api/member/v1/me", token);
+        const [profile, links] = await Promise.all([request<MemberProfile>("/api/member/v1/me", token), request<MemberChurchLink[]>("/api/member/v1/churches", token)]);
         if (!active) return;
-        setMe(profile); setPhone(profile.person?.contactInfo?.mobilePhone || "");
-        setDirectoryVisible(!!(profile.directoryVisible ?? profile.person?.directoryVisible));
-        setShareEmail(!!(profile.shareEmail ?? profile.person?.shareEmail));
+        setMe(profile); setChurches(links);
         const servingPaths: Record<string, string> = { assignments: "/api/doing/assignments/my/upcoming", signup: `/api/doing/plans/public/signup/${encodeURIComponent(profile.church.id)}`, blockouts: "/api/doing/blockoutDates/my" };
-        const responses = await Promise.allSettled(names.map(name => request(servingPaths[name] || `/api/member/v1/${name}`, token)));
+        const responses = await Promise.allSettled(names.map(name => request<Row[] | { items?: Row[] }>(servingPaths[name] || `/api/member/v1/${name}`, token)));
         if (!active) return;
         const nextLists: Record<string, Row[]> = {}; const errors: Record<string, string> = {};
         responses.forEach((result, index) => {
@@ -124,8 +145,7 @@ export function MemberPortal() {
           else { nextLists[names[index]] = []; errors[names[index]] = result.reason.message; }
         });
         setLists(nextLists); setListErrors(errors);
-      } catch (problem: any) { if (active) { if (problem.status === 401) clearSession(); setError(problem.message); } }
-      finally { if (active) setLoading(false); }
+      } catch (problem: any) { if (active) { if (problem.status === 401) clearSession(); setError(problem.message); } } finally { if (active) setLoading(false); }
     })();
     return () => { active = false; };
   }, [token, refresh, clearSession]);
@@ -133,19 +153,45 @@ export function MemberPortal() {
   async function signIn(event: React.FormEvent) {
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     try {
-      const login = await request("/api/membership/users/login", "", { method: "POST", body: JSON.stringify({ email: email.trim(), password }) });
-      const church = login.userChurches?.[0];
-      if (!church?.jwt) throw new Error("This account does not have access to a church.");
-      saveToken(church.jwt); setToken(church.jwt); setPassword("");
-    } catch (problem: any) { setError(problem.message); }
-    finally { setBusy(false); }
+      const login = await request<MemberLoginResult>("/api/membership/users/login", "", { method: "POST", body: JSON.stringify(challenge ? { mfaToken: challenge.mfaToken, mfaCode } : { email: email.trim(), password }) });
+      setPassword(""); setMfaCode("");
+      if ("mfaRequired" in login) { setChallenge(login); return; }
+      setChallenge(null);
+      const links = login.userChurches.filter(church => church.jwt && church.church?.id);
+      if (!links.length) throw new Error("This account does not have access to a church.");
+      if (links.length > 1) setLoginChurches(links);
+      else activateChurch(links[0]);
+    } catch (problem) { setMfaCode(""); setError(memberErrorMessage(problem)); } finally { setBusy(false); }
+  }
+
+  async function chooseChurch(churchId: string) {
+    if (busy) return;
+    if (loginChurches) {
+      const selected = loginChurches.find(church => church.church.id === churchId);
+      if (selected) activateChurch(selected);
+      return;
+    }
+    if (churchId === me?.church.id) { setChoosingChurch(false); return; }
+    setBusy(true); setError("");
+    try {
+      const selected = await request<LoginChurch>("/api/membership/churches/select", token, { method: "POST", body: JSON.stringify({ churchId }) });
+      if (!selected.jwt || selected.church?.id !== churchId) throw new Error("The selected church could not be opened.");
+      activateChurch(selected);
+    } catch (problem) { if (memberSessionExpired(problem)) clearSession(); setError(memberErrorMessage(problem)); } finally { setBusy(false); }
+  }
+
+  async function cancelChurchSelection() {
+    if (!loginChurches) { setChoosingChurch(false); return; }
+    setBusy(true); setError("");
+    try {
+      await request("/api/membership/users/logout", loginChurches[0].jwt, { method: "POST", body: "{}" });
+      clearSession();
+    } catch (problem) { if (memberSessionExpired(problem)) clearSession(); else setError("Could not revoke this sign-in. Please try cancelling again."); } finally { setBusy(false); }
   }
 
   async function signOut() {
     setBusy(true); setError("");
-    try { await request("/api/membership/users/logout", token, { method: "POST", body: "{}" }); clearSession(); setNotice("You have signed out."); }
-    catch (problem: any) { if (problem.status === 401) clearSession(); else setError("Could not revoke the session. Please try signing out again."); }
-    finally { setBusy(false); }
+    try { await request("/api/membership/users/logout", token, { method: "POST", body: "{}" }); clearSession(); setNotice("You have signed out."); } catch (problem: any) { if (problem.status === 401) clearSession(); else setError("Could not revoke the session. Please try signing out again."); } finally { setBusy(false); }
   }
 
   async function install() {
@@ -153,22 +199,12 @@ export function MemberPortal() {
     await installEvent.prompt(); await installEvent.userChoice; setInstallEvent(null);
   }
 
-  async function saveProfile(event: React.FormEvent) {
-    event.preventDefault(); setBusy(true); setError(""); setNotice("");
-    try {
-      await request("/api/member/v1/me", token, { method: "POST", body: JSON.stringify({ mobilePhone: phone, directoryVisible, shareEmail }) });
-      setNotice("Your contact details and directory preferences have been saved."); setRefresh(value => value + 1);
-    } catch (problem: any) { if (problem.status === 401) clearSession(); setError(problem.message); }
-    finally { setBusy(false); }
-  }
-
   async function changeGroup(group: Row, join: boolean) {
     setBusy(true); setError(""); setNotice("");
     try {
       await request(`/api/member/v1/groups/${encodeURIComponent(group.id)}/${join ? "join" : "leave"}`, token, { method: join ? "POST" : "DELETE", ...(join ? { body: "{}" } : {}) });
       setNotice(join ? `You have joined ${group.name}.` : `You have left ${group.name}.`); setRefresh(value => value + 1);
-    } catch (problem: any) { if (problem.status === 401) clearSession(); setError(problem.message); }
-    finally { setBusy(false); }
+    } catch (problem: any) { if (problem.status === 401) clearSession(); setError(problem.message); } finally { setBusy(false); }
   }
 
   async function servingAction(path: string, method: string, data: unknown, message: string) {
@@ -177,11 +213,10 @@ export function MemberPortal() {
       await request(`/api/doing/${path}`, token, { method, ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
       setNotice(message); setRefresh(value => value + 1);
       if (path === "blockoutDates") { setBlockoutStart(""); setBlockoutEnd(""); }
-    } catch (problem: any) { if (problem.status === 401) clearSession(); setError(problem.message); }
-    finally { setBusy(false); }
+    } catch (problem: any) { if (problem.status === 401) clearSession(); setError(problem.message); } finally { setBusy(false); }
   }
 
-  const person = me?.person || {};
+  const person = me?.person;
   const directory = lists.directory.filter(item => displayName(item).toLocaleLowerCase().includes(search.toLocaleLowerCase()));
   const events = [...lists.calendar].sort((a, b) => String(a.start || a.startTime || a.startDate).localeCompare(String(b.start || b.startTime || b.startDate)));
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
@@ -190,21 +225,23 @@ export function MemberPortal() {
   function eventCard(item: Row) { return <article className="mp-card" key={item.occurrenceId || item.id}><span className="mp-eyebrow">{dateLabel(item.start || item.startTime || item.startDate, !item.allDay)}{item.allDay ? " · All day" : ""}</span><h3>{item.title || item.name}</h3>{item.end && !item.allDay && <p className="mp-muted">Ends {dateLabel(item.end, true)}</p>}{item.location && <p><strong>Where:</strong> {item.location}</p>}{item.description && <p className="mp-description">{item.description}</p>}</article>; }
 
   return <div className="member-portal">
-    <header className="mp-header"><a href="/portal" className="mp-brand"><img src="/portal-icon.svg" alt="" width="38" height="38" /><span>Church community<small>{me?.church?.name || "Member portal"}</small></span></a><div className="mp-header-actions"><button className="mp-quiet" onClick={install}>{installEvent ? "Install app" : "Add to home screen"}</button>{token && <button className="mp-quiet" onClick={signOut} disabled={busy}>Sign out</button>}</div></header>
+    <header className="mp-header"><a href="/portal" className="mp-brand"><img src="/portal-icon.svg" alt="" width="38" height="38" /><span>Church community<small>{me?.church?.name || "Member portal"}</small></span></a><div className="mp-header-actions"><button className="mp-quiet" onClick={install}>{installEvent ? "Install app" : "Add to home screen"}</button>{token && churches.length > 1 && <button className="mp-quiet" onClick={() => { setChoosingChurch(true); setError(""); setNotice(""); }} disabled={busy || loading}>Change church</button>}{token && <button className="mp-quiet" onClick={signOut} disabled={busy}>Sign out</button>}</div></header>
     <div className="mp-dev-note">Local development · synthetic church and member records</div>
     <main className="mp-main">
       {installHelp && <aside className="mp-install"><strong>Keep your community close.</strong><p>{ios ? "In Safari, tap Share, then Add to Home Screen. The portal will open as a web app." : "Open your browser menu and choose Install app or Add to Home Screen if available. You can also bookmark this page."} An internet connection is required to view member information.</p></aside>}
       {error && <div className="mp-alert" role="alert">{error}</div>}{notice && <div className="mp-notice" role="status">{notice}</div>}
-      {!token ? <section className="mp-login-layout"><div className="mp-welcome"><span className="mp-eyebrow">Connected in community</span><h1>A place for your church family.</h1><p>Listen to recent sermons, find your groups, see what’s coming up and stay connected.</p><div className="mp-welcome-rule" /><p className="mp-muted">Your directory details are shared according to your preferences.</p></div><form className="mp-card mp-login" onSubmit={signIn}><h2>Welcome back</h2><p className="mp-muted">Sign in to your member portal.</p><label>Email<input type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} /></label><button className="mp-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button><details><summary>Try the synthetic demo</summary><p>Email: <code>member@example.test</code><br />Password: <code>LocalDemo2026!</code></p><button type="button" className="mp-quiet" onClick={() => { setEmail("member@example.test"); setPassword("LocalDemo2026!"); }}>Fill demo credentials</button></details></form></section> : <>
-        <nav className="mp-tabs" aria-label="Member sections">{tabs.map(tab => <button key={tab.id} aria-current={section === tab.id ? "page" : undefined} onClick={() => { setSection(tab.id); setSearch(""); setNotice(""); }}>{tab.label}</button>)}</nav>
+      {loginChurches || choosingChurch ? <MemberChurchSelector key={loginChurches ? "login" : me?.church.id} churches={(loginChurches || churches).map(link => link.church)} currentChurchId={choosingChurch ? me?.church.id : undefined} busy={busy} onChoose={chooseChurch} onCancel={cancelChurchSelection} /> : !token ? <section className="mp-login-layout"><div className="mp-welcome"><span className="mp-eyebrow">Connected in community</span><h1>A place for your church family.</h1><p>Listen to recent sermons, find your groups, see what’s coming up and stay connected.</p><div className="mp-welcome-rule" /><p className="mp-muted">Your directory details are shared according to your preferences.</p></div><form className="mp-card mp-login" onSubmit={signIn}>
+        {challenge ? <><h2>Verify your sign-in</h2><p className="mp-muted">Enter a code from your authenticator app or use a recovery code.</p><label>Authenticator or recovery code<input required autoComplete="one-time-code" maxLength={64} value={mfaCode} onChange={event => setMfaCode(event.target.value)} disabled={busy} /></label><div className="mp-button-row"><button className="mp-primary" disabled={busy}>{busy ? "Verifying…" : "Verify sign-in"}</button><button type="button" className="mp-quiet" disabled={busy} onClick={() => { setChallenge(null); setMfaCode(""); setPassword(""); setError(""); }}>Cancel verification</button></div></> : <><h2>Welcome back</h2><p className="mp-muted">Sign in to your member portal.</p><label>Email<input type="email" autoComplete="username" required value={email} onChange={event => setEmail(event.target.value)} disabled={busy} /></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={event => setPassword(event.target.value)} disabled={busy} /></label><button className="mp-primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button><details><summary>Try the synthetic demo</summary><p>Email: <code>member@example.test</code><br />Password: <code>LocalDemo2026!</code></p><button type="button" className="mp-quiet" disabled={busy} onClick={() => { setEmail("member@example.test"); setPassword("LocalDemo2026!"); }}>Fill demo credentials</button></details></>}
+      </form></section> : <>
+        <nav className="mp-tabs" aria-label="Member sections">{tabs.map(tab => <button key={tab.id} disabled={busy} aria-current={section === tab.id ? "page" : undefined} onClick={() => { setSection(tab.id); setSearch(""); setNotice(""); }}>{tab.label}</button>)}</nav>
         {loading && <p className="mp-muted" role="status">Refreshing your community…</p>}
-        {section === "home" && <><section className="mp-home-hero"><span className="mp-eyebrow">Your church, together</span><h1>Hello, {person.name?.first || person.firstName || "friend"}.</h1><p>Make room for community this week.</p></section><div className="mp-shortcuts">{[{ id: "sermons", title: "Listen & reflect", text: "Browse the sermon archive" }, { id: "groups", title: "Find your people", text: `${lists.groups.length} group${lists.groups.length === 1 ? "" : "s"} you belong to` }, { id: "calendar", title: "Gather together", text: "See upcoming church events" }].map(item => <button key={item.id} className="mp-card mp-shortcut" onClick={() => setSection(item.id as Section)}><strong>{item.title}</strong><span>{item.text}</span><span aria-hidden="true">↗</span></button>)}</div><div className="mp-section-title"><h2>Coming up</h2><button className="mp-quiet" onClick={() => setSection("calendar")}>View calendar →</button></div><div className="mp-grid">{events.length ? events.slice(0, 2).map(eventCard) : empty("calendar", "No upcoming events have been published.")}</div></>}
+        {section === "home" && <><section className="mp-home-hero"><span className="mp-eyebrow">Your church, together</span><h1>Hello, {person?.name.first || "friend"}.</h1><p>Make room for community this week.</p></section><div className="mp-shortcuts">{[{ id: "sermons", title: "Listen & reflect", text: "Browse the sermon archive" }, { id: "groups", title: "Find your people", text: `${lists.groups.length} group${lists.groups.length === 1 ? "" : "s"} you belong to` }, { id: "calendar", title: "Gather together", text: "See upcoming church events" }].map(item => <button key={item.id} className="mp-card mp-shortcut" onClick={() => setSection(item.id as Section)}><strong>{item.title}</strong><span>{item.text}</span><span aria-hidden="true">↗</span></button>)}</div><div className="mp-section-title"><h2>Coming up</h2><button className="mp-quiet" onClick={() => setSection("calendar")}>View calendar →</button></div><div className="mp-grid">{events.length ? events.slice(0, 2).map(eventCard) : empty("calendar", "No upcoming events have been published.")}</div></>}
         {section === "sermons" && <><div className="mp-section-title"><div><span className="mp-eyebrow">Listen & reflect</span><h1>Sermon archive</h1><p className="mp-muted">Published messages from your church.</p></div></div><div className="mp-grid">{lists.sermons.length ? lists.sermons.map(item => <Sermon key={item.id} sermon={item} token={token} />) : empty("sermons", "No sermons have been published yet.")}</div></>}
         {section === "groups" && <><h1>My groups</h1><p className="mp-muted">The communities you are part of.</p><div className="mp-grid">{lists.groups.length ? lists.groups.map(group => <article className="mp-card" key={group.id}><span className="mp-eyebrow">{group.categoryName || "Community"}</span><h2>{group.name}</h2>{(group.about || group.description) && <p className="mp-description">{group.about || group.description}</p>}{group.meetingTime && <p><strong>When:</strong> {group.meetingTime}</p>}{group.meetingLocation && <p><strong>Where:</strong> {group.meetingLocation}</p>}{group.leader ? <p className="mp-muted">You lead this group. Contact an administrator to transfer leadership before leaving.</p> : <button className="mp-quiet" disabled={busy || loading} onClick={() => changeGroup(group, false)}>Leave group</button>}</article>) : empty("groups", "You are not currently assigned to a group.")}</div><MemberGroupRequests token={token} groups={lists["groups/available"] || []} refresh={refresh} disabled={busy || loading} onJoin={group => changeGroup(group, true)} onChanged={() => setRefresh(value => value + 1)} onExpired={clearSession} /></>}
         {section === "calendar" && <><h1>Church calendar</h1><p className="mp-muted">Church events and gatherings for your groups. Times use your device’s timezone.</p><div className="mp-grid">{events.length ? events.map(eventCard) : empty("calendar", "No upcoming events have been published.")}</div></>}
         {section === "serving" && <><h1>My serving</h1><p className="mp-muted">Respond to your assignments and manage your availability.</p><div className="mp-grid">{lists.assignments.length ? lists.assignments.map(assignment => <article key={assignment.assignmentId || assignment.id} className="mp-card"><span className="mp-eyebrow">{dateLabel(assignment.serviceDate)}</span><h2>{assignment.planName}</h2><p>{assignment.positionName} · {assignment.status}</p><div className="mp-button-row"><button className="mp-primary" disabled={busy || loading || assignment.status === "Accepted"} onClick={() => servingAction(`assignments/accept/${encodeURIComponent(assignment.assignmentId || assignment.id)}`, "POST", {}, "Assignment accepted.")}>Accept</button><button className="mp-quiet" disabled={busy || loading || assignment.status === "Declined"} onClick={() => servingAction(`assignments/decline/${encodeURIComponent(assignment.assignmentId || assignment.id)}`, "POST", {}, "Assignment declined.")}>Decline</button></div></article>) : empty("assignments", "You have no upcoming serving assignments.")}</div><div className="mp-section-title" style={{ marginTop: 36 }}><h2>Open serving positions</h2></div><div className="mp-grid">{lists.signup.length ? lists.signup.map(entry => <article key={entry.plan.id} className="mp-card"><span className="mp-eyebrow">{dateLabel(entry.plan.serviceDate)}</span><h3>{entry.plan.name}</h3>{entry.positions?.filter((position: Row) => position.allowSelfSignup).map((position: Row) => <div key={position.id} className="mp-serving-position"><span>{position.name}<small className="mp-muted">{Math.max(0, position.count - position.filledCount)} places available</small></span><button className="mp-quiet" disabled={busy || loading || position.filledCount >= position.count} onClick={() => servingAction("assignments/signup", "POST", { positionId: position.id }, `You have signed up for ${position.name}.`)}>Sign up</button></div>)}</article>) : empty("signup", "No open serving positions are available.")}</div><div className="mp-section-title" style={{ marginTop: 36 }}><h2>Unavailable dates</h2></div><form className="mp-card mp-profile" onSubmit={event => { event.preventDefault(); servingAction("blockoutDates", "POST", [{ startDate: blockoutStart, endDate: blockoutEnd }], "Your unavailable dates have been saved."); }}><p className="mp-muted">Let your ministry team know when you cannot serve.</p><div className="mp-grid"><label>From<input type="date" required value={blockoutStart} onChange={event => setBlockoutStart(event.target.value)} /></label><label>Through<input type="date" required min={blockoutStart} value={blockoutEnd} onChange={event => setBlockoutEnd(event.target.value)} /></label></div><button className="mp-primary" disabled={busy || loading}>Save unavailable dates</button></form><div className="mp-grid" style={{ marginTop: 20 }}>{lists.blockouts.length ? lists.blockouts.map(blockout => <article className="mp-card" key={blockout.id}><p>{dateLabel(blockout.startDate?.slice(0, 10))} – {dateLabel(blockout.endDate?.slice(0, 10))}</p><button className="mp-quiet" disabled={busy || loading} onClick={() => servingAction(`blockoutDates/${encodeURIComponent(blockout.id)}`, "DELETE", undefined, "Unavailable dates removed.")}>Remove unavailable dates</button></article>) : empty("blockouts", "You have no unavailable dates saved.")}</div></>}
         {section === "directory" && <><h1>Member directory</h1><p className="mp-muted">Members who have chosen to appear in your church directory.</p><label className="mp-search">Find a member<input type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Search by name" /></label><div className="mp-grid">{directory.length ? directory.map(member => <article className="mp-card mp-person" key={member.id}><div className="mp-avatar" aria-hidden="true">{displayName(member).split(" ").filter(Boolean).map((part: string) => part[0]).slice(0, 2).join("")}</div><div><h2>{displayName(member)}</h2>{(member.email || member.contactInfo?.email) && <p><a href={`mailto:${member.email || member.contactInfo?.email}`}>{member.email || member.contactInfo?.email}</a></p>}</div></article>) : empty("directory", search ? "No matching members." : "No members have opted into the directory yet.")}</div></>}
-        {section === "profile" && <><h1>My profile</h1><form className="mp-card mp-profile" onSubmit={saveProfile}><h2>{displayName(person)}</h2><p className="mp-muted">{person.contactInfo?.email || person.email}</p><label>Mobile phone<input type="tel" maxLength={40} value={phone} onChange={event => setPhone(event.target.value)} autoComplete="tel" /></label><fieldset><legend>Directory preferences</legend><label className="mp-checkbox"><input type="checkbox" checked={directoryVisible} onChange={event => setDirectoryVisible(event.target.checked)} />Show my name in the member directory</label><label className="mp-checkbox"><input type="checkbox" checked={shareEmail} onChange={event => setShareEmail(event.target.checked)} />Share my email with signed-in members</label><p className="mp-muted">Your email is shown only when both preferences are enabled. Your phone number is not included in the member directory.</p></fieldset><button className="mp-primary" disabled={busy || loading}>{busy ? "Saving…" : "Save preferences"}</button></form><CloudflareAccount token={token} onSessionsRevoked={() => { clearSession(); setNotice("Your password has changed. Sign in again with your new password."); }} /></>}
+        {section === "profile" && me && <><h1>My profile</h1><MemberProfileEditor key={me.church.id} profile={me} token={token} disabled={busy || loading} onBusy={setBusy} onSaved={profile => { setMe(profile); setRefresh(value => value + 1); }} onExpired={clearSession} /><MemberHousehold key={`household-${me.church.id}`} token={token} disabled={busy || loading} familyAddEnabled={me.settings.familyAddEnabled} lastName={me.person.name.last} onBusy={setBusy} onExpired={clearSession} /><CloudflareAccount token={token} onSessionsRevoked={(reason?: "password" | "mfa") => { clearSession(); setNotice(reason === "mfa" ? "Your security settings have changed. Sign in again." : "Your password has changed. Sign in again with your new password."); }} /></>}
       </>}
       <footer className="mp-footer">A private space for your community.<span>Member web app · online access required</span></footer>
     </main>

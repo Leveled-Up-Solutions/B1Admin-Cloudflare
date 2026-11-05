@@ -2,3 +2,10 @@
 .mp-button-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.mp-serving-position{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:12px 0;border-top:1px solid var(--mp-line)}.mp-serving-position small{display:block;font-size:12px}
 
 .member-portal textarea { width: 100%; box-sizing: border-box; font: inherit; padding: 12px; border: 1px solid #c8d5cf; border-radius: 8px; resize: vertical; }
+.member-portal select { width: 100%; min-width: 0; font: inherit; color: var(--mp-ink); background: #fff; border: 1px solid #c6d3c9; border-radius: 8px; padding: 12px 13px; }
+.member-portal select:focus-visible { outline: 3px solid #b98732; outline-offset: 2px; }
+.member-portal .mp-profile-fields { margin: 24px 0; }
+.member-portal fieldset:disabled input { color: var(--mp-muted); background: #f6f8f4; }
+.mp-household-list { list-style: none; padding: 0; margin: 18px 0; }
+.mp-household-list li { padding: 12px 0; border-bottom: 1px solid var(--mp-line); }
+.mp-household-list small { display: block; color: var(--mp-muted); }

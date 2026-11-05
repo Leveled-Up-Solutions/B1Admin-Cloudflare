@@ -1,6 +1,7 @@
 import type { Context } from './types';
-import { all, first, body, json, HttpError, id, now } from './http';
+import { all, first, json, HttpError, id, now } from './http';
 import { content } from './content';
+import { memberProfile } from './member-profile';
 import { attachEventExceptions, expandCalendarEvents, validateWindow } from './recurrence';
 
 function name(row: Record<string, any>) {
@@ -8,16 +9,6 @@ function name(row: Record<string, any>) {
     first: row.firstName,
     last: row.lastName,
     display: [row.nickName || row.firstName, row.lastName].filter(Boolean).join(' '),
-  };
-}
-function ownPerson(row: Record<string, any>) {
-  const contact = JSON.parse(row.contactInfo || '{}');
-  return {
-    id: row.id,
-    name: name(row),
-    contactInfo: { email: row.email, mobilePhone: contact.mobilePhone || '' },
-    directoryVisible: !!row.directoryVisible,
-    shareEmail: !!row.shareEmail,
   };
 }
 function page(ctx: Context, max = 100) {
@@ -33,61 +24,12 @@ function page(ctx: Context, max = 100) {
     throw new HttpError(400, 'Invalid pagination');
   return { limit: Number(limit), offset: Number(offset) };
 }
-async function profile(ctx: Context) {
-  const person = await first(
-    ctx,
-    'SELECT * FROM people WHERE churchId=? AND id=? AND removed=0',
-    ctx.principal.churchId,
-    ctx.principal.personId,
-  );
-  if (!person) throw new HttpError(404, 'Member profile not found');
-  const church = await first(ctx, 'SELECT id,name,subDomain FROM churches WHERE id=?', ctx.principal.churchId);
-  return { person: ownPerson(person), church };
-}
 /** Member-only wire surface: it never returns the staff person/household representation. */
 export async function member(ctx: Context): Promise<Response | undefined> {
   const { request, principal } = ctx;
   if (!ctx.path.startsWith('/member/')) return undefined;
-  if (ctx.path === '/member/v1/me') {
-    if (request.method === 'GET') return json(await profile(ctx));
-    if (request.method === 'POST') {
-      const input = await body(ctx.request);
-      if (
-        Array.isArray(input) ||
-        Object.keys(input).some((key) => !['mobilePhone', 'directoryVisible', 'shareEmail'].includes(key))
-      )
-        throw new HttpError(400, 'Only mobilePhone and directory preferences may be changed');
-      for (const field of ['directoryVisible', 'shareEmail'])
-        if (input[field] !== undefined && typeof input[field] !== 'boolean')
-          throw new HttpError(400, 'Directory preferences must be booleans');
-      if (
-        input.mobilePhone !== undefined &&
-        (typeof input.mobilePhone !== 'string' ||
-          input.mobilePhone.length > 40 ||
-          /[\x00-\x1f]/.test(input.mobilePhone))
-      )
-        throw new HttpError(400, 'Invalid mobile phone');
-      await profile(ctx);
-      const hasPhone = input.mobilePhone !== undefined;
-      await ctx.env.DB.batch([
-        ctx.env.DB.prepare(
-          "UPDATE people SET contactInfo=CASE WHEN ? THEN json_set(contactInfo,'$.mobilePhone',?) ELSE contactInfo END, directoryVisible=COALESCE(?,directoryVisible), shareEmail=COALESCE(?,shareEmail) WHERE churchId=? AND id=? AND removed=0",
-        ).bind(
-          hasPhone ? 1 : 0,
-          hasPhone ? input.mobilePhone.trim() : '',
-          input.directoryVisible === undefined ? null : input.directoryVisible ? 1 : 0,
-          input.shareEmail === undefined ? null : input.shareEmail ? 1 : 0,
-          principal.churchId,
-          principal.personId,
-        ),
-        ctx.env.DB.prepare(
-          'INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) VALUES(?,?,?,?,?,?)',
-        ).bind(id(), principal.churchId, principal.userId, 'member.profile.update', principal.personId, now()),
-      ]);
-      return json(await profile(ctx));
-    }
-    throw new HttpError(405, 'Method not allowed');
-  }
+  const profileResponse = await memberProfile(ctx);
+  if (profileResponse) return profileResponse;
   const groupAction = /^\/member\/v1\/groups\/([^/]+)\/(join|leave)$/.exec(ctx.path);
   if (groupAction) {
     const [, groupId, action] = groupAction;
@@ -142,6 +84,18 @@ export async function member(ctx: Context): Promise<Response | undefined> {
     ]);
     if (!results[1].meta.changes) throw new HttpError(409, 'Group membership changed; refresh before leaving');
     return json({ success: true, groupId, joined: false });
+  }
+  const archiveDownload = /^\/member\/v1\/files\/([^/]+)\/download$/.exec(ctx.path);
+  if (archiveDownload) {
+    if (!['GET', 'HEAD'].includes(request.method)) throw new HttpError(405, 'Method not allowed');
+    // Deliberately reduce access even for staff using this member URL: unpublished files stay hidden.
+    const response = await content({
+      ...ctx,
+      path: `/content/files/download/${archiveDownload[1]}`,
+      principal: { ...principal, role: 'member' },
+    });
+    if (!response) throw new HttpError(404, 'Archive file not found');
+    return response;
   }
   if (request.method !== 'GET') throw new HttpError(405, 'Member resources are read-only');
   if (ctx.path === '/member/v1/groups/available') {
@@ -243,17 +197,6 @@ export async function member(ctx: Context): Promise<Response | undefined> {
         downloadUrl: `/api/member/v1/files/${encodeURIComponent(file.id)}/download`,
       })),
     );
-  }
-  const archiveDownload = /^\/member\/v1\/files\/([^/]+)\/download$/.exec(ctx.path);
-  if (archiveDownload) {
-    // Deliberately reduce access even for staff using this member URL: unpublished files stay hidden.
-    const response = await content({
-      ...ctx,
-      path: `/content/files/download/${archiveDownload[1]}`,
-      principal: { ...principal, role: 'member' },
-    });
-    if (!response) throw new HttpError(404, 'Archive file not found');
-    return response;
   }
   if (ctx.path === '/member/v1/sermons') {
     const { limit, offset } = page(ctx);

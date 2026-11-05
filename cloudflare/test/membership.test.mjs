@@ -46,7 +46,10 @@ test('tenant reads, forged identities and read-only writes are isolated', async 
       headers: { 'X-Church-Id': 'church-other' },
     })
   ).json();
-  assert.equal(people.length, 3);
+  assert.deepEqual(
+    people.map((person) => person.id).sort(),
+    ['person-admin', 'person-alex', 'person-family-demo', 'person-multi-demo', 'person-jordan'].sort(),
+  );
   assert.ok(people.every((p) => p.churchId === 'church-demo'));
   assert.equal((await h.req('/membership/people/person-other', { token: admin })).status, 404);
   assert.equal(

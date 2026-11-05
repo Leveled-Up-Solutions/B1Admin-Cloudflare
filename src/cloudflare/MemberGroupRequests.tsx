@@ -12,7 +12,7 @@ export function MemberGroupRequests({ token, groups, refresh, disabled, onJoin, 
   const [error, setError] = React.useState(""), [notice, setNotice] = React.useState("");
   React.useEffect(() => {
     let active = true; setLoading(true); setError("");
-    Promise.all([request("/api/membership/groupjoinrequests/my", token), request("/api/member/v1/group-requests/review", token)])
+    Promise.all([request<Row[]>("/api/membership/groupjoinrequests/my", token), request<Row[]>("/api/member/v1/group-requests/review", token)])
       .then(([own, pending]) => { if (active) { setMine(own); setReview(pending); } })
       .catch(problem => { if (active) { if (problem.status === 401) onExpired(); setError(problem.message); } })
       .finally(() => { if (active) setLoading(false); });
@@ -23,8 +23,7 @@ export function MemberGroupRequests({ token, groups, refresh, disabled, onJoin, 
     try {
       await request(`/api/membership/groupjoinrequests${path}`, token, { method, ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
       setTarget(null); setDecline(null); setMessage(""); setReason(""); setNotice(success); onChanged();
-    } catch (problem: any) { if (problem.status === 401) onExpired(); setError(problem.message); }
-    finally { setBusy(false); }
+    } catch (problem: any) { if (problem.status === 401) onExpired(); setError(problem.message); } finally { setBusy(false); }
   }
   const locked = disabled || busy || loading;
   return <>

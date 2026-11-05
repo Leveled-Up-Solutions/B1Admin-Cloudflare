@@ -1,9 +1,10 @@
 import React from "react";
+import { CloudflareMfaSettings } from "./CloudflareMfaSettings";
 import { Alert, Button, Container, Paper, Stack, TextField, Typography } from "@mui/material";
 import { ApiHelper, UserHelper } from "@churchapps/apphelper";
 
 interface Props {
-  onSessionsRevoked: () => void;
+  onSessionsRevoked: (reason?: "password" | "mfa") => void;
   /** The member portal keeps a separate session instead of using UserHelper. */
   token?: string;
   email?: string;
@@ -16,6 +17,7 @@ export const CloudflareAccount = ({ onSessionsRevoked, token, email }: Props) =>
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
   const [changed, setChanged] = React.useState(false);
+  const [mfaRevoked, setMfaRevoked] = React.useState(false);
 
   async function changePassword(event: React.FormEvent) {
     event.preventDefault();
@@ -40,13 +42,13 @@ export const CloudflareAccount = ({ onSessionsRevoked, token, email }: Props) =>
       if (result?.success !== true || result.sessionsRevoked !== true) throw new Error("Password change could not be confirmed.");
       setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); setChanged(true);
       // The server already revoked every session; the host clears memory and returns to sign-in.
-      onSessionsRevoked();
+      onSessionsRevoked("password");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not change your password."); }
     finally { setBusy(false); }
   }
 
   return <Container maxWidth="sm" sx={{ py: 4 }}>
-    <Paper sx={{ p: { xs: 3, sm: 4 } }}>
+    {!mfaRevoked && <Paper sx={{ p: { xs: 3, sm: 4 } }}>
       <Stack component="form" onSubmit={changePassword} spacing={3} aria-label="Change password">
         <Typography variant="h1">Change password</Typography>
         <Typography color="text.secondary">{email ?? (token !== undefined ? "" : UserHelper.user?.email)}</Typography>
@@ -58,6 +60,7 @@ export const CloudflareAccount = ({ onSessionsRevoked, token, email }: Props) =>
         <TextField label="Confirm new password" name="confirmPassword" type="password" required autoComplete="new-password" value={confirmPassword} disabled={busy || changed} onChange={e => setConfirmPassword(e.target.value)} slotProps={{ htmlInput: { maxLength: 256 } }} />
         <Button type="submit" variant="contained" disabled={busy || changed}>{busy ? "Changing password…" : "Change password"}</Button>
       </Stack>
-    </Paper>
+    </Paper>}
+    <CloudflareMfaSettings token={token} onRevokedPending={() => setMfaRevoked(true)} onSessionsRevoked={onSessionsRevoked} />
   </Container>;
 };

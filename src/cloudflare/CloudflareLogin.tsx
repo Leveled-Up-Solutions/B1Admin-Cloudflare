@@ -1,4 +1,5 @@
 import React from "react";
+import { CloudflareRecovery } from "./CloudflareRecovery";
 import { Alert, Box, Button, Paper, Stack, TextField, Typography } from "@mui/material";
 import { ApiHelper, UserHelper } from "@churchapps/apphelper";
 import type { LoginResponseInterface, LoginUserChurchInterface } from "@churchapps/helpers";
@@ -7,7 +8,7 @@ import UserContext from "../UserContext";
 import { queryClient } from "../queryClient";
 import { saveMemberToken } from "./memberApi";
 
-type InvitationPreview = { mode: "setPassword" | "link"; expiresAt: string };
+type InvitationPreview = { mode: "setPassword" | "link"; expiresAt: string; requiresMfa?: boolean };
 type InvitationState = { kind: "none" | "loading" | "error" } | { kind: "ready"; preview: InvitationPreview };
 type CloudflareLoginResponse = Omit<LoginResponseInterface, "userChurches"> & {
   userChurches: Array<LoginUserChurchInterface & { role?: "admin" | "viewer" | "member" }>;
@@ -22,9 +23,12 @@ export const CloudflareLogin = () => {
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const [success, setSuccess] = React.useState(location.state?.passwordChanged === true ? "Your password has changed. Sign in with your new password." : "");
+  const [success, setSuccess] = React.useState(location.state?.securityChanged === true ? "Your security settings have changed. Sign in again." : location.state?.passwordChanged === true ? "Your password has changed. Sign in with your new password." : "");
   const [authGuid, setAuthGuid] = React.useState<string | null>(() => new URLSearchParams(location.search).get("auth"));
   const [invitation, setInvitation] = React.useState<InvitationState>(() => ({ kind: authGuid === null ? "none" : "loading" }));
+  const [recoveryToken, setRecoveryToken] = React.useState<string | null>(() => new URLSearchParams(location.search).get("recovery"));
+  const [challenge, setChallenge] = React.useState<{ mfaToken: string; expiresAt: string } | null>(null);
+  const [mfaCode, setMfaCode] = React.useState("");
   const [previewAttempt, setPreviewAttempt] = React.useState(0);
   const [newPassword, setNewPassword] = React.useState("");
   const [confirmPassword, setConfirmPassword] = React.useState("");
@@ -32,14 +36,14 @@ export const CloudflareLogin = () => {
   // Capture the invitation only in component memory, then remove it before rendering the form.
   React.useLayoutEffect(() => {
     const params = new URLSearchParams(location.search);
-    if (!params.has("auth")) return;
-    params.delete("auth");
+    if (!params.has("auth") && !params.has("recovery")) return;
+    params.delete("auth"); params.delete("recovery");
     const search = params.toString();
     navigate({ pathname: location.pathname, search: search ? "?" + search : "", hash: location.hash }, { replace: true, state: location.state });
   }, [location.pathname, location.search, location.hash, location.state, navigate]);
 
   React.useEffect(() => {
-    if (authGuid === null) return;
+    if (authGuid === null || recoveryToken !== null) return;
     if (!authGuid) { setInvitation({ kind: "error" }); setError("This invitation link is invalid."); return; }
     let active = true;
     setInvitation({ kind: "loading" });
@@ -51,10 +55,10 @@ export const CloudflareLogin = () => {
       if (active) { setInvitation({ kind: "error" }); setError(err instanceof Error ? err.message : "This invitation could not be verified."); }
     });
     return () => { active = false; };
-  }, [authGuid, previewAttempt]);
+  }, [authGuid, previewAttempt, recoveryToken]);
 
   function returnToSignIn() {
-    setAuthGuid(null); setInvitation({ kind: "none" }); setError("");
+    setAuthGuid(null); setRecoveryToken(null); setChallenge(null); setMfaCode(""); setInvitation({ kind: "none" }); setError("");
     setPassword(""); setNewPassword(""); setConfirmPassword("");
   }
 
@@ -71,7 +75,7 @@ export const CloudflareLogin = () => {
       const setup = invitation.preview.mode === "setPassword";
       const result: { success: boolean; email: string } = await ApiHelper.postAnonymous(
         setup ? "/users/setPasswordGuid" : "/users/acceptInvitation",
-        setup ? { authGuid, newPassword } : { authGuid, currentPassword: password },
+        setup ? { authGuid, newPassword } : { authGuid, currentPassword: password, ...(invitation.preview.requiresMfa ? { mfaCode } : {}) },
         "MembershipApi"
       );
       if (result?.success !== true || !result.email) throw new Error("Invitation acceptance could not be confirmed.");
@@ -88,7 +92,14 @@ export const CloudflareLogin = () => {
     setBusy(true);
     setError("");
     try {
-      const result: CloudflareLoginResponse = await ApiHelper.postAnonymous("/users/login", { email, password }, "MembershipApi");
+      const result: CloudflareLoginResponse | { mfaRequired: true; mfaToken: string; expiresAt: string } = await ApiHelper.postAnonymous("/users/login", challenge ? { mfaToken: challenge.mfaToken, mfaCode } : { email, password }, "MembershipApi");
+      setPassword(""); setMfaCode("");
+      if ("mfaRequired" in result) {
+        if (result.mfaRequired !== true || typeof result.mfaToken !== "string" || !("expiresAt" in result) || typeof result.expiresAt !== "string") throw new Error("Sign-in challenge could not be confirmed.");
+        setChallenge({ mfaToken: result.mfaToken, expiresAt: result.expiresAt });
+        return;
+      }
+      setChallenge(null);
       if (!result.user || !result.userChurches?.length) throw new Error("This account has no church access.");
       const selected = result.userChurches[0];
       if (selected.role === "member" && selected.apis.every(api => api.permissions.length === 0)) {
@@ -121,12 +132,20 @@ export const CloudflareLogin = () => {
         <Typography color="text.secondary">{invitation.kind === "none" ? "Sign in to the local church administration workspace." : "Accept your church invitation."}</Typography>
         {success && <Alert severity="success" role="status">{success}</Alert>}
         {error && <Alert severity="error">{error}</Alert>}
-        {invitation.kind === "none" ? <>
+        {recoveryToken !== null ? <CloudflareRecovery token={recoveryToken} onDone={recoveredEmail => { returnToSignIn(); if (recoveredEmail) { setEmail(recoveredEmail); setSuccess("Account recovered. Sign in with your new password."); } }} /> : invitation.kind === "none" ? <>
           <Alert severity="info">Synthetic data only. Use <strong>admin@example.test</strong> or <strong>viewer@example.test</strong> with password <strong>LocalDemo2026!</strong>. The viewer can read records but cannot change them.</Alert>
           <Stack component="form" onSubmit={login} spacing={3} aria-label="Sign in">
-            <TextField label="Email" name="email" type="email" required autoComplete="username" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} />
-            <TextField label="Password" name="password" type="password" required autoComplete="current-password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
-            <Button type="submit" variant="contained" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
+            {challenge ? <>
+              <Typography>Enter a six-digit authenticator code or one unused backup code. A code can be used only once; after setup, wait for the next code.</Typography>
+              <TextField label="Authenticator or backup code" name="mfaCode" required autoComplete="one-time-code" value={mfaCode} disabled={busy} onChange={e => setMfaCode(e.target.value)} />
+              <Typography variant="body2">Challenge expires {new Date(challenge.expiresAt).toLocaleString()}.</Typography>
+              <Button type="submit" variant="contained" disabled={busy}>{busy ? "Verifying…" : "Verify and sign in"}</Button>
+              <Button disabled={busy} onClick={() => { setChallenge(null); setMfaCode(""); setError(""); }}>Cancel verification</Button>
+            </> : <>
+              <TextField label="Email" name="email" type="email" required autoComplete="username" value={email} disabled={busy} onChange={e => setEmail(e.target.value)} />
+              <TextField label="Password" name="password" type="password" required autoComplete="current-password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
+              <Button type="submit" variant="contained" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</Button>
+            </>}
           </Stack>
           <Button component={Link} to="/portal">Open member portal</Button>
         </> : <>
@@ -140,13 +159,14 @@ export const CloudflareLogin = () => {
               <Typography>Enter the password for your existing account to accept this invitation.</Typography>
               <TextField label="Current password" name="currentPassword" type="password" required autoComplete="current-password" value={password} disabled={busy} onChange={e => setPassword(e.target.value)} />
             </>}
+            {invitation.preview.requiresMfa && <TextField label="Authenticator or backup code" autoComplete="one-time-code" required value={mfaCode} disabled={busy} onChange={event => setMfaCode(event.target.value)} />}
             {Number.isFinite(Date.parse(invitation.preview.expiresAt)) && <Typography variant="body2" color="text.secondary">Invitation expires {new Date(invitation.preview.expiresAt).toLocaleString()}.</Typography>}
             <Button type="submit" variant="contained" disabled={busy}>{busy ? "Accepting invitation…" : invitation.preview.mode === "setPassword" ? "Set password and accept" : "Accept invitation"}</Button>
           </Stack>}
           {invitation.kind === "error" && authGuid && <Button onClick={() => setPreviewAttempt(attempt => attempt + 1)}>Check invitation again</Button>}
           <Button onClick={returnToSignIn} disabled={busy}>Return to sign in</Button>
         </>}
-        <Typography variant="body2" color="text.secondary">The people directory, groups, calendars, Serving / Plans, My Work and the sermon archive are available. Sign-up and password recovery are not enabled in this development milestone.</Typography>
+        <Typography variant="body2" color="text.secondary">The people directory, groups, calendars, Serving / Plans, My Work and the sermon archive are available. Open sign-up is disabled. Account recovery requires a link issued by the local operator.</Typography>
       </Stack>
     </Paper>
   </Box>;

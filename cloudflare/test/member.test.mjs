@@ -29,7 +29,7 @@ test('member role cannot access staff surfaces and must authenticate', async () 
   assert.equal(me.person.id, 'person-alex');
   assert.equal(me.church.id, 'church-demo');
   assert.equal('settings' in me.church, false);
-  assert.equal('birthDate' in me.person, false);
+  assert.equal(me.person.birthDate, null);
 });
 test('member directory requires opt-in and never discloses withheld contact or household details', async () => {
   const list = await data(await h.req('/member/v1/directory', { token }));

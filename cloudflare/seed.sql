@@ -18,3 +18,13 @@ UPDATE people SET directoryVisible=1,shareEmail=1 WHERE id='person-alex';
 UPDATE people SET directoryVisible=1,shareEmail=0 WHERE id='person-admin';
 
 UPDATE groups SET joinPolicy='open' WHERE id='group-welcome';
+
+-- Separate two-church member fixture; the original member account remains single-church.
+INSERT OR IGNORE INTO households(id,churchId,name) VALUES('household-multi-demo','church-demo','Demo Family'),('household-multi-other','church-other','Other Family');
+INSERT OR IGNORE INTO people(id,churchId,firstName,lastName,householdId,householdRole,dateAdded) VALUES
+('person-multi-demo','church-demo','Morgan','Demo','household-multi-demo','Head','2026-01-01T00:00:00.000Z'),
+('person-family-demo','church-demo','Casey','Demo','household-multi-demo','Child','2026-01-01T00:00:00.000Z'),
+('person-multi-other','church-other','Morgan','Other','household-multi-other','Head','2026-01-01T00:00:00.000Z'),
+('person-family-other','church-other','Riley','Other','household-multi-other','Child','2026-01-01T00:00:00.000Z');
+INSERT OR IGNORE INTO users(id,email,firstName,lastName,passwordHash) SELECT 'user-multi','multi-member@example.test','Morgan','Example',passwordHash FROM users WHERE id='user-admin';
+INSERT OR IGNORE INTO user_churches VALUES('user-multi','church-demo','person-multi-demo','member'),('user-multi','church-other','person-multi-other','member');
