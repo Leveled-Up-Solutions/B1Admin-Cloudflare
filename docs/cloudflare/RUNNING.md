@@ -13,6 +13,8 @@ Giving/donations/payments, check-in, song/provider integrations, and outbound de
 Node.js 22.22 or newer in the Node 22 line, npm and Corepack. The frontend retains upstream Yarn 4.15.0; `cloudflare/` has a separate pinned npm lockfile. Current Wrangler uses a pinned Miniflare 5 beta local runtime; that dependency is explicit in the lockfile.
 
 ```sh
+git clone --branch cloudflare-port https://github.com/Leveled-Up-Solutions/B1Admin-Cloudflare.git
+cd B1Admin-Cloudflare
 corepack yarn install --immutable
 corepack yarn postinstall
 npm ci --prefix cloudflare
