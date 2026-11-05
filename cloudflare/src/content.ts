@@ -1,22 +1,17 @@
 import type { Context, Env } from './types';
 import { all, first, HttpError, id, json, now, records, requiredString, requireAdmin } from './http';
 
-const MAX_FILE_BYTES = 25 * 1024 * 1024;
-const MAX_BASE64_BYTES = 5 * 1024 * 1024;
-const FILE_TYPES = new Set([
-  'image/png',
-  'image/jpeg',
-  'image/webp',
-  'image/gif',
-  'application/pdf',
-  'text/plain',
-  'audio/mpeg',
-  'audio/mp4',
-  'audio/wav',
-  'video/mp4',
-  'application/zip',
-  'application/octet-stream',
-]);
+import {
+  boundedBytes,
+  downloadFile,
+  fileResponse,
+  FILE_TYPES,
+  MAX_FILE_BYTES,
+  MAX_BASE64_BYTES,
+  type FileRow,
+} from './media';
+import { cleanupUploads, mediaUploads } from './media-uploads';
+
 type Row = Record<string, any>;
 type Resource = 'sermons' | 'playlists';
 const tables: Record<Resource, string> = { sermons: 'content_sermons', playlists: 'content_playlists' };
@@ -212,47 +207,6 @@ async function contentRecords(
   return undefined;
 }
 
-async function boundedBytes(request: Request, max: number): Promise<Uint8Array> {
-  const advertised = Number(request.headers.get('Content-Length'));
-  if (advertised > max) throw new HttpError(413, 'File too large');
-  if (!request.body) throw new HttpError(400, 'File is empty');
-  const reader = request.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    length += value.length;
-    if (length > max) {
-      await reader.cancel();
-      throw new HttpError(413, 'File too large');
-    }
-    chunks.push(value);
-  }
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) {
-    result.set(chunk, offset);
-    offset += chunk.length;
-  }
-  return result;
-}
-
-function fileResponse(row: Row): Row {
-  return {
-    id: row.id,
-    churchId: row.churchId,
-    contentType: row.contentType,
-    contentId: row.contentId,
-    fileName: row.fileName,
-    fileType: row.fileType,
-    size: row.size,
-    dateModified: row.dateModified,
-    provider: 'r2',
-    contentPath: `/api/content/files/download/${encodeURIComponent(row.id)}`,
-  };
-}
-
 async function upload(ctx: Context, raw: boolean): Promise<Response> {
   requireAdmin(ctx);
   let input: Row;
@@ -366,12 +320,13 @@ async function upload(ctx: Context, raw: boolean): Promise<Response> {
 }
 
 async function files(ctx: Context): Promise<Response | undefined> {
+  if (ctx.path === '/content/files/uploads' || ctx.path.startsWith('/content/files/uploads/')) return mediaUploads(ctx);
   const parts = ctx.path.split('/').filter(Boolean).slice(2);
   const method = ctx.request.method;
   const churchId = ctx.principal.churchId;
   if (method === 'POST' && (parts.length === 0 || (parts[0] === 'upload' && parts.length === 1)))
     return upload(ctx, parts[0] === 'upload');
-  if (method === 'GET' && parts[0] === 'download' && parts.length === 2) {
+  if (['GET', 'HEAD'].includes(method) && parts[0] === 'download' && parts.length === 2) {
     const row = await first(
       ctx,
       "SELECT * FROM content_files WHERE churchId=? AND id=? AND state='ready'",
@@ -390,18 +345,7 @@ async function files(ctx: Context): Promise<Response | undefined> {
       ))
     )
       throw new HttpError(404, 'File not found');
-    const object = await ctx.env.FILES.get(row.objectKey);
-    if (!object) throw new HttpError(404, 'File data not found');
-    return new Response(object.body, {
-      headers: {
-        'Content-Type': row.fileType,
-        'Content-Length': String(object.size),
-        'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(row.fileName)}`,
-        'X-Content-Type-Options': 'nosniff',
-        'Content-Security-Policy': "sandbox; default-src 'none'",
-        'Cache-Control': 'private, no-store',
-      },
-    });
+    return downloadFile(ctx.request, ctx.env.FILES, row as FileRow & { objectKey: string });
   }
   if (method === 'GET' && parts.length === 0)
     return json(
@@ -411,7 +355,7 @@ async function files(ctx: Context): Promise<Response | undefined> {
           "SELECT * FROM content_files WHERE churchId=? AND state='ready' ORDER BY dateModified DESC LIMIT 500",
           churchId,
         )
-      ).map(fileResponse),
+      ).map((row) => fileResponse(row as FileRow)),
     );
   if (method === 'GET' && parts.length === 1) {
     const row = await first(
@@ -421,7 +365,7 @@ async function files(ctx: Context): Promise<Response | undefined> {
       parts[0],
     );
     if (!row) throw new HttpError(404, 'File not found');
-    return json(fileResponse(row));
+    return json(fileResponse(row as FileRow));
   }
   if (method === 'GET' && parts.length === 2)
     return json(
@@ -433,12 +377,21 @@ async function files(ctx: Context): Promise<Response | undefined> {
           parts[0],
           parts[1],
         )
-      ).map(fileResponse),
+      ).map((row) => fileResponse(row as FileRow)),
     );
   if (method === 'DELETE' && parts.length === 1) {
     requireAdmin(ctx);
     const row = await first(ctx, 'SELECT * FROM content_files WHERE churchId=? AND id=?', churchId, parts[0]);
     if (!row) throw new HttpError(404, 'File not found');
+    if (
+      await first(
+        ctx,
+        "SELECT id FROM media_uploads WHERE fileId=? AND churchId=? AND state IN ('creating','uploading','completing','aborting')",
+        row.id,
+        churchId,
+      )
+    )
+      throw new HttpError(409, 'Abort the active upload session before deleting this pending file');
     // Hide immediately, then remove bytes. A failed deletion remains resumable and unreadable.
     await ctx.env.DB.batch([
       ctx.env.DB.prepare("UPDATE content_files SET state='deleting',dateModified=? WHERE churchId=? AND id=?").bind(
@@ -459,10 +412,11 @@ async function files(ctx: Context): Promise<Response | undefined> {
 
 /** Retry incomplete R2 operations, with a grace period so active uploads are never collected. */
 export async function cleanupFiles(env: Env): Promise<number> {
+  const uploadsCleaned = await cleanupUploads(env);
   const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const rows = (
     await env.DB.prepare(
-      "SELECT id,objectKey FROM content_files WHERE state IN ('pending','deleting') AND dateModified<? LIMIT 100",
+      "SELECT id,objectKey FROM content_files WHERE state IN ('pending','deleting') AND dateModified<? AND NOT EXISTS(SELECT 1 FROM media_uploads WHERE fileId=content_files.id AND state IN ('creating','uploading','completing','aborting')) LIMIT 100",
     )
       .bind(cutoff)
       .all<{ id: string; objectKey: string }>()
@@ -475,7 +429,7 @@ export async function cleanupFiles(env: Env): Promise<number> {
       .run();
     cleaned++;
   }
-  return cleaned;
+  return cleaned + uploadsCleaned;
 }
 
 export async function content(ctx: Context): Promise<Response | undefined> {
@@ -484,7 +438,7 @@ export async function content(ctx: Context): Promise<Response | undefined> {
     (ctx.path.startsWith('/content/sermons') ||
       ctx.path.startsWith('/content/playlists') ||
       ctx.path.startsWith('/content/files')) &&
-    !(ctx.request.method === 'GET' && /^\/content\/files\/download\/[^/]+$/.test(ctx.path))
+    !(['GET', 'HEAD'].includes(ctx.request.method) && /^\/content\/files\/download\/[^/]+$/.test(ctx.path))
   )
     throw new HttpError(403, 'Use the member portal API');
   if (ctx.path === '/content/files' || ctx.path.startsWith('/content/files/')) return files(ctx);

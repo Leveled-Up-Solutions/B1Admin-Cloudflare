@@ -13,7 +13,7 @@ A published sermon's saved edits appear immediately. The editor explicitly advis
 
 ## Deliberate limits
 
-Live streaming, permanent live URLs, bulk import, provider metadata lookup, podcast RSS and external thumbnail previews are disabled in the Cloudflare build. Manual HTTPS media and thumbnail URLs may be stored; the editor does not fetch them automatically. R2 is an attachment archive, not a transcoding or adaptive streaming service. This milestone does not claim support for large sermon videos beyond the configured 25 MiB upload limit.
+Live streaming, permanent live URLs, bulk import, provider metadata lookup, podcast RSS and external thumbnail previews are disabled in the Cloudflare build. Manual HTTPS media and thumbnail URLs may be stored; the editor does not fetch them automatically. R2 is an attachment archive, not a transcoding or adaptive streaming service. The archive now supports resumable multipart upload sessions up to 1 GiB; tested browser transfers include a 25 MiB+1 synthetic file. Built-in Blob download/playback stays capped at 25 MiB, so this is not a native large-video streaming claim. See [the media API contract](CALENDAR_SERMON_API.md).
 
 The original **StreamingServices / Edit** UI permission controls sermon administration. The Worker additionally enforces the persisted tenant and server-side permissions. Members use the separate portal API and cannot write sermon or archive records.
 

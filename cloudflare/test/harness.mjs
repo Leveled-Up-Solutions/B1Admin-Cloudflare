@@ -15,7 +15,7 @@ export async function applySql(db, sql) {
   }
   if (statement.trim()) throw new Error('Unterminated SQL fixture statement');
 }
-export async function createHarness({ seed = true } = {}) {
+export async function createHarness({ seed = true, persistencePath, initialize = true } = {}) {
   const result = await build({
     entryPoints: [root + 'src/index.ts'],
     bundle: true,
@@ -24,8 +24,8 @@ export async function createHarness({ seed = true } = {}) {
     platform: 'browser',
     target: 'es2022',
   });
-  const mf = new Miniflare(
-    convertV4MiniflareOptions({
+  const mf = new Miniflare({
+    ...convertV4MiniflareOptions({
       modules: true,
       script: result.outputFiles[0].text,
       compatibilityDate: '2026-10-01',
@@ -36,16 +36,19 @@ export async function createHarness({ seed = true } = {}) {
       },
       bindings: {
         APP_ENV: 'test',
+        AUTH_ENCRYPTION_KEY: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
         SESSION_SECRET: 'test-only-secret-never-for-deployment-123456789',
         ALLOWED_ORIGINS: 'http://localhost:3101',
       },
     }),
-  );
+    ...(persistencePath ? { resourcePersistencePath: persistencePath } : {}),
+  });
   try {
     const db = await mf.getD1Database('DB');
-    for (const file of (await readdir(root + 'migrations')).filter((f) => f.endsWith('.sql')).sort())
-      await applySql(db, await readFile(root + 'migrations/' + file, 'utf8'));
-    if (seed)
+    if (initialize)
+      for (const file of (await readdir(root + 'migrations')).filter((f) => f.endsWith('.sql')).sort())
+        await applySql(db, await readFile(root + 'migrations/' + file, 'utf8'));
+    if (initialize && seed)
       for (const file of ['seed.sql', 'seed-calendar.sql', 'seed-sermons.sql', 'seed-doing.sql', 'seed-tasks.sql'])
         await applySql(db, await readFile(root + file, 'utf8'));
     async function req(path, options = {}) {
