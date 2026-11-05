@@ -13,11 +13,24 @@ test('scheduled maintenance expires auth state and records an idempotent job mar
       ['expired-session', old],
       ['valid-session', future],
     ]) {
+      const userId = sid === 'expired-session' ? data.user.id : 'user-viewer';
       await h.db
         .prepare('INSERT INTO sessions(id,userId,expiresAt,createdAt) VALUES(?,?,?,?)')
-        .bind(sid, data.user.id, expires, old)
+        .bind(sid, userId, expires, old)
         .run();
       await h.db.prepare('INSERT INTO auth_attempts(id,attempts,expiresAt) VALUES(?,?,?)').bind(sid, 1, expires).run();
+      await h.db
+        .prepare(
+          'INSERT INTO auth_mfa_challenges(tokenHash,userId,factorId,passwordVersion,expiresAt) VALUES(?,?,?,?,?)',
+        )
+        .bind(sid, userId, sid, 0, expires)
+        .run();
+      await h.db
+        .prepare(
+          'INSERT INTO auth_mfa_enrollments(userId,tokenHash,factorId,encryptedSecret,sessionId,passwordVersion,expiresAt) VALUES(?,?,?,?,?,?,?)',
+        )
+        .bind(userId, sid, sid, 'synthetic-unused-encryption-fixture', sid, 0, expires)
+        .run();
     }
     const worker = await h.mf.getWorker();
     assert.equal((await worker.scheduled({ scheduledTime: current, cron: '0 * * * *' })).outcome, 'ok');
@@ -25,6 +38,13 @@ test('scheduled maintenance expires auth state and records an idempotent job mar
     assert.ok(await h.db.prepare('SELECT id FROM sessions WHERE id=?').bind('valid-session').first());
     assert.equal(await h.db.prepare('SELECT id FROM auth_attempts WHERE id=?').bind('expired-session').first(), null);
     assert.ok(await h.db.prepare('SELECT id FROM auth_attempts WHERE id=?').bind('valid-session').first());
+    for (const table of ['auth_mfa_challenges', 'auth_mfa_enrollments']) {
+      assert.equal(
+        await h.db.prepare(`SELECT tokenHash FROM ${table} WHERE tokenHash='expired-session'`).first(),
+        null,
+      );
+      assert.ok(await h.db.prepare(`SELECT tokenHash FROM ${table} WHERE tokenHash='valid-session'`).first());
+    }
     assert.equal((await worker.scheduled({ scheduledTime: current, cron: '0 * * * *' })).outcome, 'ok');
     assert.equal(
       (await h.db.prepare('SELECT count(*) count FROM job_runs').first()).count,

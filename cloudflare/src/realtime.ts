@@ -121,6 +121,7 @@ export class ChurchRealtime {
   ): Promise<boolean> {
     return !!(await this.env.DB.prepare(
       `SELECT s.id FROM sessions s JOIN users u ON u.id=s.userId JOIN user_churches uc ON uc.userId=u.id
+       JOIN people p ON p.id=uc.personId AND p.churchId=uc.churchId AND p.removed=0
        WHERE s.id=? AND s.userId=? AND uc.churchId=? AND u.disabled=0 AND u.passwordState='active'
        AND s.passwordVersion=u.passwordVersion AND s.expiresAt>?
        AND (uc.role='admin' OR (?=0 AND EXISTS(

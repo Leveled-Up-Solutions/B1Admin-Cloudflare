@@ -5,6 +5,7 @@ export interface Env {
   ASSETS?: Fetcher;
   APP_ENV: string;
   SESSION_SECRET?: string;
+  AUTH_ENCRYPTION_KEY?: string;
   ALLOWED_ORIGINS?: string;
 }
 export interface Principal {

@@ -1,5 +1,7 @@
 import { builtinGrants, loadGrants, permissionKey } from './permissions';
 import { lifecycleRoutes } from './auth-lifecycle';
+import { mfaRoutes, startMfaLogin, finishMfaLogin } from './mfa';
+import { recoveryRoutes } from './recovery';
 import { checkPassword } from './passwords';
 import { body, HttpError, json, id, now } from './http';
 import type { Env, Principal } from './types';
@@ -71,7 +73,9 @@ export async function authenticate(request: Request, env: Env): Promise<Principa
   const auth = request.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ')) throw new HttpError(401, 'Authentication required');
   const data = await verify(env, auth.slice(7));
-  const grant = await env.DB.prepare('SELECT personId,role FROM user_churches WHERE userId=? AND churchId=?')
+  const grant = await env.DB.prepare(
+    'SELECT uc.personId,uc.role FROM user_churches uc JOIN people p ON p.id=uc.personId AND p.churchId=uc.churchId WHERE uc.userId=? AND uc.churchId=? AND p.removed=0',
+  )
     .bind(data.id, data.churchId || '')
     .first<{ personId: string; role: 'admin' | 'viewer' | 'member' }>();
   if (!grant) throw new HttpError(403, 'Church membership required');
@@ -88,7 +92,7 @@ export async function authenticate(request: Request, env: Env): Promise<Principa
 async function responseFor(env: Env, user: any, sessionId: string) {
   const grants = (
     await env.DB.prepare(
-      'SELECT uc.*, c.name,c.subDomain,c.settings FROM user_churches uc JOIN churches c ON c.id=uc.churchId WHERE uc.userId=? ORDER BY c.name',
+      'SELECT uc.*, c.name,c.subDomain,c.settings FROM user_churches uc JOIN churches c ON c.id=uc.churchId JOIN people activePerson ON activePerson.id=uc.personId AND activePerson.churchId=uc.churchId WHERE uc.userId=? AND activePerson.removed=0 ORDER BY c.name',
     )
       .bind(user.id)
       .all<any>()
@@ -168,11 +172,19 @@ async function responseFor(env: Env, user: any, sessionId: string) {
   };
 }
 export async function authRoutes(request: Request, env: Env, path: string): Promise<Response | undefined> {
+  const recovery = await recoveryRoutes(request, env, path);
+  if (recovery) return recovery;
+  const mfa = await mfaRoutes(request, env, path, authenticate);
+  if (mfa) return mfa;
   const lifecycle = await lifecycleRoutes(request, env, path, authenticate);
   if (lifecycle) return lifecycle;
   if (path === '/membership/users/login' && request.method === 'POST') {
     await key(env);
     const input = await body(request);
+    if (input.mfaToken) {
+      const result = await finishMfaLogin(request, env, input);
+      return json(await responseFor(env, result.user, result.sessionId));
+    }
     let user: any;
     let sid: string;
     if (input.jwt) {
@@ -210,10 +222,12 @@ export async function authRoutes(request: Request, env: Env, path: string): Prom
       const dummy = 'scrypt$32768$8$3$ZHVtbXktc2NyeXB0c2FsdCE$FbzAAfxQZ8tV0UARxyDq89VbsyUHOkBk1Cm3upw-7a4';
       const valid = await checkPassword(input.password, user?.passwordHash || dummy);
       if (!user || !valid) throw new HttpError(401, 'Login failed');
+      const challenge = await startMfaLogin(env, user);
+      if (challenge) return challenge;
       sid = id();
       await env.DB.batch([
         env.DB.prepare(
-          "INSERT INTO sessions(id,userId,expiresAt,createdAt,passwordVersion) SELECT ?,id,?,?,passwordVersion FROM users WHERE id=? AND passwordHash=? AND passwordVersion=? AND disabled=0 AND passwordState='active'",
+          "INSERT INTO sessions(id,userId,expiresAt,createdAt,passwordVersion) SELECT ?,id,?,?,passwordVersion FROM users WHERE id=? AND passwordHash=? AND passwordVersion=? AND disabled=0 AND passwordState='active' AND NOT EXISTS(SELECT 1 FROM auth_mfa WHERE userId=users.id)",
         ).bind(
           sid,
           new Date(Date.now() + 8 * 3600000).toISOString(),

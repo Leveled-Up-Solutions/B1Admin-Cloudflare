@@ -7,6 +7,8 @@ export async function scheduledCleanup(env: Env, scheduledTime = Date.now()): Pr
   await env.DB.batch([
     env.DB.prepare('DELETE FROM sessions WHERE expiresAt <= ?').bind(completedAt),
     env.DB.prepare('DELETE FROM auth_attempts WHERE expiresAt <= ?').bind(completedAt),
+    env.DB.prepare('DELETE FROM auth_mfa_challenges WHERE expiresAt <= ?').bind(completedAt),
+    env.DB.prepare('DELETE FROM auth_mfa_enrollments WHERE expiresAt <= ?').bind(completedAt),
   ]);
   await cleanupFiles(env);
   // Retry-safe marker: runs can repeat after interruption; each maintenance action is idempotent.

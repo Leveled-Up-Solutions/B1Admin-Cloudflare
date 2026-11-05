@@ -275,7 +275,8 @@ test('cancellation, re-requesting and competing decisions keep one terminal outc
   );
 });
 test('approval cannot add removed people or bypass a newly closed group', async () => {
-  const request = await create('leader-requests', admin);
+  // Use an ordinary applicant so removal does not violate last-admin safety.
+  const request = await create('leader-requests', viewer);
   await h.db.prepare("UPDATE groups SET joinPolicy='closed' WHERE id='leader-requests'").run();
   assert.equal(
     (
@@ -288,18 +289,27 @@ test('approval cannot add removed people or bypass a newly closed group', async 
     409,
   );
   await h.db.prepare("UPDATE groups SET joinPolicy='request' WHERE id='leader-requests'").run();
-  await h.db.prepare("UPDATE people SET removed=1 WHERE id='person-admin'").run();
-  assert.equal(
-    (
-      await h.req(`/membership/groupjoinrequests/${request.id}/approve`, {
-        method: 'POST',
-        token: member,
-        json: {},
-      })
-    ).status,
-    409,
-  );
-  await h.db.prepare("UPDATE people SET removed=0 WHERE id='person-admin'").run();
+  await h.db.prepare("UPDATE people SET removed=1 WHERE id='person-jordan'").run();
+  try {
+    assert.equal(
+      (
+        await h.req(`/membership/groupjoinrequests/${request.id}/approve`, {
+          method: 'POST',
+          token: member,
+          json: {},
+        })
+      ).status,
+      409,
+    );
+    assert.equal(
+      await h.db
+        .prepare("SELECT id FROM group_members WHERE groupId='leader-requests' AND personId='person-jordan'")
+        .first(),
+      null,
+    );
+  } finally {
+    await h.db.prepare("UPDATE people SET removed=0 WHERE id='person-jordan'").run();
+  }
   assert.equal(
     (
       await h.req(`/membership/groupjoinrequests/${request.id}/approve`, {

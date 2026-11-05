@@ -1,4 +1,6 @@
 import type { Env, Principal } from './types';
+import { factorProof } from './mfa-proof';
+import { assertConditions, dbNow, liveSession, securityBatch } from './auth-security';
 import { body, HttpError, json, id, now, requiredString } from './http';
 import { checkPassword, hashPassword, passwordPolicy, randomToken, tokenHash } from './passwords';
 type Authenticate = (request: Request, env: Env) => Promise<Principal>;
@@ -6,7 +8,7 @@ type Row = Record<string, any>;
 
 const validInvitation = `SELECT i.*,u.passwordHash,u.passwordState FROM auth_invitations i
  JOIN users u ON u.id=i.userId JOIN people p ON p.id=i.personId AND p.churchId=i.churchId
- WHERE i.tokenHash=? AND i.consumedAt IS NULL AND i.revokedAt IS NULL AND i.expiresAt>?
+ WHERE i.tokenHash=? AND i.consumedAt IS NULL AND i.revokedAt IS NULL AND i.expiresAt>${dbNow}
  AND u.disabled=0 AND u.passwordVersion=i.passwordVersion AND lower(u.email)=i.email AND lower(p.email)=i.email AND p.removed=0
  AND ((i.mode IN ('setPassword','bootstrap') AND u.passwordState='pending') OR (i.mode='link' AND u.passwordState='active'))
  AND (i.mode<>'setPassword' OR NOT EXISTS(SELECT 1 FROM user_churches pendingLink WHERE pendingLink.userId=u.id))
@@ -14,7 +16,7 @@ const validInvitation = `SELECT i.*,u.passwordHash,u.passwordState FROM auth_inv
  AND NOT EXISTS(SELECT 1 FROM user_churches uc WHERE uc.churchId=i.churchId AND uc.userId=i.userId AND uc.personId<>i.personId)
  AND NOT EXISTS(SELECT 1 FROM user_churches uc WHERE uc.churchId=i.churchId AND uc.personId=i.personId AND uc.userId<>i.userId)
  AND ((i.mode='bootstrap' AND EXISTS(SELECT 1 FROM auth_bootstrap b WHERE b.invitationId=i.id)) OR
- (i.mode<>'bootstrap' AND EXISTS(SELECT 1 FROM user_churches issuer JOIN users issuerUser ON issuerUser.id=issuer.userId WHERE issuer.churchId=i.churchId AND issuer.userId=i.createdBy AND issuer.role='admin' AND issuerUser.disabled=0 AND issuerUser.passwordState='active')))`;
+ (i.mode<>'bootstrap' AND EXISTS(SELECT 1 FROM user_churches issuer JOIN users issuerUser ON issuerUser.id=issuer.userId JOIN people issuerPerson ON issuerPerson.id=issuer.personId AND issuerPerson.churchId=issuer.churchId AND issuerPerson.removed=0 WHERE issuer.churchId=i.churchId AND issuer.userId=i.createdBy AND issuer.role='admin' AND issuerUser.disabled=0 AND issuerUser.passwordState='active')))`;
 
 function fields(input: Row, allowed: string[]) {
   if (Array.isArray(input) || Object.keys(input).some((key) => !allowed.includes(key)))
@@ -66,7 +68,7 @@ function rawToken(value: unknown): string {
   return value;
 }
 async function invitation(env: Env, hash: string): Promise<Row> {
-  const result = await env.DB.prepare(validInvitation).bind(hash, now()).first<Row>();
+  const result = await env.DB.prepare(validInvitation).bind(hash).first<Row>();
   if (!result) throw new HttpError(400, 'Invitation is invalid or expired');
   return result;
 }
@@ -87,6 +89,13 @@ export async function lifecycleRoutes(
     return json({
       mode: row.mode === 'bootstrap' ? 'setPassword' : row.mode,
       expiresAt: row.expiresAt,
+      ...(row.mode === 'link'
+        ? {
+            requiresMfa: !!(await env.DB.prepare('SELECT userId FROM auth_mfa WHERE userId=?')
+              .bind(row.userId)
+              .first()),
+          }
+        : {}),
     });
   }
   if (
@@ -95,7 +104,7 @@ export async function lifecycleRoutes(
   ) {
     const input = await body(request),
       setup = route.endsWith('/setpasswordguid');
-    fields(input, setup ? ['authGuid', 'newPassword'] : ['authGuid', 'currentPassword']);
+    fields(input, setup ? ['authGuid', 'newPassword'] : ['authGuid', 'currentPassword', 'mfaCode']);
     const hash = await tokenHash(rawToken(input.authGuid));
     await throttle(request, env, 'invitation-accept', hash);
     const invite = await invitation(env, hash);
@@ -108,13 +117,24 @@ export async function lifecycleRoutes(
       !(await checkPassword(input.currentPassword, invite.passwordHash))
     )
       throw new HttpError(401, 'Incorrect current password');
+    const proof = setup ? null : await factorProof(request, env, invite.userId, input.mfaCode);
     const claimId = id(),
       timestamp = now();
-    const result = await env.DB.batch([
+    const result = await securityBatch(env, [
       // The winning claim gates every side effect in this same D1 transaction; replay cannot create a partial account.
       env.DB.prepare(
         `UPDATE auth_invitations SET consumedAt=?,claimId=? WHERE id IN (SELECT valid.id FROM (${validInvitation}) valid) RETURNING id`,
-      ).bind(timestamp, claimId, hash, timestamp),
+      ).bind(timestamp, claimId, hash),
+      ...(proof
+        ? [
+            ...assertConditions(
+              env,
+              { sql: 'EXISTS(SELECT 1 FROM auth_invitations WHERE claimId=?)', values: [claimId] },
+              proof.condition,
+            ),
+            ...proof.statements,
+          ]
+        : []),
       env.DB.prepare(
         "UPDATE users SET passwordHash=?,passwordState='active',passwordVersion=passwordVersion+1,passwordMutationId=? WHERE id IN(SELECT userId FROM auth_invitations WHERE claimId=? AND mode<>'link')",
       ).bind(passwordHash, claimId, claimId),
@@ -157,7 +177,8 @@ export async function lifecycleRoutes(
     const passwordHash = hashPassword(password),
       mutationId = id(),
       timestamp = now();
-    const result = await env.DB.batch([
+    const result = await securityBatch(env, [
+      ...assertConditions(env, liveSession(principal, user.passwordVersion, user.passwordHash)),
       env.DB.prepare(
         "UPDATE users SET passwordHash=?,passwordVersion=passwordVersion+1,passwordMutationId=? WHERE id=? AND passwordHash=? AND passwordVersion=? AND passwordState='active' AND disabled=0 RETURNING id",
       ).bind(passwordHash, mutationId, user.id, user.passwordHash, user.passwordVersion),
@@ -171,7 +192,7 @@ export async function lifecycleRoutes(
         "INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?,?,?, 'security.password.changed',id,? FROM users WHERE id=? AND passwordMutationId=?",
       ).bind(id(), principal.churchId, user.id, timestamp, user.id, mutationId),
     ]);
-    if (result[0].results.length !== 1) throw new HttpError(409, 'Account changed; sign in again');
+    if (result[2].results.length !== 1) throw new HttpError(409, 'Account changed; sign in again');
     return json({
       id: user.id,
       email: user.email,
@@ -233,9 +254,9 @@ export async function lifecycleRoutes(
     // transaction. A password change, logout, demotion, or competing account claim
     // must not leave a new usable invitation, revoke an old one, or create an orphan.
     const canIssue = `EXISTS(SELECT 1 FROM sessions s JOIN users issuer ON issuer.id=s.userId
-   JOIN user_churches uc ON uc.userId=issuer.id WHERE s.id=? AND s.userId=? AND uc.churchId=?
+   JOIN user_churches uc ON uc.userId=issuer.id JOIN people issuerPerson ON issuerPerson.id=uc.personId AND issuerPerson.churchId=uc.churchId AND issuerPerson.removed=0 WHERE s.id=? AND s.userId=? AND uc.churchId=?
    AND uc.role='admin' AND issuer.disabled=0 AND issuer.passwordState='active'
-   AND s.passwordVersion=issuer.passwordVersion AND s.expiresAt>?)
+   AND s.passwordVersion=issuer.passwordVersion AND s.expiresAt>${dbNow})
    AND EXISTS(SELECT 1 FROM people p WHERE p.churchId=? AND p.id=? AND p.removed=0 AND lower(p.email)=?)
    AND (? IS NULL OR EXISTS(SELECT 1 FROM roles r WHERE r.churchId=? AND r.id=?))
    AND NOT EXISTS(SELECT 1 FROM user_churches uc WHERE uc.churchId=? AND ((uc.userId=? AND uc.personId<>?) OR (uc.personId=? AND uc.userId<>?)))
@@ -245,7 +266,6 @@ export async function lifecycleRoutes(
       principal.sessionId,
       principal.userId,
       principal.churchId,
-      timestamp,
       principal.churchId,
       personId,
       email,

@@ -371,3 +371,49 @@ test('idle-socket alarm rechecks fresh D1 permissions and session versions', asy
     await h.db.prepare('UPDATE sessions SET passwordVersion=passwordVersion-1 WHERE id=?').bind(sid).run();
   }
 });
+
+test('removed linked person closes existing sockets on ping and before event delivery', async () => {
+  await h.db
+    .prepare("UPDATE user_churches SET role='admin' WHERE userId='user-viewer' AND churchId='church-demo'")
+    .run();
+  try {
+    for (const trigger of ['ping', 'event']) {
+      const watch = await watchSocket(viewer);
+      const claims = JSON.parse(Buffer.from(viewer.split('.')[1], 'base64url').toString());
+      await h.db.prepare("UPDATE people SET removed=1 WHERE id='person-jordan'").run();
+      try {
+        assert.equal((await h.req('/messaging/realtime/events', { token: viewer })).status, 403);
+        const namespace = await h.mf.getDurableObjectNamespace('REALTIME');
+        const stub = namespace.get(namespace.idFromName('church:church-demo'));
+        assert.equal(
+          (
+            await stub.fetch('https://realtime.internal/events', {
+              headers: { 'X-Church-Id': 'church-demo', 'X-User-Id': claims.id, 'X-Session-Id': claims.sid },
+            })
+          ).status,
+          401,
+        );
+        if (trigger === 'ping') watch.socket.send('ping');
+        else
+          await data(
+            await h.req('/messaging/realtime/events', {
+              token: admin,
+              method: 'POST',
+              json: { action: 'refresh', data: { resource: 'people' } },
+            }),
+          );
+        await waitFor(watch.isClosed);
+        assert.equal(
+          watch.messages.some((message) => message.action === 'refresh'),
+          false,
+        );
+      } finally {
+        await h.db.prepare("UPDATE people SET removed=0 WHERE id='person-jordan'").run();
+      }
+    }
+  } finally {
+    await h.db
+      .prepare("UPDATE user_churches SET role='viewer' WHERE userId='user-viewer' AND churchId='church-demo'")
+      .run();
+  }
+});
