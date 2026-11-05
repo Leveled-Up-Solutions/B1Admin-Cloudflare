@@ -92,7 +92,7 @@ test("original sermon and playlist UI persists R2 archives and explicit member p
     await expect(page.getByTestId("sermon-edit-box")).toHaveCount(0);
     const published = await request.get("/api/member/v1/sermons", { headers: memberHeaders });
     expect((await published.json()).some((s: { id: string }) => s.id === sermonId)).toBeTruthy();
-    const memberFile = await request.get("/api/content/files/download/" + fileId, { headers: memberHeaders });
+    const memberFile = await request.get("/api/member/v1/files/" + fileId + "/download", { headers: memberHeaders });
     expect(memberFile.ok()).toBeTruthy();
     expect(await memberFile.body()).toEqual(fileBytes);
 
@@ -103,7 +103,7 @@ test("original sermon and playlist UI persists R2 archives and explicit member p
     await expect(page.getByTestId("sermon-edit-box")).toHaveCount(0);
     const unpublished = await request.get("/api/member/v1/sermons", { headers: memberHeaders });
     expect((await unpublished.json()).some((s: { id: string }) => s.id === sermonId)).toBeFalsy();
-    expect((await request.get("/api/content/files/download/" + fileId, { headers: memberHeaders })).status()).toBe(404);
+    expect((await request.get("/api/member/v1/files/" + fileId + "/download", { headers: memberHeaders })).status()).toBe(404);
 
     await page.getByTestId("edit-sermon-" + sermonId).click();
     editor = page.getByTestId("sermon-edit-box");

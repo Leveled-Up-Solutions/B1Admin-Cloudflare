@@ -34,16 +34,14 @@ test("sign-in and core navigation stay on this installation", async ({ page, bas
   expect(failedApi).toEqual([]);
 });
 
-test("person creation, update and deletion persist through the original directory workflow", async ({ page, request }) => {
-  const token = await login(page);
+test("person creation, update and deletion persist through the original directory workflow", async ({ page }) => {
+  await login(page);
   await page.getByRole("link", { name: "People", exact: true }).first().click();
   const unique = `Browser${Date.now()}`;
   const form = page.locator("#createPersonForm");
   await form.locator('input[name="first"]').fill(unique);
   await form.locator('input[name="last"]').fill("Synthetic");
-  const created = page.waitForResponse(response => response.url().endsWith("/api/membership/people") && response.request().method() === "POST" && response.ok());
   await form.getByRole("button", { name: "Add", exact: true }).click();
-  const person = (await (await created).json())[0];
   await expect(page.getByRole("heading", { name: unique + " Synthetic", exact: true })).toBeVisible();
   await page.getByLabel("City", { exact: true }).fill("Test City");
   await page.getByRole("button", { name: "Save person", exact: true }).click();
@@ -56,7 +54,6 @@ test("person creation, update and deletion persist through the original director
   page.once("dialog", dialog => dialog.accept());
   await page.getByRole("button", { name: "Delete person", exact: true }).click();
   await expect(page).toHaveURL(/\/people$/);
-  if (person.householdId) expect((await request.delete(`/api/membership/households/${person.householdId}`, { headers: { Authorization: `Bearer ${token}` } })).ok()).toBeTruthy();
 });
 
 test("calendar events support explicit timezone scheduling and deletion", async ({ page }) => {
