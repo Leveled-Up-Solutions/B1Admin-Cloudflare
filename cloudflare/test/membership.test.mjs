@@ -21,7 +21,12 @@ test('health and instance describe real local storage and explicit limits', asyn
 test('membership auth and CORS fail closed', async () => {
   assert.equal((await h.req('/membership/people')).status, 401);
   assert.equal(
-    (await h.req('/membership/people', { token: admin, headers: { origin: 'https://evil.test' } })).status,
+    (
+      await h.req('/membership/people', {
+        token: admin,
+        headers: { origin: 'https://evil.test' },
+      })
+    ).status,
     403,
   );
   assert.equal(
@@ -36,13 +41,22 @@ test('membership auth and CORS fail closed', async () => {
 });
 test('tenant reads, forged identities and read-only writes are isolated', async () => {
   const people = await (
-    await h.req('/membership/people', { token: admin, headers: { 'X-Church-Id': 'church-other' } })
+    await h.req('/membership/people', {
+      token: admin,
+      headers: { 'X-Church-Id': 'church-other' },
+    })
   ).json();
   assert.equal(people.length, 3);
   assert.ok(people.every((p) => p.churchId === 'church-demo'));
   assert.equal((await h.req('/membership/people/person-other', { token: admin })).status, 404);
   assert.equal(
-    (await h.req('/membership/people', { method: 'POST', token: viewer, json: [{ name: { first: 'No' } }] })).status,
+    (
+      await h.req('/membership/people', {
+        method: 'POST',
+        token: viewer,
+        json: [{ name: { first: 'No' } }],
+      })
+    ).status,
     403,
   );
   assert.equal(
@@ -57,7 +71,11 @@ test('tenant reads, forged identities and read-only writes are isolated', async 
   );
 });
 test('people/household/group lifecycle persists and audits nested wire shape', async () => {
-  let r = await h.req('/membership/households', { method: 'POST', token: admin, json: [{ name: 'Test Household' }] });
+  let r = await h.req('/membership/households', {
+    method: 'POST',
+    token: admin,
+    json: [{ name: 'Test Household' }],
+  });
   assert.equal(r.status, 200);
   const [house] = await r.json();
   r = await h.req('/membership/people', {
@@ -83,10 +101,30 @@ test('people/household/group lifecycle persists and audits nested wire shape', a
   });
   assert.equal(r.status, 200);
   const [gm] = await r.json();
-  const list = await (await h.req('/membership/groupmembers?personId=' + person.id, { token: admin })).json();
+  const list = await (
+    await h.req('/membership/groupmembers?personId=' + person.id, {
+      token: admin,
+    })
+  ).json();
   assert.equal(list[0].person.name.first, 'Taylor');
-  assert.equal((await h.req('/membership/groupmembers/' + gm.id, { method: 'DELETE', token: admin })).status, 200);
-  assert.equal((await h.req('/membership/people/' + person.id, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req('/membership/groupmembers/' + gm.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await h.req('/membership/people/' + person.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   assert.equal((await h.req('/membership/people/' + person.id, { token: admin })).status, 404);
   const audit = await h.db.prepare('SELECT count(*) n FROM audit_log WHERE entityId=?').bind(person.id).first();
   assert.equal(audit.n, 2);
@@ -110,12 +148,29 @@ test('logout revokes all API tokens tied to the session and disabled users lose 
   const { token, data } = await h.login();
   assert.equal((await h.req('/membership/users/logout', { method: 'POST', token })).status, 200);
   assert.equal((await h.req('/membership/people', { token })).status, 401);
-  assert.equal((await h.req('/membership/users/login', { method: 'POST', json: { jwt: data.user.jwt } })).status, 401);
-  await h.db.prepare('UPDATE users SET disabled=1 WHERE id=?').bind('user-other').run();
-  assert.equal((await h.req('/membership/people', { token: other })).status, 401);
+  assert.equal(
+    (
+      await h.req('/membership/users/login', {
+        method: 'POST',
+        json: { jwt: data.user.jwt },
+      })
+    ).status,
+    401,
+  );
+  await h.db.prepare('UPDATE users SET disabled=1 WHERE id=?').bind('user-viewer').run();
+  assert.equal((await h.req('/membership/people', { token: viewer })).status, 401);
 });
 test('unported workflows and payments are explicit', async () => {
-  assert.equal((await h.req('/giving/donate/charge', { method: 'POST', token: admin, json: {} })).status, 501);
+  assert.equal(
+    (
+      await h.req('/giving/donate/charge', {
+        method: 'POST',
+        token: admin,
+        json: {},
+      })
+    ).status,
+    501,
+  );
   assert.equal((await h.req('/doing/workflows', { token: admin })).status, 501);
 });
 test('JSON byte limits and malformed inputs return client errors', async () => {
@@ -137,7 +192,12 @@ test('JSON byte limits and malformed inputs return client errors', async () => {
       await h.req('/membership/people', {
         method: 'POST',
         token: admin,
-        json: [{ name: { first: 'Large' }, contactInfo: { address1: 'é'.repeat(600000) } }],
+        json: [
+          {
+            name: { first: 'Large' },
+            contactInfo: { address1: 'é'.repeat(600000) },
+          },
+        ],
       })
     ).status,
     413,
@@ -148,7 +208,11 @@ test('100-record requests stay below D1 per-statement bindings and keep batch at
     id: `bulk-person-${n}`,
     name: { first: 'Bulk', last: String(n) },
   }));
-  const response = await h.req('/membership/people', { method: 'POST', token: admin, json: people });
+  const response = await h.req('/membership/people', {
+    method: 'POST',
+    token: admin,
+    json: people,
+  });
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).length, 100);
   const fetched = await h.req('/membership/people/ids?ids=' + people.map((p) => p.id).join(','), { token: admin });

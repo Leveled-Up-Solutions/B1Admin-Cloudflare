@@ -22,11 +22,24 @@ const save = (rows, token = admin) => h.req('/content/sermons', { method: 'POST'
 test('sermon archive requires deliberate public publication and filters future dates', async () => {
   const [sermon] = await data(
     await save([
-      { title: 'Archive test', speaker: 'Synthetic Speaker', publishDate: '2020-01-01', visibility: 'public' },
+      {
+        title: 'Archive test',
+        speaker: 'Synthetic Speaker',
+        publishDate: '2020-01-01',
+        visibility: 'public',
+      },
     ]),
   );
   assert.equal((await h.req(`/public/v1/churches/demo/sermons/${sermon.id}`)).status, 404);
-  assert.equal((await h.req(`/content/sermons/${sermon.id}/publish`, { method: 'POST', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req(`/content/sermons/${sermon.id}/publish`, {
+        method: 'POST',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   let publicRow = await data(await h.req(`/public/v1/churches/demo/sermons/${sermon.id}`));
   assert.equal(publicRow.title, 'Archive test');
   assert.equal('churchId' in publicRow, false);
@@ -38,11 +51,24 @@ test('sermon archive requires deliberate public publication and filters future d
   assert.equal((await h.req(`/public/v1/churches/demo/sermons/${sermon.id}`)).status, 404);
   await save([{ id: sermon.id, publishDate: '2020-01-01' }]);
   assert.equal(
-    (await h.req(`/content/sermons/${sermon.id}/published`, { method: 'DELETE', token: admin })).status,
+    (
+      await h.req(`/content/sermons/${sermon.id}/published`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     200,
   );
   assert.equal((await h.req(`/public/v1/churches/demo/sermons/${sermon.id}`)).status, 404);
-  assert.equal((await h.req(`/content/sermons/${sermon.id}`, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req(`/content/sermons/${sermon.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
 });
 
 test('sermon mutations are tenant and role protected and reject unsafe media URLs', async () => {
@@ -51,13 +77,29 @@ test('sermon mutations are tenant and role protected and reject unsafe media URL
   assert.equal((await save([{ id: 'sermon-demo', title: 'Hijack' }], other)).status, 404);
   assert.equal((await h.req('/content/sermons', { token: member })).status, 403);
   assert.equal(
-    (await save([{ title: 'Unsafe', publishDate: '2020-01-01', videoUrl: 'javascript:alert(1)' }])).status,
+    (
+      await save([
+        {
+          title: 'Unsafe',
+          publishDate: '2020-01-01',
+          videoUrl: 'javascript:alert(1)',
+        },
+      ])
+    ).status,
     400,
   );
   assert.equal((await save([{ title: 'Invalid date', publishDate: '2027-02-30' }])).status, 400);
   assert.equal((await h.req('/public/v1/churches/demo/sermons?limit=999')).status, 400);
   assert.equal((await h.req('/public/v1/churches/demo/pages')).status, 404);
-  assert.equal((await h.req('/public/v1/churches/demo/sermons', { method: 'POST', json: {} })).status, 405);
+  assert.equal(
+    (
+      await h.req('/public/v1/churches/demo/sermons', {
+        method: 'POST',
+        json: {},
+      })
+    ).status,
+    405,
+  );
 });
 
 test('upstream playlist fields and sermon associations round-trip without crossing tenants', async () => {
@@ -65,7 +107,13 @@ test('upstream playlist fields and sermon associations round-trip without crossi
     await h.req('/content/playlists', {
       method: 'POST',
       token: admin,
-      json: [{ title: 'Synthetic series', description: 'Test playlist', publishDate: '2020-01-01' }],
+      json: [
+        {
+          title: 'Synthetic series',
+          description: 'Test playlist',
+          publishDate: '2020-01-01',
+        },
+      ],
     }),
   );
   const [sermon] = await data(
@@ -84,14 +132,49 @@ test('upstream playlist fields and sermon associations round-trip without crossi
   assert.equal(sermon.videoType, 'youtube');
   assert.equal(sermon.videoData, 'synthetic-video-id');
   assert.equal(sermon.duration, 1800);
-  assert.equal((await h.req(`/content/playlists/${playlist.id}`, { method: 'DELETE', token: admin })).status, 409);
   assert.equal(
-    (await save([{ title: 'Cross tenant', publishDate: '2020-01-01', playlistId: playlist.id }], other)).status,
+    (
+      await h.req(`/content/playlists/${playlist.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await save(
+        [
+          {
+            title: 'Cross tenant',
+            publishDate: '2020-01-01',
+            playlistId: playlist.id,
+          },
+        ],
+        other,
+      )
+    ).status,
     404,
   );
   assert.equal((await h.req(`/content/playlists/${playlist.id}`, { token: other })).status, 404);
-  assert.equal((await h.req(`/content/sermons/${sermon.id}`, { method: 'DELETE', token: admin })).status, 200);
-  assert.equal((await h.req(`/content/playlists/${playlist.id}`, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req(`/content/sermons/${sermon.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await h.req(`/content/playlists/${playlist.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
 });
 
 test('R2 archive upload/download/delete persists bytes and hides object keys', async () => {
@@ -107,15 +190,41 @@ test('R2 archive upload/download/delete persists bytes and hides object keys', a
   const row = await h.db.prepare('SELECT objectKey FROM content_files WHERE id=?').bind(file.id).first();
   const bucket = await h.mf.getR2Bucket('FILES');
   assert.ok(await bucket.head(row.objectKey));
-  const download = await h.req(`/content/files/download/${file.id}`, { token: admin });
+  const download = await h.req(`/content/files/download/${file.id}`, {
+    token: admin,
+  });
   assert.equal(await download.text(), 'Synthetic sermon transcript');
   assert.match(download.headers.get('Content-Disposition'), /^attachment/);
   assert.equal(download.headers.get('X-Content-Type-Options'), 'nosniff');
   assert.equal((await h.req(`/content/files/download/${file.id}`, { token: other })).status, 404);
   assert.equal((await h.req(`/content/files/download/${file.id}`)).status, 401);
-  assert.equal((await h.req(`/content/files/${file.id}`, { method: 'DELETE', token: viewer })).status, 403);
-  assert.equal((await h.req('/content/sermons/sermon-demo', { method: 'DELETE', token: admin })).status, 409);
-  assert.equal((await h.req(`/content/files/${file.id}`, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req(`/content/files/${file.id}`, {
+        method: 'DELETE',
+        token: viewer,
+      })
+    ).status,
+    403,
+  );
+  assert.equal(
+    (
+      await h.req('/content/sermons/sermon-demo', {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    409,
+  );
+  assert.equal(
+    (
+      await h.req(`/content/files/${file.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   assert.equal(await bucket.head(row.objectKey), null);
   assert.equal((await h.req(`/content/files/download/${file.id}`, { token: admin })).status, 404);
 });
@@ -128,16 +237,48 @@ test('upstream base64 shape is bounded and attached only to existing tenant serm
     fileType: 'text/plain',
     fileContents: 'data:text/plain;base64,SGVsbG8=',
   };
-  const [file] = await data(await h.req('/content/files', { method: 'POST', token: admin, json: [valid] }), 201);
+  const [file] = await data(
+    await h.req('/content/files', {
+      method: 'POST',
+      token: admin,
+      json: [valid],
+    }),
+    201,
+  );
   assert.equal(await (await h.req(`/content/files/download/${file.id}`, { token: admin })).text(), 'Hello');
   for (const [input, status] of [
     [{ ...valid, fileName: '../escape.txt' }, 400],
-    [{ ...valid, fileType: 'text/html', fileContents: 'data:text/html;base64,SGVsbG8=' }, 415],
+    [
+      {
+        ...valid,
+        fileType: 'text/html',
+        fileContents: 'data:text/html;base64,SGVsbG8=',
+      },
+      415,
+    ],
     [{ ...valid, contentId: 'missing' }, 404],
   ]) {
-    assert.equal((await h.req('/content/files', { method: 'POST', token: admin, json: [input] })).status, status);
+    assert.equal(
+      (
+        await h.req('/content/files', {
+          method: 'POST',
+          token: admin,
+          json: [input],
+        })
+      ).status,
+      status,
+    );
   }
-  assert.equal((await h.req('/content/files', { method: 'POST', token: other, json: [valid] })).status, 404);
+  assert.equal(
+    (
+      await h.req('/content/files', {
+        method: 'POST',
+        token: other,
+        json: [valid],
+      })
+    ).status,
+    404,
+  );
   assert.equal(
     (
       await h.req('/content/files', {

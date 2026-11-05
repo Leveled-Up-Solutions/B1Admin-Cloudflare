@@ -54,7 +54,11 @@ test('portal service worker never intercepts or caches member APIs and media', a
   ]) {
     let intercepted = false;
     handlers.get('fetch')({
-      request: { method: 'GET', url: new URL(path, 'https://church.test').href, mode: 'cors' },
+      request: {
+        method: 'GET',
+        url: new URL(path, 'https://church.test').href,
+        mode: 'cors',
+      },
       respondWith: () => {
         intercepted = true;
       },
@@ -67,7 +71,11 @@ test('offline portal navigation returns only the static offline notice', async (
   const { handlers, offline } = await worker();
   let result;
   handlers.get('fetch')({
-    request: { method: 'GET', url: 'https://church.test/portal', mode: 'navigate' },
+    request: {
+      method: 'GET',
+      url: 'https://church.test/portal',
+      mode: 'navigate',
+    },
     respondWith: (promise) => {
       result = promise;
     },
@@ -75,7 +83,11 @@ test('offline portal navigation returns only the static offline notice', async (
   assert.equal(await result, offline);
   let intercepted = false;
   handlers.get('fetch')({
-    request: { method: 'GET', url: 'https://church.test/people', mode: 'navigate' },
+    request: {
+      method: 'GET',
+      url: 'https://church.test/people',
+      mode: 'navigate',
+    },
     respondWith: () => {
       intercepted = true;
     },

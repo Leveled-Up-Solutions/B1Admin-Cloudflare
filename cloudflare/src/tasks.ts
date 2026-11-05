@@ -28,6 +28,7 @@ async function access(ctx: Context, taskId: string) {
     !allowed(ctx, 'DoingApi', 'Tasks', 'Edit') &&
     row.createdById !== ctx.principal.personId &&
     row.assignedPersonId !== ctx.principal.personId &&
+    row.associatedPersonId !== ctx.principal.personId &&
     !(await first(
       ctx,
       'SELECT id FROM group_members WHERE churchId=? AND groupId=? AND personId=?',
@@ -57,19 +58,56 @@ async function relation(
   if (!target) throw new HttpError(400, 'Unknown task relation');
   return type === 'person' ? [value, null] : [null, value];
 }
+function dueDate(value: unknown): string | null {
+  if (value == null || value === '') return null;
+  if (
+    typeof value !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(value)
+  )
+    throw new HttpError(400, 'dueDate must be an ISO date or timestamp with an explicit offset');
+  const day = value.slice(0, 10);
+  if (!Number.isFinite(Date.parse(value)) || new Date(day).toISOString().slice(0, 10) !== day)
+    throw new HttpError(400, 'Invalid dueDate');
+  return new Date(value).toISOString();
+}
+function queryIds(value: unknown): string[] {
+  if (!Array.isArray(value) || value.length > 100 || value.some((v) => typeof v !== 'string' || !v || v.length > 100))
+    throw new HttpError(400, 'Expected up to 100 IDs');
+  return [...new Set(value)];
+}
 export async function tasks(ctx: Context): Promise<Response | undefined> {
   const path = ctx.path.toLowerCase(),
     method = ctx.request.method,
     cid = ctx.principal.churchId,
     pid = ctx.principal.personId;
   if (!path.startsWith('/doing/tasks')) return undefined;
+  if (path === '/doing/tasks/timeline' && method === 'GET') {
+    const value = ctx.url.searchParams.get('taskIds');
+    const ids = queryIds(value ? value.split(',') : []);
+    const staff = allowed(ctx, 'DoingApi', 'Tasks', 'View') || allowed(ctx, 'DoingApi', 'Tasks', 'Edit');
+    const accessSql = `(t.createdById=? OR t.assignedPersonId=? OR t.associatedPersonId=? OR t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?))`;
+    const rows = await all(
+      ctx,
+      projection +
+        ` WHERE t.churchId=?
+      AND ((t.status='Open' AND (t.createdById=? OR t.assignedPersonId=? OR t.associatedPersonId=?)) OR t.id IN (SELECT value FROM json_each(?)))
+      ${staff ? '' : 'AND ' + accessSql} ORDER BY t.taskNumber,t.id`,
+      cid,
+      pid,
+      pid,
+      pid,
+      JSON.stringify(ids),
+      ...(staff ? [] : [pid, pid, pid, cid, pid]),
+    );
+    return json(rows.map((row) => ({ ...dto(row), postType: 'task', postId: row.id })));
+  }
   if (['/doing/tasks', '/doing/tasks/closed'].includes(path) && method === 'GET')
     return json(
       (
         await all(
           ctx,
           projection +
-            ' WHERE t.churchId=? AND t.status=? AND (t.createdById=? OR t.assignedPersonId=?) ORDER BY t.dateCreated DESC',
+            ' WHERE t.churchId=? AND t.status=? AND (t.createdById=? OR t.assignedPersonId=?) ORDER BY t.taskNumber,t.id',
           cid,
           path.endsWith('/closed') ? 'Closed' : 'Open',
           pid,
@@ -79,15 +117,9 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
     );
   if (path === '/doing/tasks/loadforgroups' && method === 'POST') {
     const input = await body(ctx.request);
-    if (
-      !Array.isArray(input.groupIds) ||
-      input.groupIds.length > 90 ||
-      input.groupIds.some((v: any) => typeof v !== 'string') ||
-      !['Open', 'Closed'].includes(input.status)
-    )
-      throw new HttpError(400, 'Invalid group task query');
-    if (!input.groupIds.length) return json([]);
-    const ids = input.groupIds;
+    if (!['Open', 'Closed'].includes(input.status)) throw new HttpError(400, 'Invalid group task query');
+    const ids = queryIds(input.groupIds);
+    if (!ids.length) return json([]);
     const own =
       !allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
         ? ' AND t.assignedGroupId IN (SELECT groupId FROM group_members WHERE churchId=? AND personId=?)'
@@ -97,10 +129,10 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
         await all(
           ctx,
           projection +
-            ` WHERE t.churchId=? AND t.status=? AND t.assignedGroupId IN (${ids.map(() => '?').join(',')})${own} ORDER BY t.dateCreated DESC`,
+            ` WHERE t.churchId=? AND t.status=? AND t.assignedGroupId IN (SELECT value FROM json_each(?))${own} ORDER BY t.taskNumber,t.id`,
           cid,
           input.status,
-          ...ids,
+          JSON.stringify(ids),
           ...(!allowed(ctx, 'DoingApi', 'Tasks', 'View') && !allowed(ctx, 'DoingApi', 'Tasks', 'Edit')
             ? [cid, pid]
             : []),
@@ -127,6 +159,7 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
       )
         throw new HttpError(400, 'Only standalone manual tasks are supported');
       const taskId = item.id ? requiredString(item.id, 'id') : id();
+      if (ids.includes(taskId)) throw new HttpError(400, 'Duplicate task ID in request');
       const exists = await first(ctx, 'SELECT churchId FROM tasks WHERE id=?', taskId);
       if (exists && exists.churchId !== cid) throw new HttpError(404, 'Task not found');
       const existing = exists ? dto(await access(ctx, taskId)) : null;
@@ -141,12 +174,7 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
         row.associatedWithId,
         true,
       );
-      let dueDate: string | null = null;
-      if (row.dueDate) {
-        if (typeof row.dueDate !== 'string' || !Number.isFinite(Date.parse(row.dueDate)))
-          throw new HttpError(400, 'Invalid dueDate');
-        dueDate = new Date(row.dueDate).toISOString();
-      }
+      const deadline = dueDate(row.dueDate);
       statements.push(
         ctx.env.DB.prepare(
           `INSERT INTO tasks(id,churchId,taskNumber,title,status,dateCreated,dateClosed,dueDate,createdById,assignedPersonId,assignedGroupId,associatedPersonId,associatedGroupId) VALUES(?,?,(SELECT COALESCE(MAX(taskNumber),0)+1 FROM tasks WHERE churchId=?),?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title,status=excluded.status,dateClosed=excluded.dateClosed,dueDate=excluded.dueDate,assignedPersonId=excluded.assignedPersonId,assignedGroupId=excluded.assignedGroupId,associatedPersonId=excluded.associatedPersonId,associatedGroupId=excluded.associatedGroupId WHERE tasks.churchId=excluded.churchId`,
@@ -158,7 +186,7 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
           status,
           existing?.dateCreated || now(),
           status === 'Closed' ? existing?.dateClosed || now() : null,
-          dueDate,
+          deadline,
           existing?.createdById || pid,
           assignedPersonId,
           assignedGroupId,

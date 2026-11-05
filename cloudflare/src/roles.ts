@@ -1,4 +1,5 @@
 import type { Context } from './types';
+import { allowed } from './permissions';
 import { all, first, body, json, HttpError, requiredString, id, now } from './http';
 
 const catalog: Record<string, Record<string, string[]>> = {
@@ -14,7 +15,13 @@ const catalog: Record<string, Record<string, string[]>> = {
 };
 export const permissionCatalog = Object.entries(catalog).flatMap(([apiName, sections]) =>
   Object.entries(sections).flatMap(([section, actions]) =>
-    actions.map((action) => ({ apiName, section, action, displaySection: section, displayAction: action })),
+    actions.map((action) => ({
+      apiName,
+      section,
+      action,
+      displaySection: section,
+      displayAction: action,
+    })),
   ),
 );
 const builtinId = 'builtin-administrators';
@@ -90,22 +97,30 @@ async function editableRole(ctx: Context, roleId: string) {
     throw new HttpError(403, 'You cannot change a role assigned to yourself');
   return found;
 }
-function validatePermission(ctx: Context, row: Record<string, any>) {
+async function validatePermission(ctx: Context, row: Record<string, any>) {
   const apiName = requiredString(row.apiName, 'apiName'),
     contentType = requiredString(row.contentType, 'contentType'),
     action = requiredString(row.action, 'action');
   if (!catalog[apiName]?.[contentType]?.includes(action))
     throw new HttpError(400, 'Permission is not supported by this instance');
-  // Scoped permission IDs are not silently broadened into whole-module privileges.
-  if (row.contentId !== undefined && row.contentId !== null && row.contentId !== '')
-    throw new HttpError(501, 'Resource-scoped role permissions are not yet supported');
-  const key = `${apiName}_${contentType}__${action}`;
-  if (ctx.principal.role !== 'admin' && (contentType === 'Roles' || !has(ctx, key)))
+  if (row.contentId !== undefined && row.contentId !== null && typeof row.contentId !== 'string')
+    throw new HttpError(400, 'contentId must be a group ID or an empty string');
+  const contentId = row.contentId ? requiredString(row.contentId, 'contentId') : '';
+  if (contentId) {
+    if (apiName !== 'MembershipApi' || !['Groups', 'Group Members'].includes(contentType))
+      throw new HttpError(501, 'Only group-scoped permissions are supported');
+    if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', ctx.principal.churchId, contentId)))
+      throw new HttpError(400, 'Permission scope must be an existing group in this church');
+  }
+  if (
+    ctx.principal.role !== 'admin' &&
+    (contentType === 'Roles' || !allowed(ctx, apiName, contentType, action, contentId))
+  )
     throw new HttpError(
       403,
       'You may only delegate permissions you already hold; role administration requires a bootstrap administrator',
     );
-  return { apiName, contentType, contentId: '', action };
+  return { apiName, contentType, contentId, action };
 }
 async function delegatableRole(ctx: Context, roleId: string) {
   if (ctx.principal.role === 'admin') return;
@@ -115,7 +130,7 @@ async function delegatableRole(ctx: Context, roleId: string) {
     ctx.principal.churchId,
     roleId,
   ))
-    validatePermission(ctx, row);
+    await validatePermission(ctx, row);
 }
 
 export async function roles(ctx: Context): Promise<Response | undefined> {
@@ -135,7 +150,10 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       userId || email,
     );
     if (!user)
-      throw new HttpError(404, 'No existing account in this church; registration and invitations are not enabled');
+      throw new HttpError(
+        404,
+        'No existing account in this church; use an administrator-issued invitation to create or link an account',
+      );
     return json({ ...user, isNewUser: false });
   }
   if (path === '/membership/userchurch' && method === 'POST') {
@@ -281,7 +299,7 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       if (!row.roleId || row.roleId === 'null') throw new HttpError(501, 'Everyone grants are not supported');
       const rid = requiredString(row.roleId, 'roleId');
       await editableRole(ctx, rid);
-      const permission = validatePermission(ctx, row);
+      const permission = await validatePermission(ctx, row);
       const pid = row.id ? requiredString(row.id, 'id') : id();
       await ownId(ctx, 'role_permissions', pid);
       const existing = await first(ctx, 'SELECT roleId FROM role_permissions WHERE churchId=? AND id=?', cid, pid);
@@ -289,7 +307,7 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
       statements.push(
         ctx.env.DB.prepare(
           'INSERT INTO role_permissions(id,churchId,roleId,apiName,contentType,contentId,action) VALUES(?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET roleId=excluded.roleId,apiName=excluded.apiName,contentType=excluded.contentType,contentId=excluded.contentId,action=excluded.action WHERE role_permissions.churchId=excluded.churchId',
-        ).bind(pid, cid, rid, permission.apiName, permission.contentType, '', permission.action),
+        ).bind(pid, cid, rid, permission.apiName, permission.contentType, permission.contentId, permission.action),
         audit(ctx, 'permission.grant.save', pid),
       );
       result.push({ id: pid, churchId: cid, roleId: rid, ...permission });
@@ -354,7 +372,14 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
         ).bind(mid, cid, rid, userId, addedBy, dateAdded),
         audit(ctx, 'permission.member.save', mid),
       );
-      result.push({ id: mid, churchId: cid, roleId: rid, userId, addedBy, dateAdded });
+      result.push({
+        id: mid,
+        churchId: cid,
+        roleId: rid,
+        userId,
+        addedBy,
+        dateAdded,
+      });
     }
     await ctx.env.DB.batch(statements);
     return json(result);

@@ -17,7 +17,12 @@ async function data(response, status = 200) {
   return response.json();
 }
 const post = (rows, token = admin) => h.req('/membership/associatedGroups', { method: 'POST', token, json: rows });
-const item = { contentType: 'planType', contentId: 'plan-type-street', groupId: 'group-welcome', settings: 'both' };
+const item = {
+  contentType: 'planType',
+  contentId: 'plan-type-street',
+  groupId: 'group-welcome',
+  settings: 'both',
+};
 test('original plan-type/group association CRUD persists wire fields and audits', async () => {
   const [row] = await data(await post([item]));
   assert.equal(row.churchId, 'church-demo');
@@ -32,7 +37,15 @@ test('original plan-type/group association CRUD persists wire fields and audits'
   assert.equal(list[0].id, row.id);
   const [updated] = await data(await post([{ id: row.id, settings: 'future' }]));
   assert.equal(updated.settings, 'future');
-  assert.equal((await h.req('/membership/associatedGroups/' + row.id, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req('/membership/associatedGroups/' + row.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   assert.equal(await h.db.prepare('SELECT id FROM associated_groups WHERE id=?').bind(row.id).first(), null);
   assert.equal((await h.db.prepare('SELECT count(*) n FROM audit_log WHERE entityId=?').bind(row.id).first()).n, 3);
 });
@@ -46,7 +59,14 @@ test('association foreign keys, duplicate checks, and bulk validation isolate te
     (await h.req('/membership/associatedGroups/content/planType/plan-type-street', { token: other })).status,
     404,
   );
-  assert.equal((await h.req('/membership/associatedGroups/group/group-welcome', { token: other })).status, 404);
+  assert.equal(
+    (
+      await h.req('/membership/associatedGroups/group/group-welcome', {
+        token: other,
+      })
+    ).status,
+    404,
+  );
   const before = (await h.db.prepare('SELECT count(*) n FROM associated_groups').first()).n;
   assert.equal(
     (
@@ -68,13 +88,24 @@ test('only Plans edit allows mutation and custom role grant revocation is immedi
   assert.equal((await post([item], viewer)).status, 403);
   assert.equal((await post([item], member)).status, 403);
   const [role] = await data(
-    await h.req('/membership/roles', { method: 'POST', token: admin, json: [{ name: 'Plan association editors' }] }),
+    await h.req('/membership/roles', {
+      method: 'POST',
+      token: admin,
+      json: [{ name: 'Plan association editors' }],
+    }),
   );
   const [permission] = await data(
     await h.req('/membership/rolepermissions', {
       method: 'POST',
       token: admin,
-      json: [{ roleId: role.id, apiName: 'DoingApi', contentType: 'Plans', action: 'Edit' }],
+      json: [
+        {
+          roleId: role.id,
+          apiName: 'DoingApi',
+          contentType: 'Plans',
+          action: 'Edit',
+        },
+      ],
     }),
   );
   await data(
@@ -87,11 +118,21 @@ test('only Plans edit allows mutation and custom role grant revocation is immedi
   const [row] = await data(await post([{ ...item, groupId: 'group-streaming' }], member));
   assert.equal(row.groupId, 'group-streaming');
   assert.equal(
-    (await h.req('/membership/rolepermissions/' + permission.id, { method: 'DELETE', token: admin })).status,
+    (
+      await h.req('/membership/rolepermissions/' + permission.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     200,
   );
   assert.equal(
-    (await h.req('/membership/associatedGroups/' + row.id, { method: 'DELETE', token: member })).status,
+    (
+      await h.req('/membership/associatedGroups/' + row.id, {
+        method: 'DELETE',
+        token: member,
+      })
+    ).status,
     403,
   );
 });
@@ -114,7 +155,15 @@ test('plan-type associations grant direct group members only the selected publis
         await h.req('/doing/plans', {
           method: 'POST',
           token: admin,
-          json: [{ ministryId: 'group-sound', planTypeId: type.id, name, serviceDate, prepared }],
+          json: [
+            {
+              ministryId: 'group-sound',
+              planTypeId: type.id,
+              name,
+              serviceDate,
+              prepared,
+            },
+          ],
         }),
       )
     )[0];
@@ -124,7 +173,14 @@ test('plan-type associations grant direct group members only the selected publis
   const get = (plan) => h.req('/doing/plans/' + plan.id, { token: member });
   assert.equal((await get(future)).status, 403);
   const [association] = await data(
-    await post([{ contentType: 'planType', contentId: type.id, groupId: 'group-welcome', settings: 'future' }]),
+    await post([
+      {
+        contentType: 'planType',
+        contentId: type.id,
+        groupId: 'group-welcome',
+        settings: 'future',
+      },
+    ]),
   );
   assert.equal((await get(future)).status, 200);
   assert.equal((await get(past)).status, 403);
@@ -137,7 +193,12 @@ test('plan-type associations grant direct group members only the selected publis
   assert.equal((await get(past)).status, 200);
   assert.equal((await h.req('/doing/plans/' + future.id, { token: other })).status, 404);
   assert.equal(
-    (await h.req('/membership/associatedGroups/' + association.id, { method: 'DELETE', token: admin })).status,
+    (
+      await h.req('/membership/associatedGroups/' + association.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     200,
   );
   assert.equal((await get(future)).status, 403);

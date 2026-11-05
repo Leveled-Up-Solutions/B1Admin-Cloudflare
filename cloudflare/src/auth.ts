@@ -1,4 +1,6 @@
 import { builtinGrants, loadGrants, permissionKey } from './permissions';
+import { lifecycleRoutes } from './auth-lifecycle';
+import { checkPassword } from './passwords';
 import { body, HttpError, json, id, now } from './http';
 import type { Env, Principal } from './types';
 const encoder = new TextEncoder();
@@ -54,7 +56,7 @@ async function verify(env: Env, token: string): Promise<Record<string, any>> {
     )
       throw new Error();
     const session = await env.DB.prepare(
-      'SELECT s.id FROM sessions s JOIN users u ON u.id=s.userId WHERE s.id=? AND s.userId=? AND s.expiresAt>? AND u.disabled=0',
+      "SELECT s.id FROM sessions s JOIN users u ON u.id=s.userId WHERE s.id=? AND s.userId=? AND s.expiresAt>? AND u.disabled=0 AND u.passwordState='active' AND s.passwordVersion=u.passwordVersion",
     )
       .bind(data.sid, data.id, now())
       .first();
@@ -82,22 +84,6 @@ export async function authenticate(request: Request, env: Env): Promise<Principa
     sessionId: data.sid,
     permissions: grants.map(permissionKey),
   };
-}
-async function checkPassword(password: string, encoded: string): Promise<boolean> {
-  const [algorithm, iterations, salt, hash] = encoded.split('$');
-  if (algorithm !== 'pbkdf2' || !salt || !hash) return false;
-  const material = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits']);
-  const actual = new Uint8Array(
-    await crypto.subtle.deriveBits(
-      { name: 'PBKDF2', hash: 'SHA-256', salt: unbase64(salt), iterations: Number(iterations) },
-      material,
-      256,
-    ),
-  );
-  const expected = unbase64(hash);
-  let diff = actual.length ^ expected.length;
-  for (let i = 0; i < actual.length; i++) diff |= actual[i] ^ (expected[i] || 0);
-  return diff === 0;
 }
 async function responseFor(env: Env, user: any, sessionId: string) {
   const grants = (
@@ -158,7 +144,11 @@ async function responseFor(env: Env, user: any, sessionId: string) {
       },
       person: {
         id: grant.personId,
-        name: { first: person.firstName, last: person.lastName, display: person.firstName + ' ' + person.lastName },
+        name: {
+          first: person.firstName,
+          last: person.lastName,
+          display: person.firstName + ' ' + person.lastName,
+        },
         membershipStatus: person.membershipStatus,
       },
       groups,
@@ -178,6 +168,8 @@ async function responseFor(env: Env, user: any, sessionId: string) {
   };
 }
 export async function authRoutes(request: Request, env: Env, path: string): Promise<Response | undefined> {
+  const lifecycle = await lifecycleRoutes(request, env, path, authenticate);
+  if (lifecycle) return lifecycle;
   if (path === '/membership/users/login' && request.method === 'POST') {
     await key(env);
     const input = await body(request);
@@ -209,24 +201,30 @@ export async function authRoutes(request: Request, env: Env, path: string): Prom
       );
       if (results.some((r) => Number((r.results[0] as any)?.attempts) > 30))
         throw new HttpError(429, 'Too many login attempts; retry later');
-      user = await env.DB.prepare('SELECT * FROM users WHERE email=? COLLATE NOCASE AND disabled=0')
+      user = await env.DB.prepare(
+        "SELECT * FROM users WHERE email=? COLLATE NOCASE AND disabled=0 AND passwordState='active'",
+      )
         .bind(email)
         .first();
       // Use a fixed valid development hash on the unknown-user path to equalize password work.
-      const dummy = 'pbkdf2$100000$ZGV2LXN5bnRoZXRpYy1zYWx0$2z4mwVbIuNr5HsfkbF77W9LB4LG_a4ou5VgvmCJ1PRw';
+      const dummy = 'scrypt$32768$8$3$ZHVtbXktc2NyeXB0c2FsdCE$FbzAAfxQZ8tV0UARxyDq89VbsyUHOkBk1Cm3upw-7a4';
       const valid = await checkPassword(input.password, user?.passwordHash || dummy);
       if (!user || !valid) throw new HttpError(401, 'Login failed');
       sid = id();
       await env.DB.batch([
-        env.DB.prepare('INSERT INTO sessions(id,userId,expiresAt,createdAt) VALUES(?,?,?,?)').bind(
+        env.DB.prepare(
+          "INSERT INTO sessions(id,userId,expiresAt,createdAt,passwordVersion) SELECT ?,id,?,?,passwordVersion FROM users WHERE id=? AND passwordHash=? AND passwordVersion=? AND disabled=0 AND passwordState='active'",
+        ).bind(
           sid,
-          user.id,
           new Date(Date.now() + 8 * 3600000).toISOString(),
           now(),
+          user.id,
+          user.passwordHash,
+          user.passwordVersion,
         ),
         env.DB.prepare(
-          "INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?||':'||churchId,churchId,userId,'login.success',userId,? FROM user_churches WHERE userId=?",
-        ).bind(id(), now(), user.id),
+          "INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?||':'||churchId,churchId,userId,'login.success',userId,? FROM user_churches WHERE userId=? AND EXISTS(SELECT 1 FROM sessions WHERE id=?)",
+        ).bind(id(), now(), user.id, sid),
       ]);
     }
     return json(await responseFor(env, user, sid));

@@ -1,5 +1,6 @@
 import type { Context } from './types';
 import { allowed } from './permissions';
+import { churchTimeZone, localDay, shiftServiceTime, validTimeZone } from './plan-time';
 import { all, first, body, records, requiredString, requireAdmin, HttpError, id, now, json } from './http';
 type Row = Record<string, any>;
 const tables: Record<string, string> = {
@@ -43,12 +44,21 @@ function integer(value: unknown, min = 0, max = 100): number {
 function instant(value: unknown): string {
   const input = requiredString(value, 'date', 50);
   day(input);
-  if (!/^\d{4}-\d{2}-\d{2}(T.*)?$/.test(input) || !Number.isFinite(Date.parse(input)))
-    throw new HttpError(400, 'Invalid date');
+  if (
+    !/^\d{4}-\d{2}-\d{2}T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/.test(input) ||
+    !Number.isFinite(Date.parse(input))
+  )
+    throw new HttpError(400, 'Service times must include a UTC Z or numeric offset');
   return new Date(input).toISOString();
 }
 function day(value: unknown): string {
-  const input = requiredString(value, 'date', 50).slice(0, 10);
+  const full = requiredString(value, 'date', 50);
+  if (
+    !/^\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d(?::[0-5]\d(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2}))?$/.test(full) ||
+    !Number.isFinite(Date.parse(full))
+  )
+    throw new HttpError(400, 'Invalid date');
+  const input = full.slice(0, 10);
   if (
     !/^\d{4}-\d{2}-\d{2}$/.test(input) ||
     !Number.isFinite(Date.parse(input)) ||
@@ -114,20 +124,73 @@ async function visiblePlan(ctx: Context, planId: string): Promise<Row> {
       ctx.principal.personId,
       planId,
     );
+    const today = localDay(Date.now(), await churchTimeZone(ctx));
     const associated = plan.planTypeId
       ? await first(
           ctx,
-          "SELECT ag.id FROM associated_groups ag JOIN group_members gm ON gm.churchId=ag.churchId AND gm.groupId=ag.groupId WHERE ag.churchId=? AND ag.contentType='planType' AND ag.contentId=? AND gm.personId=? AND (ag.settings='both' OR ag.settings='past' AND ?<date('now') OR ag.settings='future' AND ?>=date('now')) LIMIT 1",
+          `WITH RECURSIVE ancestors(id,parentId) AS (
+             SELECT g.id,g.parentId FROM groups g JOIN group_members gm ON gm.churchId=g.churchId AND gm.groupId=g.id WHERE g.churchId=? AND gm.personId=?
+             UNION SELECT g.id,g.parentId FROM groups g JOIN ancestors a ON g.id=a.parentId WHERE g.churchId=?
+           ) SELECT ag.id FROM associated_groups ag JOIN ancestors a ON a.id=ag.groupId
+           WHERE ag.churchId=? AND ag.contentType='planType' AND ag.contentId=?
+           AND (ag.settings='both' OR ag.settings='past' AND ?<=? OR ag.settings='future' AND ?>=?) LIMIT 1`,
+          ctx.principal.churchId,
+          ctx.principal.personId,
+          ctx.principal.churchId,
           ctx.principal.churchId,
           plan.planTypeId,
-          ctx.principal.personId,
           plan.serviceDate,
+          today,
           plan.serviceDate,
+          today,
         )
       : null;
     if (!assigned && !associated) throw new HttpError(403, 'Plan access denied');
   }
   return plan;
+}
+/** The original group-page plan list. Parent links share published plans downward;
+ * they do not confer membership, staff access, or visibility of siblings' plans. */
+export async function groupPlans(ctx: Context, groupId: string): Promise<Response> {
+  const cid = ctx.principal.churchId;
+  if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', cid, groupId)))
+    throw new HttpError(404, 'Group not found');
+  const staff =
+    allowed(ctx, 'DoingApi', 'Plans', 'View') ||
+    allowed(ctx, 'DoingApi', 'Plans', 'Edit') ||
+    allowed(ctx, 'MembershipApi', 'Groups', 'Edit');
+  if (
+    !staff &&
+    !(await first(
+      ctx,
+      'SELECT id FROM group_members WHERE churchId=? AND groupId=? AND personId=?',
+      cid,
+      groupId,
+      ctx.principal.personId,
+    ))
+  )
+    throw new HttpError(403, 'Group membership required');
+  const today = localDay(Date.now(), await churchTimeZone(ctx));
+  return json(
+    (
+      await all(
+        ctx,
+        `WITH RECURSIVE ancestors(id,parentId) AS (
+    SELECT id,parentId FROM groups WHERE churchId=? AND id=?
+    UNION SELECT g.id,g.parentId FROM groups g JOIN ancestors a ON g.id=a.parentId WHERE g.churchId=?
+  ) SELECT DISTINCT pl.* FROM doing_plans pl JOIN associated_groups ag ON ag.churchId=pl.churchId AND ag.contentId=pl.planTypeId AND ag.contentType='planType'
+  JOIN ancestors a ON a.id=ag.groupId WHERE pl.churchId=? AND pl.prepared=0
+  AND (ag.settings='both' OR ag.settings='past' AND pl.serviceDate<=? OR ag.settings='future' AND pl.serviceDate>=?)
+  ORDER BY pl.serviceDate DESC,pl.id`,
+        cid,
+        groupId,
+        cid,
+        cid,
+        today,
+        today,
+      )
+    ).map(model),
+  );
 }
 function listIds(value: unknown): string[] {
   if (typeof value !== 'string' || value.length > 10000) throw new HttpError(400, 'IDs required');
@@ -147,7 +210,10 @@ function tree(rows: Row[], parentId: string | null = null, seen = new Set<string
 }
 async function clean(ctx: Context, resource: string, input: Row, previous: Row | null): Promise<Row> {
   const x = { ...previous, ...input };
-  const row: Row = { id: previous?.id || id(), churchId: ctx.principal.churchId };
+  const row: Row = {
+    id: previous?.id || id(),
+    churchId: ctx.principal.churchId,
+  };
   if (input.churchId && input.churchId !== row.churchId) throw new HttpError(403, 'Church mismatch');
   if (
     previous &&
@@ -299,7 +365,8 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
   const timeMap = new Map<string, string>();
   const posMap = new Map<string, string>();
   const itemMap = new Map<string, string>();
-  const delta = Date.parse(row.serviceDate) - Date.parse(source.serviceDate);
+  const delta = (Date.parse(row.serviceDate) - Date.parse(source.serviceDate)) / 86400000;
+  const zone = input.timeZone === undefined ? await churchTimeZone(ctx) : validTimeZone(input.timeZone);
   if (copyMode !== 'none') {
     for (const time of await all(
       ctx,
@@ -310,8 +377,9 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
       const old = time.id;
       time.id = id();
       time.planId = row.id;
-      time.startTime = new Date(Date.parse(time.startTime) + delta).toISOString();
-      time.endTime = new Date(Date.parse(time.endTime) + delta).toISOString();
+      time.startTime = shiftServiceTime(time.startTime, delta, zone);
+      time.endTime = shiftServiceTime(time.endTime, delta, zone);
+      if (time.endTime <= time.startTime) throw new HttpError(409, 'Copied time must end after it starts');
       timeMap.set(old, time.id);
       statements.push(statement(ctx, 'times', time, false));
     }
@@ -385,6 +453,8 @@ async function copyPlan(ctx: Context, sourceId: string): Promise<Response> {
   return json(model(row));
 }
 export async function doing(ctx: Context): Promise<Response | undefined> {
+  const groupRoute = /^\/membership\/groups\/([^/]+)\/plans$/i.exec(ctx.path);
+  if (groupRoute && ctx.request.method === 'GET') return groupPlans(ctx, groupRoute[1]);
   if (!ctx.path.startsWith('/doing/')) return undefined;
   const parts = ctx.path.slice(7).split('/').filter(Boolean);
   const resource = parts[0]?.toLowerCase();
@@ -450,8 +520,23 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     return json({});
   }
   if (resource === 'planitems' && action === 'sort' && method === 'POST') {
+    requireAdmin(ctx);
     const input = await body(ctx.request);
-    await save(ctx, resource, [input]);
+    const previous = await load(ctx, resource, requiredString(input.id, 'id', 100));
+    const row = await clean(ctx, resource, input, previous);
+    // Rank in SQL after moving the item, so simultaneous moves cannot leave stale
+    // sibling numbers. Both affected parent lists and the audit share one batch.
+    const normalize = (parentId: string | null) =>
+      ctx.env.DB.prepare(
+        `WITH ranks AS MATERIALIZED (
+      SELECT id,ROW_NUMBER() OVER(ORDER BY sort,id) n FROM doing_plan_items WHERE churchId=? AND planId=? AND parentId IS ?
+    ) UPDATE doing_plan_items SET sort=(SELECT n FROM ranks WHERE ranks.id=doing_plan_items.id)
+    WHERE churchId=? AND planId=? AND parentId IS ?`,
+      ).bind(row.churchId, row.planId, parentId, row.churchId, row.planId, parentId);
+    const statements = [statement(ctx, resource, row, true), normalize(row.parentId)];
+    if (previous.parentId !== row.parentId) statements.push(normalize(previous.parentId));
+    statements.push(audit(ctx, 'doing.planitems.sort', row.id));
+    await batch(ctx, statements);
     return json([]);
   }
   if (method === 'POST' && !action) return save(ctx, resource, await records(ctx.request));
@@ -517,7 +602,11 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
               Date.parse(times[0]?.startTime || plan.serviceDate) - plan.signupDeadlineHours * 3600000,
             ).toISOString()
           : null;
-        result.push({ plan: { ...model(plan), signupDeadline: deadline }, positions: positions.map(model), times });
+        result.push({
+          plan: { ...model(plan), signupDeadline: deadline },
+          positions: positions.map(model),
+          times,
+        });
       }
     }
     return json(result);
@@ -531,16 +620,14 @@ export async function doing(ctx: Context): Promise<Response | undefined> {
     );
     return json(
       parts[2] === 'upcoming'
-        ? rows
-            .slice(0, 20)
-            .map((r) => ({
-              assignmentId: r.id,
-              status: r.status,
-              positionName: r.positionName,
-              planId: r.planId,
-              planName: r.planName,
-              serviceDate: r.serviceDate,
-            }))
+        ? rows.slice(0, 20).map((r) => ({
+            assignmentId: r.id,
+            status: r.status,
+            positionName: r.positionName,
+            planId: r.planId,
+            planName: r.planName,
+            serviceDate: r.serviceDate,
+          }))
         : rows.map(model),
     );
   }

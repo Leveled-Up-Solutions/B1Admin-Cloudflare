@@ -1,6 +1,7 @@
 import type { Context } from './types';
 import { all, first, body, json, HttpError, id, now } from './http';
 import { content } from './content';
+import { attachEventExceptions, expandCalendarEvents, validateWindow } from './recurrence';
 
 function name(row: Record<string, any>) {
   return {
@@ -93,17 +94,18 @@ export async function member(ctx: Context): Promise<Response | undefined> {
     if (request.method !== (action === 'join' ? 'POST' : 'DELETE')) throw new HttpError(405, 'Method not allowed');
     const group = await first(
       ctx,
-      'SELECT id,joinPolicy FROM groups WHERE churchId=? AND id=?',
+      'SELECT id,joinPolicy,archived FROM groups WHERE churchId=? AND id=?',
       principal.churchId,
       groupId,
     );
     if (!group) throw new HttpError(404, 'Group not found');
     if (action === 'join') {
-      if (group.joinPolicy !== 'open') throw new HttpError(409, 'This group is not open for self-service joining');
+      if (group.archived || group.joinPolicy !== 'open')
+        throw new HttpError(409, 'This group is not open for self-service joining');
       const membershipId = id();
       await ctx.env.DB.batch([
         ctx.env.DB.prepare(
-          "INSERT INTO group_members(id,churchId,groupId,personId,leader) SELECT ?,churchId,id,?,0 FROM groups WHERE churchId=? AND id=? AND joinPolicy='open' ON CONFLICT(churchId,groupId,personId) DO NOTHING",
+          "INSERT INTO group_members(id,churchId,groupId,personId,leader) SELECT ?,churchId,id,?,0 FROM groups WHERE churchId=? AND id=? AND joinPolicy='open' AND archived=0 ON CONFLICT(churchId,groupId,personId) DO NOTHING",
         ).bind(membershipId, principal.personId, principal.churchId, groupId),
         ctx.env.DB.prepare(
           'INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?,churchId,?,?,groupId,? FROM group_members WHERE id=? AND churchId=?',
@@ -147,7 +149,7 @@ export async function member(ctx: Context): Promise<Response | undefined> {
     return json(
       await all(
         ctx,
-        "SELECT g.id,g.name,g.categoryName,g.about FROM groups g WHERE g.churchId=? AND g.joinPolicy='open' AND NOT EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id AND gm.personId=?) ORDER BY g.name,g.id LIMIT ? OFFSET ?",
+        "SELECT g.id,g.name,g.categoryName,g.about,g.joinPolicy FROM groups g WHERE g.churchId=? AND g.joinPolicy IN ('open','request') AND g.archived=0 AND NOT EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id AND gm.personId=?) ORDER BY g.name,g.id LIMIT ? OFFSET ?",
         principal.churchId,
         principal.personId,
         limit,
@@ -166,7 +168,11 @@ export async function member(ctx: Context): Promise<Response | undefined> {
       offset,
     );
     return json(
-      rows.map((row) => ({ id: row.id, name: name(row), contactInfo: row.shareEmail ? { email: row.email } : {} })),
+      rows.map((row) => ({
+        id: row.id,
+        name: name(row),
+        contactInfo: row.shareEmail ? { email: row.email } : {},
+      })),
     );
   }
   if (ctx.path === '/member/v1/groups') {
@@ -183,36 +189,37 @@ export async function member(ctx: Context): Promise<Response | undefined> {
   }
   if (ctx.path === '/member/v1/calendar') {
     const { limit, offset } = page(ctx, 200);
-    let range = '';
-    const rangeArgs: string[] = [];
-    for (const [key, column, operator] of [
-      ['from', 'e.end', '>='],
-      ['to', 'e.start', '<='],
-    ]) {
-      const value = ctx.url.searchParams.get(key);
-      if (value) {
-        if (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value)))
-          throw new HttpError(400, 'Calendar range requires an ISO timestamp with timezone');
-        range += ` AND ${column}${operator}?`;
-        rangeArgs.push(new Date(value).toISOString());
-      }
+    const suppliedFrom = ctx.url.searchParams.get('from'),
+      suppliedTo = ctx.url.searchParams.get('to');
+    for (const value of [suppliedFrom, suppliedTo]) {
+      if (
+        value !== null &&
+        (!/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:\d{2})$/.test(value) || !Number.isFinite(Date.parse(value)))
+      )
+        throw new HttpError(400, 'Calendar range requires an ISO timestamp with timezone');
     }
+    const from = suppliedFrom || now();
+    const to = suppliedTo || new Date(Date.parse(from) + 90 * 86400000).toISOString();
+    validateWindow(from, to);
     const rows = await all(
       ctx,
-      `SELECT e.id,e.title,e.description,e.start,e.end,e.allDay,e.timeZone,e.location,e.calendarId,c.name calendarName,e.groupId
-   FROM calendar_events e JOIN calendars c ON c.churchId=e.churchId AND c.id=e.calendarId
-   WHERE e.churchId=?
-   AND (c.groupId IS NULL OR EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=c.churchId AND gm.groupId=c.groupId AND gm.personId=?))
-   AND (e.groupId IS NULL OR EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=e.churchId AND gm.groupId=e.groupId AND gm.personId=?))
-   ${range} ORDER BY e.start,e.id LIMIT ? OFFSET ?`,
+      `SELECT e.id,e.title,e.description,e.start,e.end,e.allDay,e.timeZone,e.location,e.calendarId,c.name calendarName,e.groupId,
+        e.recurrenceRule,e.recurrenceParentId,e.recurrenceOriginalDate
+       FROM calendar_events e JOIN calendars c ON c.churchId=e.churchId AND c.id=e.calendarId
+       WHERE e.churchId=?
+       AND (c.groupId IS NULL OR EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=c.churchId AND gm.groupId=c.groupId AND gm.personId=?))
+       AND (e.groupId IS NULL OR EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=e.churchId AND gm.groupId=e.groupId AND gm.personId=?))
+       AND (e.recurrenceRule IS NOT NULL OR (e.end>? AND e.start<?)) ORDER BY e.start,e.id LIMIT 501`,
       principal.churchId,
       principal.personId,
       principal.personId,
-      ...rangeArgs,
-      limit,
-      offset,
+      new Date(Date.parse(from) - 2 * 86400000).toISOString(),
+      new Date(Date.parse(to) + 2 * 86400000).toISOString(),
     );
-    return json(rows.map((row) => ({ ...row, allDay: !!row.allDay })));
+    if (rows.length > 500) throw new HttpError(400, 'Calendar has too many series; request a smaller window');
+    // Tenant and both group-visibility checks happen before exceptions or recurrence are loaded.
+    const events = await attachEventExceptions(ctx.env.DB, principal.churchId, rows);
+    return json(expandCalendarEvents(events, from, to).slice(offset, offset + limit));
   }
   const archiveList = /^\/member\/v1\/sermons\/([^/]+)\/files$/.exec(ctx.path);
   if (archiveList) {
@@ -231,7 +238,10 @@ export async function member(ctx: Context): Promise<Response | undefined> {
       archiveList[1],
     );
     return json(
-      files.map((file) => ({ ...file, downloadUrl: `/api/member/v1/files/${encodeURIComponent(file.id)}/download` })),
+      files.map((file) => ({
+        ...file,
+        downloadUrl: `/api/member/v1/files/${encodeURIComponent(file.id)}/download`,
+      })),
     );
   }
   const archiveDownload = /^\/member\/v1\/files\/([^/]+)\/download$/.exec(ctx.path);

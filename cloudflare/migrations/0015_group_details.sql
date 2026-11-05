@@ -1,0 +1,6 @@
+ALTER TABLE groups ADD COLUMN meetingTime TEXT;
+ALTER TABLE groups ADD COLUMN meetingLocation TEXT;
+ALTER TABLE groups ADD COLUMN archived INTEGER NOT NULL DEFAULT 0 CHECK(archived IN (0,1));
+CREATE INDEX groups_parent ON groups(churchId,parentId);
+CREATE TRIGGER groups_no_cycle_insert BEFORE INSERT ON groups WHEN NEW.parentId IS NOT NULL BEGIN SELECT RAISE(ABORT,'CHECK constraint failed: group hierarchy cycle') WHERE NEW.parentId=NEW.id OR EXISTS ( WITH RECURSIVE ancestors(id,parentId) AS ( SELECT id,parentId FROM groups WHERE churchId=NEW.churchId AND id=NEW.parentId UNION SELECT g.id,g.parentId FROM groups g JOIN ancestors a ON g.id=a.parentId WHERE g.churchId=NEW.churchId ) SELECT 1 FROM ancestors WHERE id=NEW.id ); END;
+CREATE TRIGGER groups_no_cycle_update BEFORE UPDATE OF parentId ON groups WHEN NEW.parentId IS NOT NULL BEGIN SELECT RAISE(ABORT,'CHECK constraint failed: group hierarchy cycle') WHERE NEW.parentId=NEW.id OR EXISTS ( WITH RECURSIVE ancestors(id,parentId) AS ( SELECT id,parentId FROM groups WHERE churchId=NEW.churchId AND id=NEW.parentId UNION SELECT g.id,g.parentId FROM groups g JOIN ancestors a ON g.id=a.parentId WHERE g.churchId=NEW.churchId ) SELECT 1 FROM ancestors WHERE id=NEW.id ); END;

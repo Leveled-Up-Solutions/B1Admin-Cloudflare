@@ -42,7 +42,12 @@ export async function loadGrants(env: Env, userId: string, churchId: string, rol
   const base = Object.entries(builtinGrants).flatMap(([apiName, pairs]) =>
     pairs
       .filter(([, action]) => role === 'admin' || (role === 'viewer' && action.startsWith('View')))
-      .map(([contentType, action]) => ({ apiName, contentType, action, contentId: '' })),
+      .map(([contentType, action]) => ({
+        apiName,
+        contentType,
+        action,
+        contentId: '',
+      })),
   );
   const extra = (
     await env.DB.prepare(
@@ -76,6 +81,7 @@ function selfServiceRoute(method: string, path: string): boolean {
       /^\/doing\/(blockoutdates|schedulingpreferences)\/(?!my$|people$|ids$|upcoming$)[^/]+$/.test(path)
     );
   if (method !== 'GET') return false;
+  if (/^\/membership\/groups\/[^/]+\/plans$/.test(path)) return true;
   if (/^\/doing\/tasks(?:\/[^/]+)?$/.test(path)) return true;
   if (/^\/doing\/plans\/public\/signup\/[^/]+$/.test(path)) return true;
   if (/^\/doing\/assignments\/my(?:\/upcoming)?$/.test(path)) return true;
@@ -88,13 +94,26 @@ function selfServiceRoute(method: string, path: string): boolean {
 }
 /** Dispatch policy for staff routes. Handlers still validate tenant relationships and self-service ownership. */
 export function authorizeStaffRoute(ctx: Context): void {
-  if (ctx.path.startsWith('/member/')) return;
+  if (ctx.path.startsWith('/member/') || /^\/membership\/groupjoinrequests(?:\/|$)/i.test(ctx.path)) return;
   const path = ctx.path.toLowerCase(),
     method = ctx.request.method;
+  // Group handlers authorize every returned or mutated group, including both sides of moves.
+  // Do not turn one scoped grant into writeAuthorized for an entire bulk request.
+  if (
+    (method === 'GET' && /^\/membership\/groups(?:\/[^/]+|\/(?:my|tag|categories)\/[^/]+)?$/.test(path)) ||
+    (['POST', 'DELETE'].includes(method) && /^\/membership\/groups(?:\/[^/]+)?$/.test(path)) ||
+    (['GET', 'POST', 'DELETE'].includes(method) && /^\/membership\/groupmembers(?:\/[^/]+)?$/.test(path))
+  )
+    return;
   const read =
     ['GET', 'HEAD'].includes(method) ||
     (method === 'POST' &&
-      ['/membership/people/search', '/membership/people/duplicates', '/doing/tasks/loadforgroups'].includes(path));
+      [
+        '/membership/people/search',
+        '/membership/people/duplicates',
+        '/membership/people/advancedsearch',
+        '/doing/tasks/loadforgroups',
+      ].includes(path));
   let api = '',
     content = '',
     resourceId: string | undefined;

@@ -5,6 +5,7 @@ import { authRoutes, authenticate } from './auth';
 import { membership } from './membership';
 import { calendar } from './calendar';
 import { member } from './member';
+import { groupRequests } from './group-requests';
 import { doing } from './doing';
 import { tasks } from './tasks';
 import { associatedGroups } from './associated-groups';
@@ -17,9 +18,15 @@ export { ChurchRealtime } from './realtime';
 const supported = [
   'membership.people',
   'membership.households',
+  'membership.peopleAdvancedSearch',
+  'membership.groupJoinRequests',
+  'membership.groupScopedPermissions',
+  'membership.manualInvitations',
+  'membership.passwordChange',
   'membership.groups',
   'content.calendars',
   'content.events',
+  'content.calendarRecurrence',
   'member.portal',
   'doing.plans',
   'doing.manualTasks',
@@ -80,14 +87,20 @@ export default {
       if (path === '/health') {
         await env.DB.prepare('SELECT 1').first();
         return decorate(
-          json({ status: 'ok', runtime: 'cloudflare-workers', database: 'D1', files: 'R2', environment: env.APP_ENV }),
+          json({
+            status: 'ok',
+            runtime: 'cloudflare-workers',
+            database: 'D1',
+            files: 'R2',
+            environment: env.APP_ENV,
+          }),
           origin,
         );
       }
       if (path === '/capabilities' || path === '/instance')
         return decorate(
           json({
-            version: '0.1.0',
+            version: '0.2.0',
             stage: 'development-milestone',
             apiBase: '/api',
             apis: Object.fromEntries(
@@ -122,6 +135,8 @@ export default {
       if (taskResponse) return decorate(taskResponse, origin);
       const schedulingResponse = await doing(ctx);
       if (schedulingResponse) return decorate(schedulingResponse, origin);
+      const groupRequestResponse = await groupRequests(ctx);
+      if (groupRequestResponse) return decorate(groupRequestResponse, origin);
       const memberResponse = await member(ctx);
       if (memberResponse) return decorate(memberResponse, origin);
       if (principal.role === 'member') throw new HttpError(403, 'Use the member API for this account');
@@ -130,7 +145,14 @@ export default {
         if (response) return decorate(response, origin);
       }
       return decorate(
-        json({ errors: ['This route is not implemented in the Cloudflare port'], code: 'NOT_PORTED', path }, 501),
+        json(
+          {
+            errors: ['This route is not implemented in the Cloudflare port'],
+            code: 'NOT_PORTED',
+            path,
+          },
+          501,
+        ),
         origin,
       );
     } catch (error) {
@@ -142,7 +164,12 @@ export default {
         )
       )
         return decorate(
-          json({ errors: ['The operation conflicts with existing records or data constraints'] }, 409),
+          json(
+            {
+              errors: ['The operation conflicts with existing records or data constraints'],
+            },
+            409,
+          ),
           origin,
         );
       console.error('Request failed', url.pathname, 'unhandled error');

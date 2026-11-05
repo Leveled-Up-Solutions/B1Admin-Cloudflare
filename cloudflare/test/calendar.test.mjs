@@ -22,7 +22,12 @@ async function data(response) {
 test('calendar and event CRUD preserve group scope and audit each mutation', async () => {
   const [calendar] = await data(
     await save('calendars', [
-      { name: 'Team test', groupId: 'group-welcome', timeZone: 'America/New_York', color: '#123456' },
+      {
+        name: 'Team test',
+        groupId: 'group-welcome',
+        timeZone: 'America/New_York',
+        color: '#123456',
+      },
     ]),
   );
   const [event] = await data(
@@ -42,12 +47,36 @@ test('calendar and event CRUD preserve group scope and audit each mutation', asy
   assert.equal(event.allDay, false);
   const groupEvents = await data(await h.req('/content/events/group/group-welcome', { token: admin }));
   assert.ok(groupEvents.some((row) => row.id === event.id));
-  assert.equal((await h.req(`/content/calendars/${calendar.id}`, { method: 'DELETE', token: admin })).status, 409);
+  assert.equal(
+    (
+      await h.req(`/content/calendars/${calendar.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    409,
+  );
   assert.equal((await save('calendars', [{ id: calendar.id, groupId: null }])).status, 409);
   const [updated] = await data(await save('events', [{ id: event.id, title: 'Updated planning' }]));
   assert.equal(updated.title, 'Updated planning');
-  assert.equal((await h.req(`/content/events/${event.id}`, { method: 'DELETE', token: admin })).status, 200);
-  assert.equal((await h.req(`/content/calendars/${calendar.id}`, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req(`/content/events/${event.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await h.req(`/content/calendars/${calendar.id}`, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   assert.equal((await h.req(`/content/events/${event.id}`, { token: admin })).status, 404);
   const count = await h.db.prepare('SELECT count(*) n FROM audit_log WHERE entityId=?').bind(event.id).first();
   assert.equal(count.n, 3);
@@ -56,7 +85,13 @@ test('calendar and event CRUD preserve group scope and audit each mutation', asy
 test('all-day dates retain civil dates with an exclusive end', async () => {
   const [event] = await data(
     await save('events', [
-      { calendarId: 'calendar-demo', title: 'All day', start: '2027-03-14', end: '2027-03-15', allDay: true },
+      {
+        calendarId: 'calendar-demo',
+        title: 'All day',
+        start: '2027-03-14',
+        end: '2027-03-15',
+        allDay: true,
+      },
     ]),
   );
   assert.equal(event.start, '2027-03-14');
@@ -68,14 +103,29 @@ test('all-day dates retain civil dates with an exclusive end', async () => {
     ['2027-03-14', '2027-03-13'],
   ]) {
     assert.equal(
-      (await save('events', [{ calendarId: 'calendar-demo', title: 'Invalid', start, end, allDay: true }])).status,
+      (
+        await save('events', [
+          {
+            calendarId: 'calendar-demo',
+            title: 'Invalid',
+            start,
+            end,
+            allDay: true,
+          },
+        ])
+      ).status,
       400,
     );
   }
   assert.equal(
     (
       await save('events', [
-        { calendarId: 'calendar-demo', title: 'No offset', start: '2027-01-01T10:00', end: '2027-01-01T11:00' },
+        {
+          calendarId: 'calendar-demo',
+          title: 'No offset',
+          start: '2027-01-01T10:00',
+          end: '2027-01-01T11:00',
+        },
       ])
     ).status,
     400,
@@ -113,7 +163,14 @@ test('calendar writes reject forged tenants, foreign relations, and viewer permi
     (
       await save(
         'events',
-        [{ title: 'Foreign', calendarId: 'calendar-demo', start: '2027-01-01T10:00Z', end: '2027-01-01T11:00Z' }],
+        [
+          {
+            title: 'Foreign',
+            calendarId: 'calendar-demo',
+            start: '2027-01-01T10:00Z',
+            end: '2027-01-01T11:00Z',
+          },
+        ],
         other,
       )
     ).status,
@@ -121,7 +178,15 @@ test('calendar writes reject forged tenants, foreign relations, and viewer permi
   );
   assert.equal((await save('events', [{ id: 'event-demo', title: 'Hijack' }], other)).status, 404);
   assert.equal((await save('calendars', [{ name: 'No' }], viewer)).status, 403);
-  assert.equal((await h.req('/content/events/event-demo', { method: 'DELETE', token: viewer })).status, 403);
+  assert.equal(
+    (
+      await h.req('/content/events/event-demo', {
+        method: 'DELETE',
+        token: viewer,
+      })
+    ).status,
+    403,
+  );
   assert.equal((await h.req('/content/events', { token: member })).status, 403);
   assert.equal((await h.req('/content/calendars', { token: viewer })).status, 200);
   assert.equal((await save('calendars', [{ name: 'No', churchId: 'church-other' }])).status, 403);
@@ -137,10 +202,10 @@ test('invalid batch writes leave no partial calendar changes', async () => {
       await save('events', [
         {
           calendarId: 'calendar-demo',
-          title: 'Unported recurring',
+          title: 'Unported registration',
           start: '2027-01-01T10:00Z',
           end: '2027-01-01T11:00Z',
-          recurrenceRule: 'FREQ=WEEKLY',
+          registrationEnabled: true,
         },
       ])
     ).status,

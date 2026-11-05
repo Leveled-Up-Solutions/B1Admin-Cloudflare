@@ -28,12 +28,20 @@ test('manual My Work creates, assigns, closes and reopens original task wire sha
   assert.equal(task.createdById, 'person-admin');
   assert.equal(task.assignedToLabel, 'Demo Administrator');
   assert.equal(task.status, 'Open');
-  let r = await h.req('/doing/tasks', { token: admin, method: 'POST', json: [{ ...task, status: 'Closed' }] });
+  let r = await h.req('/doing/tasks', {
+    token: admin,
+    method: 'POST',
+    json: [{ ...task, status: 'Closed' }],
+  });
   assert.equal(r.status, 200);
   assert.ok((await r.json())[0].dateClosed);
   const closed = await (await h.req('/doing/tasks/closed', { token: admin })).json();
   assert.ok(closed.some((t) => t.id === task.id));
-  r = await h.req('/doing/tasks', { token: admin, method: 'POST', json: [{ ...task, status: 'Open' }] });
+  r = await h.req('/doing/tasks', {
+    token: admin,
+    method: 'POST',
+    json: [{ ...task, status: 'Open' }],
+  });
   assert.equal(r.status, 200);
   assert.equal((await r.json())[0].dateClosed, null);
   const audit = await h.db.prepare('SELECT count(*) n FROM audit_log WHERE entityId=?').bind(task.id).first();
@@ -44,8 +52,17 @@ test('task relation tenant isolation and bulk validation preserve atomicity', as
     token: admin,
     method: 'POST',
     json: [
-      { id: 'task-good', title: 'Good', assignedToType: 'person', assignedToId: 'person-admin' },
-      { title: 'Wrong tenant', assignedToType: 'person', assignedToId: 'person-other' },
+      {
+        id: 'task-good',
+        title: 'Good',
+        assignedToType: 'person',
+        assignedToId: 'person-admin',
+      },
+      {
+        title: 'Wrong tenant',
+        assignedToType: 'person',
+        assignedToId: 'person-other',
+      },
     ],
   });
   assert.equal(r.status, 400);
@@ -53,7 +70,14 @@ test('task relation tenant isolation and bulk validation preserve atomicity', as
   r = await h.req('/doing/tasks', {
     token: admin,
     method: 'POST',
-    json: [{ id: 'task-isolated', title: 'Scoped', assignedToType: 'person', assignedToId: 'person-admin' }],
+    json: [
+      {
+        id: 'task-isolated',
+        title: 'Scoped',
+        assignedToType: 'person',
+        assignedToId: 'person-admin',
+      },
+    ],
   });
   assert.equal(r.status, 200);
   assert.equal((await h.req('/doing/tasks/task-isolated', { token: other })).status, 404);
@@ -63,7 +87,13 @@ test('member group tasks are scoped and cannot alter staff tasks', async () => {
   const r = await h.req('/doing/tasks', {
     token: admin,
     method: 'POST',
-    json: [{ title: 'Welcome team setup', assignedToType: 'group', assignedToId: 'group-welcome' }],
+    json: [
+      {
+        title: 'Welcome team setup',
+        assignedToType: 'group',
+        assignedToId: 'group-welcome',
+      },
+    ],
   });
   assert.equal(r.status, 200);
   const mine = await (
@@ -75,7 +105,13 @@ test('member group tasks are scoped and cannot alter staff tasks', async () => {
   ).json();
   assert.ok(mine.some((t) => t.title === 'Welcome team setup'));
   assert.equal(
-    (await h.req('/doing/tasks', { token: member, method: 'POST', json: [{ ...mine[0], status: 'Closed' }] })).status,
+    (
+      await h.req('/doing/tasks', {
+        token: member,
+        method: 'POST',
+        json: [{ ...mine[0], status: 'Closed' }],
+      })
+    ).status,
     403,
   );
   assert.equal(
@@ -83,7 +119,14 @@ test('member group tasks are scoped and cannot alter staff tasks', async () => {
       await h.req('/doing/tasks', {
         token: admin,
         method: 'POST',
-        json: [{ title: 'Workflow', workflowId: 'fake', assignedToType: 'person', assignedToId: 'person-admin' }],
+        json: [
+          {
+            title: 'Workflow',
+            workflowId: 'fake',
+            assignedToType: 'person',
+            assignedToId: 'person-admin',
+          },
+        ],
       })
     ).status,
     400,

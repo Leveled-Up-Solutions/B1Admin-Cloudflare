@@ -15,7 +15,11 @@ test.after(async () => {
   await h?.dispose();
 });
 async function save(path, payload, token = admin) {
-  const r = await h.req('/doing/' + path, { method: 'POST', token, json: payload });
+  const r = await h.req('/doing/' + path, {
+    method: 'POST',
+    token,
+    json: payload,
+  });
   assert.equal(r.status, 200, await r.clone().text());
   return r.json();
 }
@@ -35,12 +39,27 @@ test('existing plan detail contracts preserve plans, positions, time, service-or
   assert.equal((await h.req('/doing/plans/plan-demo', { token: member })).status, 200);
   assert.equal((await h.req('/doing/assignments/plan/plan-demo', { token: member })).status, 403);
   assert.equal((await h.req('/doing/plans/plan-demo', { token: other })).status, 404);
-  assert.equal((await h.req('/doing/plans', { method: 'POST', token: viewer, json: [{ name: 'No' }] })).status, 403);
+  assert.equal(
+    (
+      await h.req('/doing/plans', {
+        method: 'POST',
+        token: viewer,
+        json: [{ name: 'No' }],
+      })
+    ).status,
+    403,
+  );
 });
 
 test('only assignment owner responds and prepared plans stay hidden', async () => {
   assert.equal(
-    (await h.req('/doing/assignments/accept/assignment-demo', { method: 'POST', token: admin, json: {} })).status,
+    (
+      await h.req('/doing/assignments/accept/assignment-demo', {
+        method: 'POST',
+        token: admin,
+        json: {},
+      })
+    ).status,
     403,
   );
   const accepted = await save('assignments/accept/assignment-demo', {}, member);
@@ -50,7 +69,13 @@ test('only assignment owner responds and prepared plans stay hidden', async () =
   assert.equal(mine.length, 0);
   assert.equal((await h.req('/doing/plans/plan-demo', { token: member })).status, 403);
   assert.equal(
-    (await h.req('/doing/assignments/decline/assignment-demo', { method: 'POST', token: member, json: {} })).status,
+    (
+      await h.req('/doing/assignments/decline/assignment-demo', {
+        method: 'POST',
+        token: member,
+        json: {},
+      })
+    ).status,
     409,
   );
   await save('plans', [{ id: 'plan-demo', prepared: false }]);
@@ -69,16 +94,40 @@ test('plan copy remaps children and times atomically across month boundaries', a
     },
   ]);
   const [position] = await save('positions', [
-    { planId: source.id, name: 'Engineer', groupId: 'group-sound-board', count: 1 },
+    {
+      planId: source.id,
+      name: 'Engineer',
+      groupId: 'group-sound-board',
+      count: 1,
+    },
   ]);
   const [time] = await save('times', [
-    { planId: source.id, displayName: 'Gathering', startTime: '2027-01-31T10:00:00Z', endTime: '2027-01-31T11:00:00Z' },
+    {
+      planId: source.id,
+      displayName: 'Gathering',
+      startTime: '2027-01-31T10:00:00Z',
+      endTime: '2027-01-31T11:00:00Z',
+    },
   ]);
   const [parent] = await save('planItems', [{ planId: source.id, label: 'Section', itemType: 'header', sort: 1 }]);
   const [child] = await save('planItems', [
-    { planId: source.id, parentId: parent.id, positionId: position.id, label: 'Welcome', sort: 1, seconds: 60 },
+    {
+      planId: source.id,
+      parentId: parent.id,
+      positionId: position.id,
+      label: 'Welcome',
+      sort: 1,
+      seconds: 60,
+    },
   ]);
-  await save('planItemTimes', [{ planItemId: child.id, timeId: time.id, positionId: position.id, excluded: true }]);
+  await save('planItemTimes', [
+    {
+      planItemId: child.id,
+      timeId: time.id,
+      positionId: position.id,
+      excluded: true,
+    },
+  ]);
   await save('assignments', [{ positionId: position.id, personId: 'person-alex', status: 'Accepted' }]);
   const target = await save('plans/copy/' + source.id, {
     ministryId: 'group-sound',
@@ -114,7 +163,11 @@ test('invalid cross-tenant and cross-plan relationships roll back full request',
     token: admin,
     json: [
       { planId: 'plan-demo', name: 'Valid first' },
-      { planId: 'plan-demo', name: 'Cross tenant', groupId: 'unknown-other-group' },
+      {
+        planId: 'plan-demo',
+        name: 'Cross tenant',
+        groupId: 'unknown-other-group',
+      },
     ],
   });
   assert.equal(r.status, 409);
@@ -129,9 +182,20 @@ test('invalid cross-tenant and cross-plan relationships roll back full request',
     ).status,
     409,
   );
-  const [plan] = await save('plans', [{ ministryId: 'group-sound', name: 'Another plan', serviceDate: '2027-03-01' }]);
+  const [plan] = await save('plans', [
+    {
+      ministryId: 'group-sound',
+      name: 'Another plan',
+      serviceDate: '2027-03-01',
+    },
+  ]);
   const [time] = await save('times', [
-    { planId: plan.id, displayName: 'Other', startTime: '2027-03-01T10:00:00Z', endTime: '2027-03-01T11:00:00Z' },
+    {
+      planId: plan.id,
+      displayName: 'Other',
+      startTime: '2027-03-01T10:00:00Z',
+      endTime: '2027-03-01T11:00:00Z',
+    },
   ]);
   assert.equal(
     (
@@ -162,17 +226,34 @@ test('member blockouts and preferences cannot target another person', async () =
   const [pref] = await save('schedulingPreferences', [{ maxPerMonth: 2, householdScheduling: 'together' }], member);
   assert.equal(pref.personId, 'person-alex');
   assert.equal((await h.req('/doing/schedulingPreferences/' + pref.id, { token: other })).status, 404);
-  assert.equal((await h.req('/doing/blockoutDates/' + block.id, { method: 'DELETE', token: member })).status, 200);
+  assert.equal(
+    (
+      await h.req('/doing/blockoutDates/' + block.id, {
+        method: 'DELETE',
+        token: member,
+      })
+    ).status,
+    200,
+  );
 });
 
 test('self-signup capacity is enforced atomically across simultaneous requests', async () => {
   const [plan] = await save('plans', [
-    { ministryId: 'group-sound', name: 'Open signup', serviceDate: '2099-01-04', prepared: false },
+    {
+      ministryId: 'group-sound',
+      name: 'Open signup',
+      serviceDate: '2099-01-04',
+      prepared: false,
+    },
   ]);
   const [position] = await save('positions', [{ planId: plan.id, name: 'Welcome', allowSelfSignup: true, count: 1 }]);
   const attempts = await Promise.all(
     [member, admin].map((token) =>
-      h.req('/doing/assignments/signup', { method: 'POST', token, json: { positionId: position.id } }),
+      h.req('/doing/assignments/signup', {
+        method: 'POST',
+        token,
+        json: { positionId: position.id },
+      }),
     ),
   );
   assert.deepEqual(attempts.map((r) => r.status).sort(), [200, 409]);
@@ -196,7 +277,9 @@ test('provider workflows and outbound notification routes remain explicit', asyn
 
 test('100-ID compatibility reads fit D1 binding limits and invalid civil dates fail', async () => {
   const ids = Array.from({ length: 100 }, (_, i) => (i === 0 ? 'plan-demo' : 'absent-' + i));
-  const response = await h.req('/doing/plans/ids?ids=' + ids.join(','), { token: admin });
+  const response = await h.req('/doing/plans/ids?ids=' + ids.join(','), {
+    token: admin,
+  });
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await response.json()).length, 1);
   const positions = await h.req('/doing/positions/plan/ids?planIds=' + ids.join(','), { token: admin });
@@ -223,7 +306,12 @@ test('100-ID compatibility reads fit D1 binding limits and invalid civil dates f
 
 test('removed people cannot self-signup even with an existing session', async () => {
   const [plan] = await save('plans', [
-    { ministryId: 'group-sound', name: 'Removed-person check', serviceDate: '2099-02-01', prepared: false },
+    {
+      ministryId: 'group-sound',
+      name: 'Removed-person check',
+      serviceDate: '2099-02-01',
+      prepared: false,
+    },
   ]);
   const [position] = await save('positions', [
     { planId: plan.id, name: 'Restricted', allowSelfSignup: true, count: 1 },
@@ -231,8 +319,13 @@ test('removed people cannot self-signup even with an existing session', async ()
   await h.db.prepare("UPDATE people SET removed=1 WHERE id='person-alex'").run();
   try {
     assert.equal(
-      (await h.req('/doing/assignments/signup', { method: 'POST', token: member, json: { positionId: position.id } }))
-        .status,
+      (
+        await h.req('/doing/assignments/signup', {
+          method: 'POST',
+          token: member,
+          json: { positionId: position.id },
+        })
+      ).status,
       409,
     );
   } finally {
@@ -242,7 +335,11 @@ test('removed people cannot self-signup even with an existing session', async ()
 
 test('unrelated custom staff grant never broadens private blockouts or scheduling preferences', async () => {
   const [block] = await save('blockoutDates', [
-    { personId: 'person-admin', startDate: '2028-01-01', endDate: '2028-01-02' },
+    {
+      personId: 'person-admin',
+      startDate: '2028-01-01',
+      endDate: '2028-01-02',
+    },
   ]);
   await save('schedulingPreferences', [{ personId: 'person-admin', maxPerMonth: 4 }]);
   await h.db.batch([
@@ -258,7 +355,9 @@ test('unrelated custom staff grant never broadens private blockouts or schedulin
     const blocks = await h.req('/doing/blockoutDates', { token: member });
     assert.equal(blocks.status, 200, await blocks.clone().text());
     assert.ok((await blocks.json()).every((r) => r.personId === 'person-alex'));
-    const prefs = await h.req('/doing/schedulingPreferences', { token: member });
+    const prefs = await h.req('/doing/schedulingPreferences', {
+      token: member,
+    });
     assert.equal(prefs.status, 200, await prefs.clone().text());
     const payload = await prefs.json();
     assert.ok(!payload || payload.personId === 'person-alex');
@@ -273,7 +372,15 @@ test('unrelated custom staff grant never broadens private blockouts or schedulin
       ).status,
       403,
     );
-    assert.equal((await h.req('/doing/blockoutDates/' + block.id, { method: 'DELETE', token: member })).status, 403);
+    assert.equal(
+      (
+        await h.req('/doing/blockoutDates/' + block.id, {
+          method: 'DELETE',
+          token: member,
+        })
+      ).status,
+      403,
+    );
   } finally {
     await h.db.prepare("DELETE FROM roles WHERE id='doing-review-role'").run();
   }

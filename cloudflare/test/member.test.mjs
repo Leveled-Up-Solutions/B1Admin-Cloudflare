@@ -52,14 +52,22 @@ test('profile updates are limited to own phone and explicit consent, and opt-out
     await h.req('/member/v1/me', {
       method: 'POST',
       token,
-      json: { mobilePhone: '+1 202 555 0100', directoryVisible: false, shareEmail: false },
+      json: {
+        mobilePhone: '+1 202 555 0100',
+        directoryVisible: false,
+        shareEmail: false,
+      },
     }),
   );
   assert.equal(result.person.contactInfo.mobilePhone, '+1 202 555 0100');
   assert.equal(result.person.contactInfo.email, 'alex@example.test');
   let directory = await data(await h.req('/member/v1/directory', { token }));
   assert.ok(!directory.some((p) => p.id === 'person-alex'));
-  await h.req('/member/v1/me', { method: 'POST', token, json: { directoryVisible: true } });
+  await h.req('/member/v1/me', {
+    method: 'POST',
+    token,
+    json: { directoryVisible: true },
+  });
   directory = await data(await h.req('/member/v1/directory', { token }));
   assert.deepEqual(directory.find((p) => p.id === 'person-alex').contactInfo, {});
   const audit = await h.db
@@ -96,11 +104,74 @@ test('member calendar requires membership in both calendar and event groups', as
         '2026-01-01T00:00:00Z',
       )
       .run();
-  const events = await data(await h.req('/member/v1/calendar', { token }));
+  const events = await data(
+    await h.req('/member/v1/calendar?from=2027-01-01T00:00:00Z&to=2027-02-01T00:00:00Z', { token }),
+  );
   assert.ok(events.some((e) => e.id === 'event-welcome'));
   assert.ok(events.some((e) => e.id === 'event-demo'));
   assert.ok(events.every((e) => !e.id.startsWith('private')));
   assert.equal((await h.req('/member/v1/calendar?from=2027-01-01', { token })).status, 400);
+});
+test('member recurrence expands after tenant/group visibility and applies exceptions before pagination', async () => {
+  for (const [eventId, calendarId, groupId] of [
+    ['member-series', 'calendar-welcome', 'group-welcome'],
+    ['private-calendar-series', 'private-calendar', 'private-group'],
+    ['private-group-series', 'calendar-demo', 'private-group'],
+  ])
+    await h.db
+      .prepare(
+        'INSERT INTO calendar_events(id,churchId,calendarId,groupId,title,start,end,timeZone,updatedAt,recurrenceRule) VALUES(?,?,?,?,?,?,?,?,?,?)',
+      )
+      .bind(
+        eventId,
+        'church-demo',
+        calendarId,
+        groupId,
+        eventId,
+        '2027-01-03T15:00:00.000Z',
+        '2027-01-03T16:00:00.000Z',
+        'America/New_York',
+        '2026-01-01T00:00:00.000Z',
+        'FREQ=WEEKLY;COUNT=3',
+      )
+      .run();
+  await h.db
+    .prepare(
+      "INSERT INTO calendar_event_exceptions(id,churchId,eventId,exceptionDate,createdAt) VALUES('member-exception','church-demo','member-series','2027-01-10','2026-01-01')",
+    )
+    .run();
+  const path = '/member/v1/calendar?from=2027-01-01T00:00:00Z&to=2027-02-01T00:00:00Z';
+  const rows = await data(await h.req(path, { token }));
+  const occurrences = rows.filter((row) => row.seriesId === 'member-series');
+  assert.deepEqual(
+    occurrences.map((row) => row.start),
+    ['2027-01-03T15:00:00.000Z', '2027-01-17T15:00:00.000Z'],
+  );
+  assert.equal(new Set(occurrences.map((row) => row.occurrenceId)).size, 2);
+  assert.ok(rows.every((row) => !row.id.startsWith('private')));
+  assert.deepEqual(await data(await h.req(path, { token: other })), []);
+  const later = await data(
+    await h.req('/member/v1/calendar?from=2027-01-15T00:00:00Z&to=2027-02-01T00:00:00Z', { token }),
+  );
+  assert.ok(later.some((row) => row.occurrenceId === 'member-series:2027-01-17'));
+  const paged = await data(await h.req(path + '&limit=1&offset=1', { token }));
+  assert.equal(paged.length, 1);
+  assert.equal(paged[0].occurrenceId, rows[1].occurrenceId);
+  const midnight = await data(
+    await h.req('/member/v1/calendar?from=2027-01-17T04:00:00Z&to=2027-01-17T06:00:00Z', { token }),
+  );
+  assert.ok(
+    midnight.some((row) => row.id === 'event-day'),
+    'all-day event ends at calendar-local midnight, not UTC midnight',
+  );
+  const afterMidnight = await data(
+    await h.req('/member/v1/calendar?from=2027-01-17T05:00:00Z&to=2027-01-17T06:00:00Z', { token }),
+  );
+  assert.ok(!afterMidnight.some((row) => row.id === 'event-day'));
+  assert.equal(
+    (await h.req('/member/v1/calendar?from=2027-01-01T00:00:00Z&to=2029-01-01T00:00:00Z', { token })).status,
+    400,
+  );
 });
 test('published sermon archive omits drafts, private content and future releases', async () => {
   for (const [id, visibility, publishedAt, date] of [
@@ -137,7 +208,12 @@ test('self-service group joining is tenant scoped, open-only and idempotent', as
   assert.ok(!available.some((g) => ['closed', 'foreign'].includes(g.id)));
   for (const group of ['closed', 'foreign'])
     assert.equal(
-      (await h.req(`/member/v1/groups/${group}/join`, { method: 'POST', token })).status,
+      (
+        await h.req(`/member/v1/groups/${group}/join`, {
+          method: 'POST',
+          token,
+        })
+      ).status,
       group === 'closed' ? 409 : 404,
     );
   const responses = await Promise.all(
@@ -152,9 +228,33 @@ test('self-service group joining is tenant scoped, open-only and idempotent', as
   assert.equal(count.n, 1);
   const groups = await data(await h.req('/member/v1/groups', { token }));
   assert.ok(groups.some((g) => g.id === 'joinable'));
-  assert.equal((await h.req('/member/v1/groups/joinable/leave', { method: 'DELETE', token })).status, 200);
-  assert.equal((await h.req('/member/v1/groups/joinable/leave', { method: 'DELETE', token })).status, 200);
-  assert.equal((await h.req('/member/v1/groups/group-welcome/leave', { method: 'DELETE', token: admin })).status, 409);
+  assert.equal(
+    (
+      await h.req('/member/v1/groups/joinable/leave', {
+        method: 'DELETE',
+        token,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await h.req('/member/v1/groups/joinable/leave', {
+        method: 'DELETE',
+        token,
+      })
+    ).status,
+    200,
+  );
+  assert.equal(
+    (
+      await h.req('/member/v1/groups/group-welcome/leave', {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    409,
+  );
 });
 test('member archive lists and downloads published R2 attachments without private storage keys', async () => {
   const upload = await h.req('/content/files/upload?fileName=demo.txt&contentId=sermon-demo', {
@@ -170,7 +270,9 @@ test('member archive lists and downloads published R2 attachments without privat
   assert.equal(files[0].id, file.id);
   assert.equal('objectKey' in files[0], false);
   assert.equal('churchId' in files[0], false);
-  const download = await h.req('/member/v1/files/' + file.id + '/download', { token });
+  const download = await h.req('/member/v1/files/' + file.id + '/download', {
+    token,
+  });
   assert.equal(download.status, 200);
   assert.equal(await download.text(), 'Synthetic sermon transcript');
   assert.match(download.headers.get('Content-Disposition'), /^attachment/);
@@ -179,6 +281,13 @@ test('member archive lists and downloads published R2 attachments without privat
   await h.db.prepare('UPDATE content_sermons SET publishedAt=NULL WHERE id=?').bind('sermon-demo').run();
   for (const caller of [token, admin]) {
     assert.equal((await h.req('/member/v1/sermons/sermon-demo/files', { token: caller })).status, 404);
-    assert.equal((await h.req('/member/v1/files/' + file.id + '/download', { token: caller })).status, 404);
+    assert.equal(
+      (
+        await h.req('/member/v1/files/' + file.id + '/download', {
+          token: caller,
+        })
+      ).status,
+      404,
+    );
   }
 });

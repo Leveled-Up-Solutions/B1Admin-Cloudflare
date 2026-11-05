@@ -12,8 +12,12 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20261104.1",
-    "wrangler": "4.157.0",
+    "miniflare": "5.20261103.0-beta",
     "typescript": "^6.0.3",
-    "miniflare": "5.20261103.0-beta"
+    "wrangler": "4.157.0"
+  },
+  "dependencies": {
+    "@noble/hashes": "2.4.0",
+    "rrule": "2.8.1"
   }
 }

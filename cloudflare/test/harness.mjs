@@ -15,7 +15,7 @@ export async function applySql(db, sql) {
   }
   if (statement.trim()) throw new Error('Unterminated SQL fixture statement');
 }
-export async function createHarness() {
+export async function createHarness({ seed = true } = {}) {
   const result = await build({
     entryPoints: [root + 'src/index.ts'],
     bundle: true,
@@ -31,7 +31,9 @@ export async function createHarness() {
       compatibilityDate: '2026-10-01',
       d1Databases: { DB: 'test-db' },
       r2Buckets: { FILES: 'test-files' },
-      durableObjects: { REALTIME: { className: 'ChurchRealtime', useSQLite: true } },
+      durableObjects: {
+        REALTIME: { className: 'ChurchRealtime', useSQLite: true },
+      },
       bindings: {
         APP_ENV: 'test',
         SESSION_SECRET: 'test-only-secret-never-for-deployment-123456789',
@@ -43,8 +45,9 @@ export async function createHarness() {
     const db = await mf.getD1Database('DB');
     for (const file of (await readdir(root + 'migrations')).filter((f) => f.endsWith('.sql')).sort())
       await applySql(db, await readFile(root + 'migrations/' + file, 'utf8'));
-    for (const file of ['seed.sql', 'seed-calendar.sql', 'seed-sermons.sql', 'seed-doing.sql', 'seed-tasks.sql'])
-      await applySql(db, await readFile(root + file, 'utf8'));
+    if (seed)
+      for (const file of ['seed.sql', 'seed-calendar.sql', 'seed-sermons.sql', 'seed-doing.sql', 'seed-tasks.sql'])
+        await applySql(db, await readFile(root + file, 'utf8'));
     async function req(path, options = {}) {
       const { token, json, ...rest } = options;
       const headers = new Headers(rest.headers);

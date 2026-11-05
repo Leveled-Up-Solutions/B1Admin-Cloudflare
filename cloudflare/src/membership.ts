@@ -1,5 +1,8 @@
 import type { Context } from './types';
 import { allowed } from './permissions';
+import { advancedPeopleSearch } from './directory-search';
+import { validTimeZone } from './plan-time';
+import { groupWriteGuard } from './group-write';
 import { all, first, json, body, records, requireAdmin, requiredString, HttpError, id, now } from './http';
 export function personJson(row: any): any {
   if (!row) return null;
@@ -30,7 +33,11 @@ export function personJson(row: any): any {
   };
 }
 function groupJson(row: any) {
-  return { ...row, trackAttendance: !!row.trackAttendance };
+  return {
+    ...row,
+    trackAttendance: !!row.trackAttendance,
+    archived: !!row.archived,
+  };
 }
 function clean(value: any, max = 255): string | null {
   if (value === undefined || value === null || value === '') return null;
@@ -65,7 +72,8 @@ async function peopleByIds(ctx: Context, ids: string[], includeRemoved = false):
       )),
     );
   }
-  return rows;
+  const order = new Map(ids.map((value, index) => [value, index]));
+  return rows.sort((a, b) => order.get(a.id)! - order.get(b.id)!);
 }
 function tenant(ctx: Context, row: any) {
   if (row.churchId && row.churchId !== ctx.principal.churchId) throw new HttpError(403, 'Church mismatch');
@@ -78,6 +86,40 @@ function auditStatement(ctx: Context, action: string, entityId: string) {
   return ctx.env.DB.prepare(
     'INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) VALUES(?,?,?,?,?,?)',
   ).bind(id(), ctx.principal.churchId, ctx.principal.userId, action, entityId, now());
+}
+function groupReadable(ctx: Context, groupId?: string): boolean {
+  return ['View', 'Edit'].some(
+    (action) =>
+      allowed(ctx, 'MembershipApi', 'Groups', action, groupId) ||
+      allowed(ctx, 'MembershipApi', 'Group Members', action, groupId) ||
+      allowed(ctx, 'MembershipApi', 'People', action),
+  );
+}
+function groupMembersAllowed(ctx: Context, action: 'View' | 'Edit', groupId?: string): boolean {
+  return (
+    allowed(ctx, 'MembershipApi', 'Group Members', action, groupId) ||
+    allowed(ctx, 'MembershipApi', 'Groups', 'Edit', groupId) ||
+    (action === 'View' && allowed(ctx, 'MembershipApi', 'Group Members', 'Edit', groupId))
+  );
+}
+function hasGroupScope(ctx: Context, members = false): boolean {
+  return (ctx.principal.permissions || []).some((key) =>
+    ['Groups', 'Group Members'].some(
+      (content) =>
+        key.startsWith(`MembershipApi_${content}_`) &&
+        (key.endsWith('_Edit') || ((!members || content === 'Group Members') && key.endsWith('_View'))),
+    ),
+  );
+}
+function requireGroupRead(ctx: Context) {
+  if (!groupReadable(ctx) && !hasGroupScope(ctx)) throw new HttpError(403, 'Group view permission required');
+}
+function requireGroupEdit(ctx: Context, groupId?: string) {
+  if (!allowed(ctx, 'MembershipApi', 'Groups', 'Edit', groupId))
+    throw new HttpError(403, 'Group edit permission required');
+}
+function requireMemberEdit(ctx: Context, groupId: string) {
+  if (!groupMembersAllowed(ctx, 'Edit', groupId)) throw new HttpError(403, 'Group member edit permission required');
 }
 export async function membership(ctx: Context): Promise<Response | undefined> {
   const { request, url, principal, env } = ctx;
@@ -92,9 +134,32 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     return onlyNames && p ? { id: p.id, churchId: p.churchId, name: p.name, photo: p.photo } : p;
   };
   if ((path === '/membership/churches/current' || ctx.path === '/membership/churches/' + cid) && method === 'GET') {
-    const church = await first(ctx, 'SELECT id,name,subDomain,settings FROM churches WHERE id=?', cid);
+    const church = await first(ctx, 'SELECT id,name,subDomain,settings,timeZone FROM churches WHERE id=?', cid);
     return json({ ...church, settings: JSON.parse(church!.settings) });
   }
+  if (path === '/membership/churches' && method === 'POST') {
+    if (!allowed(ctx, 'MembershipApi', 'Settings', 'Edit'))
+      throw new HttpError(403, 'Settings edit permission required');
+    const input = await records(request);
+    if (input.length !== 1 || input[0].id !== cid) throw new HttpError(403, 'Only the current church can be edited');
+    const existing = await first(ctx, 'SELECT * FROM churches WHERE id=?', cid);
+    const row = input[0];
+    // Installation and public-host settings have separate operational boundaries.
+    if (Object.keys(row).some((key) => !['id', 'churchId', 'name', 'timeZone', 'subDomain', 'settings'].includes(key)))
+      throw new HttpError(400, 'This church field is not yet supported');
+    tenant(ctx, row);
+    if ((row.subDomain !== undefined && row.subDomain !== existing!.subDomain) || row.settings !== undefined)
+      throw new HttpError(400, 'Only church name and timeZone can be changed here');
+    const name = requiredString(row.name ?? existing!.name, 'church name');
+    const zone = validTimeZone(row.timeZone ?? existing!.timeZone);
+    await env.DB.batch([
+      env.DB.prepare('UPDATE churches SET name=?,timeZone=? WHERE id=?').bind(name, zone, cid),
+      auditStatement(ctx, 'churches.save', cid),
+    ]);
+    return json([{ id: cid, name, subDomain: existing!.subDomain, timeZone: zone }]);
+  }
+  if (path === '/membership/people/advancedsearch' && method === 'POST')
+    return json((await advancedPeopleSearch(ctx, await body(request))).map(serialize));
   if (path === '/membership/people/duplicates' && method === 'POST') {
     const input = await body(request);
     const list = await all(
@@ -130,6 +195,69 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
   if (path === '/membership/people/ids' && method === 'GET') {
     const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean).slice(0, 100);
     return json((await peopleByIds(ctx, ids)).map(serialize));
+  }
+  if (/^\/membership\/people\/household\/[^/]+$/.test(path) && method === 'POST') {
+    requireAdmin(ctx);
+    const householdId = ctx.path.split('/').pop()!;
+    if (!(await first(ctx, 'SELECT id FROM households WHERE churchId=? AND id=?', cid, householdId)))
+      throw new HttpError(404, 'Household not found');
+    const input = await body<unknown>(request);
+    if (
+      !Array.isArray(input) ||
+      input.length > 100 ||
+      input.some((p) => !p || typeof p !== 'object' || Array.isArray(p))
+    )
+      throw new HttpError(400, 'Expected an array of up to 100 household members');
+    const submittedIds: string[] = [];
+    const sourceHouseholds = new Set<string>([householdId]);
+    const updates: D1PreparedStatement[] = [];
+    for (const p of input) {
+      tenant(ctx, p);
+      const personId = requiredString(p.id, 'person id');
+      if (submittedIds.includes(personId)) throw new HttpError(400, 'Duplicate household member');
+      if (p.householdId && p.householdId !== householdId) throw new HttpError(400, 'Household mismatch');
+      const role = p.householdRole || 'Other';
+      if (!['Head', 'Spouse', 'Child', 'Other'].includes(role)) throw new HttpError(400, 'Invalid household role');
+      const person = await first(
+        ctx,
+        'SELECT householdId FROM people WHERE churchId=? AND id=? AND removed=0',
+        cid,
+        personId,
+      );
+      if (!person) throw new HttpError(404, 'Person not found');
+      submittedIds.push(personId);
+      if (person.householdId) sourceHouseholds.add(person.householdId);
+      updates.push(
+        env.DB.prepare('UPDATE people SET householdId=?,householdRole=? WHERE churchId=? AND id=? AND removed=0').bind(
+          householdId,
+          role,
+          cid,
+          personId,
+        ),
+      );
+    }
+    // Evaluate omitted members inside the same D1 batch as the moves. A stale pre-read must
+    // not split a person who has already moved to another household in a concurrent save.
+    const splitPrefix = id() + '-';
+    const selected = JSON.stringify(submittedIds);
+    const omitted = 'churchId=? AND householdId=? AND removed=0 AND id NOT IN (SELECT value FROM json_each(?))';
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO households(id,churchId,name) SELECT ?||id,churchId,coalesce(nullif(lastName,''),firstName) FROM people WHERE ${omitted}`,
+      ).bind(splitPrefix, cid, householdId, selected),
+      env.DB.prepare(`UPDATE people SET householdId=?||id,householdRole='Head' WHERE ${omitted}`).bind(
+        splitPrefix,
+        cid,
+        householdId,
+        selected,
+      ),
+      ...updates,
+      auditStatement(ctx, 'households.members', householdId),
+      env.DB.prepare(
+        'DELETE FROM households WHERE churchId=? AND id IN (SELECT value FROM json_each(?)) AND NOT EXISTS (SELECT 1 FROM people WHERE people.churchId=households.churchId AND people.householdId=households.id)',
+      ).bind(cid, JSON.stringify([...sourceHouseholds])),
+    ]);
+    return json((await peopleByIds(ctx, submittedIds)).map(serialize));
   }
   if (onlyNames && path.startsWith('/membership/people/household/'))
     throw new HttpError(403, 'People view permission required');
@@ -274,12 +402,24 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     await env.DB.batch(statements);
     return json(result);
   }
-  if (/^\/membership\/households\/[^/]+$/.test(path) && method === 'GET') {
+  if (/^\/membership\/households\/[^/]+$/.test(path) && ['GET', 'DELETE'].includes(method)) {
     const row = await first(ctx, 'SELECT * FROM households WHERE churchId=? AND id=?', cid, ctx.path.split('/').pop());
     if (!row) throw new HttpError(404, 'Household not found');
+    if (method === 'DELETE') {
+      requireAdmin(ctx);
+      // The FK also enforces this if a person joins after this preflight check.
+      if (await first(ctx, 'SELECT id FROM people WHERE churchId=? AND householdId=? LIMIT 1', cid, row.id))
+        throw new HttpError(409, 'Move household members before deleting the household');
+      await env.DB.batch([
+        env.DB.prepare('DELETE FROM households WHERE churchId=? AND id=?').bind(cid, row.id),
+        auditStatement(ctx, 'households.delete', row.id),
+      ]);
+      return json({});
+    }
     return json(row);
   }
   if ((path === '/membership/groups/my' || path.startsWith('/membership/groups/my/')) && method === 'GET') {
+    requireGroupRead(ctx);
     const tag = path.startsWith('/membership/groups/my/') ? ctx.path.split('/').pop() : null;
     return json(
       (
@@ -290,10 +430,13 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
           principal.personId,
           ...(tag ? ['%' + tag + '%'] : []),
         )
-      ).map(groupJson),
+      )
+        .filter((row) => groupReadable(ctx, row.id))
+        .map(groupJson),
     );
   }
   if (path === '/membership/groups/ids' && method === 'GET') {
+    requireGroupRead(ctx);
     const ids = (url.searchParams.get('ids') || '').split(',').filter(Boolean);
     if (ids.length > 100) throw new HttpError(400, 'At most 100 group IDs');
     return json(
@@ -304,33 +447,47 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
           cid,
           JSON.stringify(ids),
         )
-      ).map(groupJson),
+      )
+        .filter((row) => groupReadable(ctx, row.id))
+        .map(groupJson),
     );
   }
-  if (path.startsWith('/membership/groups/categories/') && method === 'GET')
+  if (path.startsWith('/membership/groups/categories/') && method === 'GET') {
+    requireGroupRead(ctx);
+    const rows = await all(
+      ctx,
+      'SELECT id,categoryName FROM groups WHERE churchId=? AND tags LIKE ? ORDER BY categoryName',
+      cid,
+      '%' + ctx.path.split('/').pop() + '%',
+    );
     return json(
-      await all(
-        ctx,
-        'SELECT DISTINCT categoryName FROM groups WHERE churchId=? AND tags LIKE ? ORDER BY categoryName',
-        cid,
-        '%' + ctx.path.split('/').pop() + '%',
+      [...new Set(rows.filter((row) => groupReadable(ctx, row.id)).map((row) => row.categoryName))].map(
+        (categoryName) => ({ categoryName }),
       ),
     );
+  }
   if ((path === '/membership/groups' || path.startsWith('/membership/groups/tag/')) && method === 'GET') {
+    requireGroupRead(ctx);
     const tag = path.includes('/tag/') ? ctx.path.split('/').pop() : null;
+    const archived = url.searchParams.get('archived');
+    if (archived !== null && !['0', '1', 'false', 'true'].includes(archived))
+      throw new HttpError(400, 'Invalid archived filter');
+    const archiveFlag = ['1', 'true'].includes(archived || '') ? 1 : 0;
     return json(
       (
         await all(
           ctx,
-          `SELECT g.*, (SELECT count(*) FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id) memberCount FROM groups g WHERE g.churchId=? ${tag ? 'AND g.tags LIKE ?' : ''} ORDER BY g.name`,
+          `SELECT g.*, (SELECT count(*) FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id) memberCount FROM groups g WHERE g.churchId=? AND g.archived=? ${tag ? 'AND g.tags LIKE ?' : ''} ORDER BY g.name`,
           cid,
+          archiveFlag,
           ...(tag ? ['%' + tag + '%'] : []),
         )
-      ).map(groupJson),
+      )
+        .filter((row) => groupReadable(ctx, row.id))
+        .map(groupJson),
     );
   }
   if (path === '/membership/groups' && method === 'POST') {
-    requireAdmin(ctx);
     const rows = await records(request),
       result = [],
       statements = [];
@@ -339,6 +496,7 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       const gid = clean(row.id) || id();
       await ensureOwn(ctx, 'groups', gid);
       const existing = await first(ctx, 'SELECT * FROM groups WHERE churchId=? AND id=?', cid, gid);
+      requireGroupEdit(ctx, existing ? gid : undefined);
       const g = { ...existing, ...row };
       const name = requiredString(g.name, 'group name');
       const category = clean(g.categoryName) || '';
@@ -346,11 +504,35 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       const about = clean(g.about, 5000);
       const attendance = g.trackAttendance ? 1 : 0;
       const joinPolicy = g.joinPolicy || 'closed';
+      const parentId = clean(g.parentId);
+      if ((existing?.parentId || null) !== parentId) requireGroupEdit(ctx);
+      if (parentId === gid) throw new HttpError(400, 'A group cannot be its own parent');
+      if (parentId && !(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', cid, parentId)))
+        throw new HttpError(400, 'Unknown parent group');
+      const meetingTime = clean(g.meetingTime, 255);
+      const meetingLocation = clean(g.meetingLocation, 500);
+      if (g.archived !== undefined && g.archived !== null && ![true, false, 0, 1].includes(g.archived))
+        throw new HttpError(400, 'Invalid archived flag');
+      const archived = g.archived ? 1 : 0;
       if (!['open', 'request', 'closed'].includes(joinPolicy)) throw new HttpError(400, 'Invalid joinPolicy');
       statements.push(
+        ...groupWriteGuard(ctx, { kind: 'group', id: gid, existing, parentId }),
         env.DB.prepare(
-          'INSERT INTO groups(id,churchId,name,categoryName,tags,about,trackAttendance,joinPolicy) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,categoryName=excluded.categoryName,tags=excluded.tags,about=excluded.about,trackAttendance=excluded.trackAttendance,joinPolicy=excluded.joinPolicy WHERE groups.churchId=excluded.churchId',
-        ).bind(gid, cid, name, category, tags, about, attendance, joinPolicy),
+          'INSERT INTO groups(id,churchId,name,categoryName,tags,about,trackAttendance,joinPolicy,parentId,meetingTime,meetingLocation,archived) VALUES(?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,categoryName=excluded.categoryName,tags=excluded.tags,about=excluded.about,trackAttendance=excluded.trackAttendance,joinPolicy=excluded.joinPolicy,parentId=excluded.parentId,meetingTime=excluded.meetingTime,meetingLocation=excluded.meetingLocation,archived=excluded.archived WHERE groups.churchId=excluded.churchId',
+        ).bind(
+          gid,
+          cid,
+          name,
+          category,
+          tags,
+          about,
+          attendance,
+          joinPolicy,
+          parentId,
+          meetingTime,
+          meetingLocation,
+          archived,
+        ),
         auditStatement(ctx, 'groups.save', gid),
       );
       result.push({
@@ -362,6 +544,10 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
         about,
         trackAttendance: !!attendance,
         joinPolicy,
+        parentId,
+        meetingTime,
+        meetingLocation,
+        archived: !!archived,
       });
     }
     await env.DB.batch(statements);
@@ -371,15 +557,28 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     const gid = ctx.path.split('/').pop();
     const row = await first(ctx, 'SELECT * FROM groups WHERE churchId=? AND id=?', cid, gid);
     if (!row) throw new HttpError(404, 'Group not found');
-    if (method === 'GET') return json(groupJson(row));
-    requireAdmin(ctx);
+    if (method === 'GET') {
+      if (!groupReadable(ctx, row.id)) throw new HttpError(403, 'Group view permission required');
+      return json(groupJson(row));
+    }
+    requireGroupEdit(ctx, row.id);
+    if (await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND parentId=? LIMIT 1', cid, row.id))
+      requireGroupEdit(ctx);
     await env.DB.batch([
+      ...groupWriteGuard(ctx, {
+        kind: 'group',
+        id: row.id,
+        existing: row,
+        remove: true,
+      }),
       env.DB.prepare('DELETE FROM groups WHERE churchId=? AND id=?').bind(cid, gid),
       auditStatement(ctx, 'groups.delete', gid!),
     ]);
     return json({ success: true });
   }
   if (path === '/membership/groupmembers' && method === 'GET') {
+    if (!groupMembersAllowed(ctx, 'View') && !hasGroupScope(ctx, true))
+      throw new HttpError(403, 'Group member view permission required');
     const personId = url.searchParams.get('personId'),
       groupId = url.searchParams.get('groupId');
     let sql = 'SELECT * FROM group_members WHERE churchId=?';
@@ -402,6 +601,7 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     const rows = await all(ctx, sql, ...args);
     const results = [];
     for (const row of rows) {
+      if (!groupMembersAllowed(ctx, 'View', row.groupId)) continue;
       const person = await first(
         ctx,
         'SELECT * FROM people WHERE churchId=? AND id=? AND removed=0',
@@ -410,12 +610,16 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       );
       if (!person) continue;
       const group = await first(ctx, 'SELECT * FROM groups WHERE churchId=? AND id=?', cid, row.groupId);
-      results.push({ ...row, leader: !!row.leader, person: personJson(person), group: groupJson(group) });
+      results.push({
+        ...row,
+        leader: !!row.leader,
+        person: serialize(person),
+        group: groupJson(group),
+      });
     }
     return json(results);
   }
   if (path === '/membership/groupmembers' && method === 'POST') {
-    requireAdmin(ctx);
     const rows = await records(request),
       statements = [],
       result = [];
@@ -425,28 +629,50 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
       await ensureOwn(ctx, 'group_members', mid);
       const personId = requiredString(row.personId, 'personId');
       const groupId = requiredString(row.groupId, 'groupId');
+      requireMemberEdit(ctx, groupId);
+      const existing = await first(ctx, 'SELECT groupId FROM group_members WHERE churchId=? AND id=?', cid, mid);
+      if (existing) requireMemberEdit(ctx, existing.groupId);
       if (
         !(await first(ctx, 'SELECT id FROM people WHERE churchId=? AND id=? AND removed=0', cid, personId)) ||
         !(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=?', cid, groupId))
       )
         throw new HttpError(400, 'Unknown person or group');
       statements.push(
+        ...groupWriteGuard(ctx, {
+          kind: 'member',
+          id: mid,
+          existing,
+          groupId,
+          personId,
+        }),
         env.DB.prepare(
           'INSERT INTO group_members(id,churchId,groupId,personId,leader) VALUES(?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET groupId=excluded.groupId,personId=excluded.personId,leader=excluded.leader WHERE group_members.churchId=excluded.churchId',
         ).bind(mid, cid, groupId, personId, row.leader ? 1 : 0),
         auditStatement(ctx, 'groupmembers.save', mid),
       );
-      result.push({ id: mid, churchId: cid, groupId, personId, leader: !!row.leader });
+      result.push({
+        id: mid,
+        churchId: cid,
+        groupId,
+        personId,
+        leader: !!row.leader,
+      });
     }
     await env.DB.batch(statements);
     return json(result);
   }
   if (/^\/membership\/groupmembers\/[^/]+$/.test(path) && method === 'DELETE') {
-    requireAdmin(ctx);
     const mid = ctx.path.split('/').pop();
-    const row = await first(ctx, 'SELECT id FROM group_members WHERE churchId=? AND id=?', cid, mid);
+    const row = await first(ctx, 'SELECT id,groupId FROM group_members WHERE churchId=? AND id=?', cid, mid);
     if (!row) throw new HttpError(404, 'Group membership not found');
+    requireMemberEdit(ctx, row.groupId);
     await env.DB.batch([
+      ...groupWriteGuard(ctx, {
+        kind: 'member',
+        id: row.id,
+        existing: row,
+        remove: true,
+      }),
       env.DB.prepare('DELETE FROM group_members WHERE churchId=? AND id=?').bind(cid, mid),
       auditStatement(ctx, 'groupmembers.delete', mid!),
     ]);

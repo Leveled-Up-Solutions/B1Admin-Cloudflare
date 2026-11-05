@@ -37,7 +37,13 @@ test('View Names permits name projections without contact, family or demographic
     const found = await (await h.req('/membership/people/search?term=alex@example.test', { token })).json();
     assert.deepEqual(found, []);
     assert.equal(
-      (await h.req('/membership/people', { token, method: 'POST', json: [{ name: { first: 'Denied' } }] })).status,
+      (
+        await h.req('/membership/people', {
+          token,
+          method: 'POST',
+          json: [{ name: { first: 'Denied' } }],
+        })
+      ).status,
       403,
     );
     const admin = (await h.login()).token;

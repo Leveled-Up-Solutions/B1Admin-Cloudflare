@@ -26,11 +26,21 @@ test('role administration protects bootstrap admins and rejects unprivileged mut
   assert.equal((await post('roles', [{ name: 'Unauthorized' }], viewer)).status, 403);
   assert.equal((await post('roles', [{ name: 'Unauthorized' }], member)).status, 403);
   assert.equal(
-    (await h.req('/membership/roles/builtin-administrators', { method: 'DELETE', token: admin })).status,
+    (
+      await h.req('/membership/roles/builtin-administrators', {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     409,
   );
   assert.equal(
-    (await h.req('/membership/rolemembers/builtin-member-user-admin', { method: 'DELETE', token: admin })).status,
+    (
+      await h.req('/membership/rolemembers/builtin-member-user-admin', {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     409,
   );
   const roles = await data(await h.req('/membership/roles/church/church-demo', { token: admin }));
@@ -41,7 +51,12 @@ test('custom permissions grant and revoke access on the next request without tok
   const role = await createRole('Directory editors');
   const [permission] = await data(
     await post('rolepermissions', [
-      { roleId: role.id, apiName: 'MembershipApi', contentType: 'People', action: 'Edit' },
+      {
+        roleId: role.id,
+        apiName: 'MembershipApi',
+        contentType: 'People',
+        action: 'Edit',
+      },
     ]),
   );
   const [assignment] = await data(await post('rolemembers', [{ roleId: role.id, personId: 'person-alex' }]));
@@ -51,16 +66,31 @@ test('custom permissions grant and revoke access on the next request without tok
   assert.equal(response.status, 200, await response.clone().text());
   assert.equal((await post('groups', [{ name: 'Not allowed' }], member)).status, 403);
   assert.equal(
-    (await h.req('/membership/rolepermissions/' + permission.id, { method: 'DELETE', token: admin })).status,
+    (
+      await h.req('/membership/rolepermissions/' + permission.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
     200,
   );
   assert.equal((await post('people', [{ name: { first: 'No longer allowed' } }], member)).status, 403);
   const members = await data(
-    await h.req('/membership/rolemembers/roles/' + role.id + '?include=users', { token: admin }),
+    await h.req('/membership/rolemembers/roles/' + role.id + '?include=users', {
+      token: admin,
+    }),
   );
   assert.equal(members[0].user.email, 'member@example.test');
   assert.equal('passwordHash' in members[0].user, false);
-  assert.equal((await h.req('/membership/roles/' + role.id, { method: 'DELETE', token: admin })).status, 200);
+  assert.equal(
+    (
+      await h.req('/membership/roles/' + role.id, {
+        method: 'DELETE',
+        token: admin,
+      })
+    ).status,
+    200,
+  );
   assert.equal(await h.db.prepare('SELECT id FROM role_members WHERE id=?').bind(assignment.id).first(), null);
 });
 test('role references remain tenant scoped and validation rolls back bulk writes', async () => {
@@ -69,7 +99,14 @@ test('role references remain tenant scoped and validation rolls back bulk writes
     (
       await post(
         'rolepermissions',
-        [{ roleId: role.id, apiName: 'MembershipApi', contentType: 'People', action: 'View' }],
+        [
+          {
+            roleId: role.id,
+            apiName: 'MembershipApi',
+            contentType: 'People',
+            action: 'View',
+          },
+        ],
         other,
       )
     ).status,
@@ -77,8 +114,19 @@ test('role references remain tenant scoped and validation rolls back bulk writes
   );
   assert.equal((await post('rolemembers', [{ roleId: role.id, userId: 'user-other' }])).status, 400);
   const response = await post('rolepermissions', [
-    { id: 'bulk-role-good', roleId: role.id, apiName: 'MembershipApi', contentType: 'People', action: 'View' },
-    { roleId: role.id, apiName: 'MembershipApi', contentType: 'Server', action: 'Admin' },
+    {
+      id: 'bulk-role-good',
+      roleId: role.id,
+      apiName: 'MembershipApi',
+      contentType: 'People',
+      action: 'View',
+    },
+    {
+      roleId: role.id,
+      apiName: 'MembershipApi',
+      contentType: 'Server',
+      action: 'Admin',
+    },
   ]);
   assert.equal(response.status, 400);
   assert.equal(await h.db.prepare("SELECT id FROM role_permissions WHERE id='bulk-role-good'").first(), null);
@@ -97,8 +145,16 @@ test('role references remain tenant scoped and validation rolls back bulk writes
     501,
   );
   assert.equal(
-    (await post('rolepermissions', [{ roleId: null, apiName: 'MembershipApi', contentType: 'People', action: 'View' }]))
-      .status,
+    (
+      await post('rolepermissions', [
+        {
+          roleId: null,
+          apiName: 'MembershipApi',
+          contentType: 'People',
+          action: 'View',
+        },
+      ])
+    ).status,
     501,
   );
 });
@@ -106,8 +162,18 @@ test('delegated role editors cannot grant themselves or others elevated privileg
   const editor = await createRole('Delegated role editors');
   await data(
     await post('rolepermissions', [
-      { roleId: editor.id, apiName: 'MembershipApi', contentType: 'Roles', action: 'Edit' },
-      { roleId: editor.id, apiName: 'MembershipApi', contentType: 'Roles', action: 'View' },
+      {
+        roleId: editor.id,
+        apiName: 'MembershipApi',
+        contentType: 'Roles',
+        action: 'Edit',
+      },
+      {
+        roleId: editor.id,
+        apiName: 'MembershipApi',
+        contentType: 'Roles',
+        action: 'View',
+      },
     ]),
   );
   await data(await post('rolemembers', [{ roleId: editor.id, userId: 'user-viewer' }]));
@@ -116,7 +182,14 @@ test('delegated role editors cannot grant themselves or others elevated privileg
     (
       await post(
         'rolepermissions',
-        [{ roleId: target.id, apiName: 'MembershipApi', contentType: 'People', action: 'Edit' }],
+        [
+          {
+            roleId: target.id,
+            apiName: 'MembershipApi',
+            contentType: 'People',
+            action: 'Edit',
+          },
+        ],
         viewer,
       )
     ).status,
@@ -126,7 +199,14 @@ test('delegated role editors cannot grant themselves or others elevated privileg
     (
       await post(
         'rolepermissions',
-        [{ roleId: target.id, apiName: 'MembershipApi', contentType: 'Roles', action: 'View' }],
+        [
+          {
+            roleId: target.id,
+            apiName: 'MembershipApi',
+            contentType: 'Roles',
+            action: 'View',
+          },
+        ],
         viewer,
       )
     ).status,
@@ -139,7 +219,14 @@ test('delegated role editors cannot grant themselves or others elevated privileg
     (
       await post(
         'rolepermissions',
-        [{ roleId: target.id, apiName: 'MembershipApi', contentType: 'People', action: 'View' }],
+        [
+          {
+            roleId: target.id,
+            apiName: 'MembershipApi',
+            contentType: 'People',
+            action: 'View',
+          },
+        ],
         viewer,
       )
     ).status,
@@ -156,7 +243,11 @@ test('upstream audit list contract is paginated, filterable and permission prote
   assert.ok(result.count >= 2);
   assert.equal(result.logs.length, 2);
   assert.ok(result.logs.every((log) => log.category === 'permission' && log.churchId === 'church-demo' && log.created));
-  const empty = await data(await h.req('/membership/auditlogs?entityId=does-not-exist', { token: admin }));
+  const empty = await data(
+    await h.req('/membership/auditlogs?entityId=does-not-exist', {
+      token: admin,
+    }),
+  );
   assert.equal(empty.count, 0);
   const foreign = await data(await h.req('/membership/auditlogs', { token: other }));
   assert.ok(foreign.logs.every((log) => log.churchId === 'church-other'));

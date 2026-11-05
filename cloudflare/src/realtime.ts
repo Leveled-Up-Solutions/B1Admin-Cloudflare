@@ -1,4 +1,5 @@
-import { HttpError, body, requireAdmin } from './http';
+import { HttpError, body } from './http';
+import { allowed } from './permissions';
 import type { Context, Env, Principal } from './types';
 
 const MAX_EVENT_BYTES = 4096;
@@ -42,7 +43,10 @@ function validatedEvent(value: unknown): EventInput {
   ) {
     throw new HttpError(400, 'Only bounded refresh events are supported');
   }
-  const event: EventInput = { action: 'refresh', data: { resource: data.resource } };
+  const event: EventInput = {
+    action: 'refresh',
+    data: { resource: data.resource },
+  };
   if (typeof data.id === 'string') event.data.id = data.id;
   if (typeof input.conversationId === 'string') event.conversationId = input.conversationId;
   if (new TextEncoder().encode(JSON.stringify(event)).length > MAX_EVENT_BYTES)
@@ -65,21 +69,29 @@ function identityHeaders(principal: Principal): Headers {
 
 /** Called only after the outer Worker has authenticated and authorized the operation. */
 export async function publishRealtime(env: Env, principal: Principal, input: EventInput): Promise<Response> {
+  if (principal.role !== 'admin') throw new HttpError(403, 'Administrator permission required');
   const event = validatedEvent(input);
   const headers = identityHeaders(principal);
   headers.set('Content-Type', 'application/json');
   return tenantStub(env, principal).fetch(
-    new Request('https://realtime.internal/publish', { method: 'POST', headers, body: JSON.stringify(event) }),
+    new Request('https://realtime.internal/publish', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(event),
+    }),
   );
 }
 
 export async function routeRealtime(ctx: Context): Promise<Response | undefined> {
   if (ctx.path !== '/messaging/realtime' && ctx.path !== '/messaging/realtime/events') return undefined;
   if (ctx.path.endsWith('/events') && ctx.request.method === 'POST') {
-    requireAdmin(ctx);
     return publishRealtime(ctx.env, ctx.principal, validatedEvent(await body(ctx.request)));
   }
   if (ctx.request.method !== 'GET') throw new HttpError(405, 'Method not allowed');
+  // This feed includes church-wide actor/resource identifiers. A module-scoped
+  // editor or read-only staff member must not inherit it through their role label.
+  if (!allowed(ctx, 'MembershipApi', 'Settings', 'Edit'))
+    throw new HttpError(403, 'Settings edit permission required for administrative realtime metadata');
   const headers = identityHeaders(ctx.principal);
   let internalPath = '/events';
   if (!ctx.path.endsWith('/events')) {
@@ -103,11 +115,21 @@ export class ChurchRealtime {
     });
   }
 
-  private async sessionValid(identity: Pick<SocketIdentity, 'sessionId' | 'userId' | 'churchId'>): Promise<boolean> {
+  private async sessionValid(
+    identity: Pick<SocketIdentity, 'sessionId' | 'userId' | 'churchId'>,
+    publishing = false,
+  ): Promise<boolean> {
     return !!(await this.env.DB.prepare(
-      'SELECT s.id FROM sessions s JOIN users u ON u.id = s.userId JOIN user_churches uc ON uc.userId = u.id WHERE s.id = ? AND s.userId = ? AND uc.churchId = ? AND u.disabled = 0 AND s.expiresAt > ?',
+      `SELECT s.id FROM sessions s JOIN users u ON u.id=s.userId JOIN user_churches uc ON uc.userId=u.id
+       WHERE s.id=? AND s.userId=? AND uc.churchId=? AND u.disabled=0 AND u.passwordState='active'
+       AND s.passwordVersion=u.passwordVersion AND s.expiresAt>?
+       AND (uc.role='admin' OR (?=0 AND EXISTS(
+         SELECT 1 FROM role_members rm JOIN role_permissions rp ON rp.churchId=rm.churchId AND rp.roleId=rm.roleId
+         WHERE rm.churchId=uc.churchId AND rm.userId=uc.userId AND rp.apiName='MembershipApi'
+         AND rp.contentType='Settings' AND rp.contentId='' AND rp.action='Edit'
+       )))`,
     )
-      .bind(identity.sessionId, identity.userId, identity.churchId, new Date().toISOString())
+      .bind(identity.sessionId, identity.userId, identity.churchId, new Date().toISOString(), publishing ? 1 : 0)
       .first());
   }
 
@@ -115,7 +137,13 @@ export class ChurchRealtime {
     const churchId = request.headers.get('X-Church-Id');
     const userId = request.headers.get('X-User-Id');
     const sessionId = request.headers.get('X-Session-Id');
-    if (!churchId || !userId || !sessionId || !(await this.sessionValid({ churchId, userId, sessionId })))
+    const path = new URL(request.url).pathname;
+    if (
+      !churchId ||
+      !userId ||
+      !sessionId ||
+      !(await this.sessionValid({ churchId, userId, sessionId }, path === '/publish'))
+    )
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     if (this.churchId && churchId !== this.churchId)
       return Response.json({ error: 'Tenant mismatch' }, { status: 403 });
@@ -123,7 +151,6 @@ export class ChurchRealtime {
       await this.state.storage.put('churchId', churchId);
       this.churchId = churchId;
     }
-    const path = new URL(request.url).pathname;
     if (path === '/socket' && request.method === 'GET') {
       if (request.headers.get('Upgrade')?.toLowerCase() !== 'websocket')
         return new Response('WebSocket upgrade required', { status: 426 });
@@ -131,15 +158,30 @@ export class ChurchRealtime {
         return Response.json({ error: 'Connection limit reached' }, { status: 429 });
       const pair = new WebSocketPair();
       const [client, server] = Object.values(pair);
-      const identity: SocketIdentity = { churchId, userId, sessionId, socketId: crypto.randomUUID() };
+      const identity: SocketIdentity = {
+        churchId,
+        userId,
+        sessionId,
+        socketId: crypto.randomUUID(),
+      };
       this.state.acceptWebSocket(server);
       server.serializeAttachment(identity);
       if (!(await this.state.storage.getAlarm())) await this.state.storage.setAlarm(Date.now() + 60_000);
-      server.send(JSON.stringify({ churchId, conversationId: '', action: 'socketId', data: identity.socketId }));
+      server.send(
+        JSON.stringify({
+          churchId,
+          conversationId: '',
+          action: 'socketId',
+          data: identity.socketId,
+        }),
+      );
       return new Response(null, { status: 101, webSocket: client });
     }
     if (path === '/events' && request.method === 'GET') {
-      const entries = await this.state.storage.list<TenantEvent>({ prefix: 'event:', limit: HISTORY_SIZE });
+      const entries = await this.state.storage.list<TenantEvent>({
+        prefix: 'event:',
+        limit: HISTORY_SIZE,
+      });
       return Response.json({
         events: [...entries.values()],
         sequence: (await this.state.storage.get<number>('sequence')) || 0,
@@ -164,12 +206,15 @@ export class ChurchRealtime {
           sequence,
           timestamp: new Date().toISOString(),
         };
-        await storage.put({ sequence, [`event:${String(sequence).padStart(20, '0')}`]: entry });
+        await storage.put({
+          sequence,
+          [`event:${String(sequence).padStart(20, '0')}`]: entry,
+        });
         if (sequence > HISTORY_SIZE) await storage.delete(`event:${String(sequence - HISTORY_SIZE).padStart(20, '0')}`);
         return entry;
       });
       const payload = JSON.stringify(event);
-      // A session revoked after connecting cannot receive another application event.
+      // Revalidate both session and administrative permission before every delivery.
       const validity = new Map<string, Promise<boolean>>();
       await Promise.all(
         this.state.getWebSockets().map(async (socket) => {
@@ -177,7 +222,7 @@ export class ChurchRealtime {
             const identity = socket.deserializeAttachment() as SocketIdentity;
             if (!validity.has(identity.sessionId)) validity.set(identity.sessionId, this.sessionValid(identity));
             if (identity.churchId !== churchId || !(await validity.get(identity.sessionId)))
-              socket.close(1008, 'Session expired');
+              socket.close(1008, 'Realtime access revoked');
             else socket.send(payload);
           } catch {
             socket.close(1011, 'Delivery failed');
@@ -196,7 +241,7 @@ export class ChurchRealtime {
     }
     const identity = socket.deserializeAttachment() as SocketIdentity;
     if (!identity || identity.churchId !== this.churchId || !(await this.sessionValid(identity))) {
-      socket.close(1008, 'Session expired');
+      socket.close(1008, 'Realtime access revoked');
       return;
     }
     if (message === 'getId')
@@ -223,7 +268,8 @@ export class ChurchRealtime {
     await Promise.all(
       this.state.getWebSockets().map(async (socket) => {
         const identity = socket.deserializeAttachment() as SocketIdentity;
-        if (!identity || !(await this.sessionValid(identity))) socket.close(1008, 'Session expired');
+        if (!identity || identity.churchId !== this.churchId || !(await this.sessionValid(identity)))
+          socket.close(1008, 'Realtime access revoked');
       }),
     );
     if (this.state.getWebSockets().length) await this.state.storage.setAlarm(Date.now() + 60_000);

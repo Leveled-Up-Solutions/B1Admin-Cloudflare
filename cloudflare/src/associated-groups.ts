@@ -92,7 +92,14 @@ export async function associatedGroups(ctx: Context): Promise<Response | undefin
       access(ctx, 'Edit', contentId);
       await planType(ctx, contentId);
       await group(ctx, groupId);
-      const row = { id: entityId, churchId: cid, contentType: type, contentId, groupId, settings };
+      const row = {
+        id: entityId,
+        churchId: cid,
+        contentType: type,
+        contentId,
+        groupId,
+        settings,
+      };
       statements.push(
         previous
           ? ctx.env.DB.prepare(
