@@ -6,12 +6,13 @@ import type { GroupInterface } from "@churchapps/helpers";
 import dayjs from "dayjs";
 import utc from "dayjs/plugin/utc";
 import timezone from "dayjs/plugin/timezone";
+import { hasCloudflarePermission } from "./permissions";
 import { CalendarRecurrenceEditor } from "./CalendarRecurrenceEditor";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-type Calendar = { id?: string; name: string; description: string; color: string; timeZone: string; groupId: string | null };
+type Calendar = { id?: string; name: string; description: string; color: string; timeZone: string; groupId: string | null; groupName?: string; canEdit?: boolean; canCreate?: boolean };
 type CalendarEvent = {
   id?: string; calendarId: string; groupId: string | null; title: string; description: string; start: string; end: string; allDay: boolean; location: string; timeZone: string;
   recurrenceRule?: string | null; exceptionDates?: string[]; occurrenceId?: string; seriesId?: string | null; occurrenceDate?: string | null; recurrenceIndex?: number;
@@ -24,7 +25,8 @@ const inputTime = (value: string, zone: string) => value ? dayjs(value).tz(zone)
 export function CloudflareCalendars() {
   const cache = useQueryClient();
   const calendars = useQuery<Calendar[]>({ queryKey: ["/calendars", "ContentApi"] });
-  const groups = useQuery<GroupInterface[]>({ queryKey: ["/groups", "MembershipApi"] });
+  const canBrowseGroups = hasCloudflarePermission({ api: "MembershipApi", contentType: "Groups", action: "View" }) || UserHelper.checkAccess(Permissions.membershipApi.groups.edit);
+  const groups = useQuery<GroupInterface[]>({ queryKey: ["/groups", "MembershipApi"], enabled: canBrowseGroups });
   const [calendarId, setCalendarId] = React.useState("");
   const selected = calendars.data?.find(c => c.id === calendarId);
   const zone = selected?.timeZone || "UTC";
@@ -41,7 +43,8 @@ export function CloudflareCalendars() {
   const [error, setError] = React.useState("");
   const [dialogError, setDialogError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
-  const canEdit = UserHelper.checkAccess(Permissions.contentApi.content.edit);
+  const canCreate = UserHelper.checkAccess(Permissions.contentApi.content.edit) || ["Edit", "Admin"].some(action => hasCloudflarePermission({ api: "ContentApi", contentType: "Calendars", action }));
+  const canEdit = canCreate || selected?.canEdit === true;
   React.useEffect(() => {
     if (!calendarId && calendars.data?.[0]?.id) setCalendarId(calendars.data[0].id);
   }, [calendarId, calendars.data]);
@@ -133,7 +136,7 @@ export function CloudflareCalendars() {
   return <Container maxWidth="xl" sx={{ py: 4 }}><Stack spacing={3}>
     <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" spacing={2}>
       <Typography variant="h1">Calendars & scheduling</Typography>
-      {canEdit && <Button variant="outlined" onClick={() => { setDialogError(""); setCalendarEdit(newCalendar()); }}>New calendar</Button>}
+      {canCreate && <Button variant="outlined" onClick={() => { setDialogError(""); setCalendarEdit(newCalendar()); }}>New calendar</Button>}
     </Stack>
     <Typography color="text.secondary">Plan church and group events with explicit local times, recurring schedules and occurrence exceptions. List view shows 90 days from the selected date.</Typography>
     {error && <Alert severity="error">{error}</Alert>}{message && <Alert severity="success">{message}</Alert>}
@@ -163,7 +166,7 @@ export function CloudflareCalendars() {
           <TextField label="Description" multiline value={calendarEdit?.description || ""} onChange={e => setCalendarEdit({ ...calendarEdit!, description: e.target.value })} />
           <TextField label="Time zone" required value={calendarEdit?.timeZone || ""} onChange={e => setCalendarEdit({ ...calendarEdit!, timeZone: e.target.value })} helperText="IANA name, for example America/New_York or UTC." />
           <TextField label="Color" type="color" value={calendarEdit?.color || "#2563eb"} onChange={e => setCalendarEdit({ ...calendarEdit!, color: e.target.value })} />
-          <TextField select label="Default group" value={calendarEdit?.groupId || ""} onChange={e => setCalendarEdit({ ...calendarEdit!, groupId: e.target.value || null })}><MenuItem value="">No group</MenuItem>{(groups.data || []).map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}</TextField>
+          <TextField select disabled={!canBrowseGroups} label="Default group" value={calendarEdit?.groupId || ""} onChange={e => setCalendarEdit({ ...calendarEdit!, groupId: e.target.value || null })}><MenuItem value="">No group</MenuItem>{!canBrowseGroups && calendarEdit?.groupId && <MenuItem value={calendarEdit.groupId}>{calendarEdit.groupName || "Current group"}</MenuItem>}{(groups.data || []).map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}</TextField>
         </Stack></DialogContent><DialogActions>
           {calendarEdit?.id && <Button color="error" disabled={busy} onClick={() => { if (window.confirm("Delete this calendar? Calendars with events cannot be deleted.")) action(async () => { await ApiHelper.delete("/calendars/" + calendarEdit.id, "ContentApi"); setCalendarId(""); }, "Calendar deleted.", () => setCalendarEdit(null)); }}>Delete calendar</Button>}
           <Button onClick={() => setCalendarEdit(null)} disabled={busy}>Cancel</Button><Button type="submit" variant="contained" disabled={busy}>Save calendar</Button>
@@ -202,7 +205,7 @@ export function CloudflareCalendars() {
 
         </>}
         <TextField label="Location" value={eventEdit?.location || ""} onChange={e => setEventEdit({ ...eventEdit!, location: e.target.value })} />
-        <TextField select disabled={editScope === "this" || !!selected?.groupId} label="Group" value={eventEdit?.groupId || ""} onChange={e => setEventEdit({ ...eventEdit!, groupId: e.target.value || null })}><MenuItem value="">No group</MenuItem>{(groups.data || []).map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}</TextField>
+        <TextField select disabled={!canBrowseGroups || editScope === "this" || !!selected?.groupId} label="Group" value={eventEdit?.groupId || ""} onChange={e => setEventEdit({ ...eventEdit!, groupId: e.target.value || null })}><MenuItem value="">No group</MenuItem>{!canBrowseGroups && eventEdit?.groupId && <MenuItem value={eventEdit.groupId}>{selected?.groupName || "Current group"}</MenuItem>}{(groups.data || []).map(g => <MenuItem key={g.id} value={g.id}>{g.name}</MenuItem>)}</TextField>
       </Stack></DialogContent><DialogActions><Button onClick={() => setEventEdit(null)} disabled={busy}>Cancel</Button><Button type="submit" variant="contained" disabled={busy}>Save event</Button></DialogActions></Box>
     </Dialog>
   </Stack></Container>;

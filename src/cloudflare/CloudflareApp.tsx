@@ -1,4 +1,5 @@
 import React, { Suspense } from "react";
+import { flushSync } from "react-dom";
 import { Alert, AppBar, Box, Button, Chip, Container, Paper, Stack, Toolbar, Typography } from "@mui/material";
 import { Link, Route, Routes, useNavigate } from "react-router-dom";
 import { ApiHelper, Permissions, UserHelper } from "@churchapps/apphelper";
@@ -70,9 +71,13 @@ export const CloudflareApp = () => {
   UserHelper.userChurches = context.userChurches;
   function clearSession(passwordChanged = false, securityChanged = false) {
     ApiHelper.clearPermissions();
+    // Unmount authenticated query observers before clearing their cache. Otherwise
+    // a mounted screen can recreate queries with its just-revoked credentials.
+    flushSync(() => {
+      context.setUser(null!); context.setPerson(null!); context.setUserChurch(null!); context.setUserChurches([]);
+      navigate("/login", { replace: true, state: { passwordChanged, securityChanged } });
+    });
     queryClient.clear();
-    context.setUser(null!); context.setPerson(null!); context.setUserChurch(null!); context.setUserChurches([]);
-    navigate("/login", { replace: true, state: { passwordChanged, securityChanged } });
   }
   async function logout() {
     try {

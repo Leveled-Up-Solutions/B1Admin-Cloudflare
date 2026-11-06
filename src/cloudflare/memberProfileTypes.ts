@@ -27,7 +27,7 @@ export interface MemberProfile {
     shareEmail: boolean;
   };
   church: { id: string; name: string; subDomain: string };
-  settings: { profileEditMode: "direct" | "staff"; familyAddEnabled: boolean };
+  settings: { profileEditMode: "direct" | "review"; familyAddEnabled: boolean; familyEditMode: "review" | "unavailable" };
 }
 
 export interface MemberProfileChanges {

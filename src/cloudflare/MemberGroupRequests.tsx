@@ -2,9 +2,9 @@ import React from "react";
 import { memberRequest as request } from "./memberApi";
 
 type Row = Record<string, any>;
-interface Props { token: string; groups: Row[]; refresh: number; disabled: boolean; onJoin: (group: Row) => void; onChanged: () => void; onExpired: () => void; }
+interface Props { token: string; groups: Row[]; refresh: number; disabled: boolean; onJoin: (group: Row) => void; onChanged: () => void; onExpired: () => void; discoveryHeader?: React.ReactNode; discoveryFooter?: React.ReactNode; emptyDiscovery?: React.ReactNode }
 
-export function MemberGroupRequests({ token, groups, refresh, disabled, onJoin, onChanged, onExpired }: Props) {
+export function MemberGroupRequests({ token, groups, refresh, disabled, onJoin, onChanged, onExpired, discoveryHeader, discoveryFooter, emptyDiscovery }: Props) {
   const [mine, setMine] = React.useState<Row[]>([]), [review, setReview] = React.useState<Row[]>([]);
   const [target, setTarget] = React.useState<Row | null>(null), [decline, setDecline] = React.useState<Row | null>(null);
   const [message, setMessage] = React.useState(""), [reason, setReason] = React.useState("");
@@ -29,13 +29,15 @@ export function MemberGroupRequests({ token, groups, refresh, disabled, onJoin, 
   return <>
     <div className="mp-section-title" style={{ marginTop: 36 }}><h2>Find a group</h2><button className="mp-quiet" disabled={busy || loading} onClick={onChanged}>Refresh requests</button></div>
     <p className="mp-muted">Join an open group or ask its leaders to approve your request.</p>
+    {discoveryHeader}
     {error && <p className="mp-alert" role="alert">{error}</p>}{notice && <p className="mp-notice" role="status">{notice}</p>}
     <div className="mp-grid">{groups.length ? groups.map(group => {
       const pending = mine.find(item => item.groupId === group.id && item.status === "pending");
       return <article className="mp-card" key={group.id}><span className="mp-eyebrow">{group.categoryName || "Community"}</span><h3>{group.name}</h3>{group.about && <p>{group.about}</p>}
         {group.joinPolicy === "request" ? pending ? <p className="mp-muted">Your request is pending approval.</p> : <button className="mp-primary" disabled={locked} onClick={() => { setTarget(group); setMessage(""); }}>Request to join</button> : <button className="mp-primary" disabled={locked} onClick={() => onJoin(group)}>Join group</button>}
       </article>;
-    }) : <p className="mp-empty">No additional groups are available right now.</p>}</div>
+    }) : emptyDiscovery || <p className="mp-empty">No additional groups are available right now.</p>}</div>
+    {discoveryFooter}
     {target && <form className="mp-card mp-profile" style={{ marginTop: 20 }} onSubmit={event => { event.preventDefault(); act("", "POST", { groupId: target.id, message }, `Your request to join ${target.name} has been submitted.`); }}>
       <h3>Request to join {target.name}</h3><label>Message to group leaders (optional)<textarea maxLength={1000} rows={3} value={message} onChange={event => setMessage(event.target.value)} /></label>
       <div className="mp-button-row"><button className="mp-primary" disabled={locked}>Send request</button><button type="button" className="mp-quiet" disabled={busy} onClick={() => setTarget(null)}>Cancel</button></div>

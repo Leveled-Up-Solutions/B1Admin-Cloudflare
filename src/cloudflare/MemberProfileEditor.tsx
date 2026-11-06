@@ -50,6 +50,22 @@ export const MemberProfileEditor = ({ profile, token, disabled, onBusy, onSaved,
     } catch (problem) { if (memberSessionExpired(problem)) onExpired(); setError(memberErrorMessage(problem)); } finally { setSaving(false); onBusy(false); }
   }
 
+  async function savePersonal() {
+    const original = values(profile);
+    const changes: Record<string, string | null> = {};
+    for (const field of Object.keys(draft) as Array<keyof typeof draft>) {
+      if (draft[field] !== original[field]) changes[field] = field === "birthDate" && !draft[field] ? null : draft[field];
+    }
+    if (!Object.keys(changes).length) { setNotice("No profile changes to save."); return; }
+    if (direct) { await save(changes, "Your profile has been saved."); return; }
+    if (saving || disabled) return;
+    setSaving(true); onBusy(true); setError(""); setNotice("");
+    try {
+      await memberRequest("/api/member/v1/profile-requests", token, { method: "POST", body: JSON.stringify({ kind: "profile", changes }) });
+      setDraft(values(profile)); onSaved(profile); setNotice("Your profile changes have been submitted for review.");
+    } catch (problem) { if (memberSessionExpired(problem)) onExpired(); setError(memberErrorMessage(problem)); } finally { setSaving(false); onBusy(false); }
+  }
+
   function input(field: keyof typeof draft, label: string, options: { type?: string; autoComplete?: string; maxLength?: number; required?: boolean } = {}) {
     return <label>{label}<input value={draft[field]} onChange={event => setDraft(previous => ({ ...previous, [field]: event.target.value }))}
       type={options.type || "text"} autoComplete={options.autoComplete} maxLength={options.maxLength || (field.endsWith("Name") ? 100 : 200)} max={field === "birthDate" ? new Date().toISOString().slice(0, 10) : undefined} required={options.required} /></label>;
@@ -58,11 +74,11 @@ export const MemberProfileEditor = ({ profile, token, disabled, onBusy, onSaved,
   return <section aria-label="Your profile details">
     {error && <p className="mp-alert" role="alert">{error}</p>}
     {notice && <p className="mp-notice" role="status">{notice}</p>}
-    <form className="mp-card mp-profile" onSubmit={event => { event.preventDefault(); if (direct) save({ ...draft, birthDate: draft.birthDate || null }, "Your profile has been saved."); }}>
+    <form className="mp-card mp-profile" onSubmit={event => { event.preventDefault(); savePersonal(); }}>
       <h2>{profile.person.name.display}</h2>
       <p className="mp-muted">{profile.person.contactInfo.email}</p>
-      {!direct && <p className="mp-notice">Your church requires staff review for profile and household changes. Contact your church office to update these details.</p>}
-      <fieldset disabled={disabled || saving || !direct} className="mp-profile-fields">
+      {!direct && <p className="mp-notice">Your church reviews profile changes before applying them. Submit the details you want to change and track the request below.</p>}
+      <fieldset disabled={disabled || saving} className="mp-profile-fields">
         <legend>Personal details</legend>
         <div className="mp-grid">
           {input("firstName", "First name", { autoComplete: "given-name", required: true })}
@@ -72,7 +88,7 @@ export const MemberProfileEditor = ({ profile, token, disabled, onBusy, onSaved,
           {input("birthDate", "Birth date", { type: "date", autoComplete: "bday" })}
         </div>
       </fieldset>
-      <fieldset disabled={disabled || saving || !direct} className="mp-profile-fields">
+      <fieldset disabled={disabled || saving} className="mp-profile-fields">
         <legend>Contact details</legend>
         <div className="mp-grid">
           {input("mobilePhone", "Mobile phone", { type: "tel", autoComplete: "tel", maxLength: 40 })}
@@ -87,7 +103,7 @@ export const MemberProfileEditor = ({ profile, token, disabled, onBusy, onSaved,
         </div>
       </fieldset>
       <p className="mp-muted">These details update your record at {profile.church.name}. Your sign-in email and other household members’ records are managed separately.</p>
-      {direct && <button className="mp-primary" disabled={disabled || saving}>{saving ? "Saving…" : "Save profile"}</button>}
+      <button className="mp-primary" disabled={disabled || saving}>{saving ? "Saving…" : direct ? "Save profile" : "Submit profile changes"}</button>
     </form>
     <form className="mp-card mp-profile" onSubmit={event => { event.preventDefault(); save({ directoryVisible, shareEmail }, "Your directory preferences have been saved."); }}>
       <h2>Directory preferences</h2>

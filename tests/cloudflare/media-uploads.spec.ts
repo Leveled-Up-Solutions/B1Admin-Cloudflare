@@ -1,5 +1,6 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 async function signIn(page: Page) {
   await page.goto("/login");
@@ -124,7 +125,7 @@ test("archive multipart upload pauses, reloads, verifies the original file, resu
   }
 });
 
-test("files above 25 MiB automatically use multipart and explain the browser download limit", async ({ page, request }) => {
+test("files above 25 MiB automatically use multipart and download without buffering in application memory", async ({ page, request }) => {
   test.setTimeout(90000);
   const token = await signIn(page);
   const headers = { Authorization: `Bearer ${token}` };
@@ -146,11 +147,14 @@ test("files above 25 MiB automatically use multipart and explain the browser dow
     const session = await response.json(); fileId = session.file.id;
     expect(session.totalParts).toBe(4);
     expect(session.file.size).toBe(25 * 1024 * 1024 + 1);
-    const downloads: string[] = [];
-    page.on("request", req => { if (req.url().includes("/files/download/")) downloads.push(req.url()); });
+    const downloading = page.waitForEvent("download");
     await archive.getByRole("button", { name: "Download " + filename, exact: true }).click();
-    await expect(archive.getByText("Browser downloads currently support files up to 25 MiB. This file is archived, but cannot be downloaded here yet.", { exact: true })).toBeVisible();
-    expect(downloads).toEqual([]);
+    const download = await downloading;
+    const bytes = await readFile((await download.path())!);
+    expect(bytes.length).toBe(25 * 1024 * 1024 + 1);
+    expect(createHash("sha256").update(bytes).digest("hex")).toBe(createHash("sha256").update(Buffer.alloc(bytes.length, 65)).digest("hex"));
+    expect(new URL(download.url()).pathname).toBe(`/api/media/files/${fileId}/download`);
+    expect(new URL(download.url()).search).toBe("");
   } finally {
     if (fileId) await request.delete(`/api/content/files/${fileId}`, { headers });
     const sessions = await request.get("/api/content/files/uploads?contentId=" + sermonId, { headers });

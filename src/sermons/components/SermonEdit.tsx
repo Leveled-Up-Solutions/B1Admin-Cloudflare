@@ -10,7 +10,7 @@ import { DateHelper } from "@churchapps/apphelper";
 import { UserHelper } from "@churchapps/apphelper";
 import { ImageEditor } from "@churchapps/apphelper";
 import { Permissions } from "@churchapps/helpers";
-import type { SermonInterface, PlaylistInterface } from "@churchapps/helpers";
+import type { SermonInterface } from "@churchapps/helpers";
 import { Duration } from "./Duration";
 import { FormCard } from "../../components/ui";
 import { useConfirmDelete } from "../../hooks";
@@ -18,6 +18,7 @@ import { AppDatePicker } from "../../components";
 import { CustomFileUpload } from "../../site/components/CustomFileUpload";
 
 import { CloudflareSermonFiles } from "../../cloudflare/CloudflareSermonFiles";
+import { canCreateUnassignedSermon, canEditArchivePlaylist, canEditArchiveSermon, canListArchivePlaylists, type ArchivePlaylist } from "../../cloudflare/sermonPermissions";
 
 const IS_CLOUDFLARE = process.env.REACT_APP_STAGE === "cloudflare";
 const AUDIO_ACCEPT = "audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a";
@@ -27,7 +28,7 @@ interface Props {
   updatedFunction?: () => void
 }
 
-type PodcastSermon = SermonInterface & { audioUrl?: string; speaker?: string; visibility?: "public" | "private"; publishedAt?: string | null };
+type PodcastSermon = SermonInterface & { audioUrl?: string; speaker?: string; visibility?: "public" | "private"; publishedAt?: string | null; canEdit?: boolean; playlistTitle?: string };
 
 type AnyRecord = Record<string, any>;
 
@@ -35,7 +36,8 @@ export const SermonEdit: React.FC<Props> = (props) => {
   "use no memo"; // compiler caches register() results, breaking RHF field re-registration after reset()
   const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
-  const playlistsQuery = useQuery<PlaylistInterface[]>({ queryKey: ["/playlists", "ContentApi"], placeholderData: [] });
+  const playlistsQuery = useQuery<ArchivePlaylist[]>({ queryKey: ["/playlists", "ContentApi"], placeholderData: [], enabled: !IS_CLOUDFLARE || canListArchivePlaylists() });
+  const canEdit = IS_CLOUDFLARE ? canEditArchiveSermon(props.currentSermon) : UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit);
   const { confirm, ConfirmDialogElement } = useConfirmDelete();
   const [showImageEditor, setShowImageEditor] = React.useState(false);
   const [showOption, setShowOption] = React.useState(false);
@@ -58,7 +60,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
     }
   });
 
-  const checkDelete = () => { if (!UniqueIdHelper.isMissing(props.currentSermon?.id)) return handleDelete; else return undefined; };
+  const checkDelete = () => { if (canEdit && !UniqueIdHelper.isMissing(props.currentSermon?.id)) return handleDelete; else return undefined; };
   const handleCancel = () => { props.updatedFunction?.(); };
 
   const handleAudioUploaded = (file: any) => {
@@ -73,13 +75,11 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
   const handleDelete = async () => {
     const errs = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorizedDelete"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorizedDelete"));
     if (errs.length > 0) { setErrors(errs); return; }
     if (await confirm(Locale.label("sermons.sermonEdit.deleteConfirm"))) {
       setSaving(true);
-      try { await ApiHelper.delete("/sermons/" + props.currentSermon.id, "ContentApi"); props.updatedFunction?.(); }
-      catch (err) { setErrors([err instanceof Error ? err.message : "Could not delete sermon."]); }
-      finally { setSaving(false); }
+      try { await ApiHelper.delete("/sermons/" + props.currentSermon.id, "ContentApi"); props.updatedFunction?.(); } catch (err) { setErrors([err instanceof Error ? err.message : "Could not delete sermon."]); } finally { setSaving(false); }
     }
   };
 
@@ -119,7 +119,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
   const onValid = async (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
     if (errs.length > 0) { setErrors(errs); return; }
 
     const sermon: PodcastSermon = {
@@ -137,14 +137,12 @@ export const SermonEdit: React.FC<Props> = (props) => {
       videoUrl: buildVideoUrl(values.videoType, values.videoData)
     };
     setSaving(true); setErrors([]);
-    try { await ApiHelper.post("/sermons", [sermon], "ContentApi"); props.updatedFunction?.(); }
-    catch (err) { setErrors([err instanceof Error ? err.message : "Could not save sermon."]); }
-    finally { setSaving(false); }
+    try { await ApiHelper.post("/sermons", [sermon], "ContentApi"); props.updatedFunction?.(); } catch (err) { setErrors([err instanceof Error ? err.message : "Could not save sermon."]); } finally { setSaving(false); }
   };
 
   const handleAdd = (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
     if (errs.length > 0) { setErrors(errs); return; }
 
     const sermon: PodcastSermon = {
@@ -189,7 +187,10 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
   const getPlaylists = () => {
     const result: React.ReactElement[] = [];
-    (playlistsQuery.data || []).forEach((playlist: any) => {
+    const currentId = props.currentSermon.playlistId;
+    const options = (playlistsQuery.data || []).filter(playlist => !IS_CLOUDFLARE || playlist.id === currentId || canEditArchivePlaylist(playlist));
+    if (IS_CLOUDFLARE && currentId && !options.some(playlist => playlist.id === currentId)) result.push(<MenuItem key={currentId} value={currentId}>{props.currentSermon.playlistTitle || "Current playlist"}</MenuItem>);
+    options.forEach((playlist) => {
       result.push(<MenuItem key={playlist.id} value={playlist.id} data-testid={`playlist-option-${playlist.id}`} aria-label={playlist.title}>{playlist.title}</MenuItem>);
     });
     return result;
@@ -248,14 +249,13 @@ export const SermonEdit: React.FC<Props> = (props) => {
   if (IS_CLOUDFLARE) endAdornment = <></>;
 
   const updatePublication = async (publish: boolean) => {
-    if (!props.currentSermon.id) return;
+    if (!canEdit || !props.currentSermon.id) return;
     setSaving(true); setErrors([]);
     try {
       if (publish) await ApiHelper.post("/sermons/" + props.currentSermon.id + "/publish", {}, "ContentApi");
       else await ApiHelper.delete("/sermons/" + props.currentSermon.id + "/published", "ContentApi");
       props.updatedFunction?.();
-    } catch (err) { setErrors([err instanceof Error ? err.message : "Could not update publication."]); }
-    finally { setSaving(false); }
+    } catch (err) { setErrors([err instanceof Error ? err.message : "Could not update publication."]); } finally { setSaving(false); }
   };
 
   if (playlistsQuery.isLoading) return <Loading data-testid="sermon-edit-loading" />;
@@ -274,7 +274,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
                 <InputLabel>{Locale.label("sermons.playlist")}</InputLabel>
                 <Controller name="playlistId" control={control} render={({ field }) => (
                   <Select {...field} value={field.value ?? ""} label={Locale.label("sermons.playlist")} data-testid="sermon-playlist-select" aria-label={Locale.label("sermons.sermonEdit.selectPlaylistAria")}>
-                    <MenuItem value="">{Locale.label("sermons.sermonEdit.none")}</MenuItem>
+                    {(!IS_CLOUDFLARE || !props.currentSermon.playlistId || canCreateUnassignedSermon()) && <MenuItem value="">{Locale.label("sermons.sermonEdit.none")}</MenuItem>}
                     {getPlaylists()}
                   </Select>
                 )} />

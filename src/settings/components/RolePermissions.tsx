@@ -8,7 +8,8 @@ import { SettingsPanel } from "./SettingsPanel";
 interface PermissionScope {
   id: string;
   name: string;
-  permissions: { apiName: string; contentType: string }[];
+  scopeType?: string;
+  permissions: { apiName: string; contentType: string; actions?: string[] }[];
 }
 
 interface Props {
@@ -27,9 +28,11 @@ export const RolePermissions: React.FC<Props> = (props) => {
   const [filter, setFilter] = useState("");
 
   const search = filter.trim().toLowerCase();
-  const selectedScope = groups.find(group => group.id === scope);
-  const scopeKinds = selectedScope?.permissions || rolePermissions.filter(grant => grant.contentId === scope).map(grant => ({ apiName: grant.apiName, contentType: grant.contentType }));
-  const scopedPermissions = scope ? permissions.filter(permission => scopeKinds.some(kind => kind.apiName === permission.apiName && kind.contentType === permission.section)) : permissions;
+  const scopeKey = (item: PermissionScope) => !item.scopeType || item.scopeType === "group" ? item.id : item.scopeType + ":" + item.id;
+  const selectedScope = groups.find(group => scopeKey(group) === scope);
+  const contentId = selectedScope?.id || scope;
+  const scopeKinds: PermissionScope["permissions"] = selectedScope?.permissions || rolePermissions.filter(grant => grant.contentId === contentId).map(grant => ({ apiName: grant.apiName || "", contentType: grant.contentType || "" }));
+  const scopedPermissions = scope ? permissions.filter(permission => scopeKinds.some(kind => kind.apiName === permission.apiName && kind.contentType === permission.section && (!kind.actions || kind.actions.includes(permission.action || "")))) : permissions;
   const visible = search
     ? scopedPermissions.filter((p) => `${p.displayAction || ""} ${p.displaySection || ""} ${p.section || ""}`.toLowerCase().includes(search))
     : scopedPermissions;
@@ -51,7 +54,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
     ApiHelper.get("/permissions", "MembershipApi").then((data: any) => setPermissions(data));
   }, []);
 
-  const isChecked = (p: PermissionInterface) => rolePermissions.some((rp) => rp.apiName === p.apiName && rp.contentType === p.section && rp.action === p.action && (rp.contentId || "") === scope);
+  const isChecked = (p: PermissionInterface) => rolePermissions.some((rp) => rp.apiName === p.apiName && rp.contentType === p.section && rp.action === p.action && (rp.contentId || "") === contentId);
 
   const getSectionCount = (displaySection: string) => {
     const inSection = scopedPermissions.filter((p) => p.displaySection === displaySection);
@@ -88,7 +91,7 @@ export const RolePermissions: React.FC<Props> = (props) => {
     const result: JSX.Element[] = [];
     visible.forEach((p, index) => {
       if (p.displaySection === displaySection) {
-        result.push(<RoleCheck key={`${scope}:${index}`} roleId={props.role.id} rolePermissions={rolePermissions} apiName={p.apiName || ""} contentType={p.section || ""} contentId={scope || undefined} action={p.action || ""} label={p.displayAction || ""} onChange={handlePermissionChange} />);
+        result.push(<RoleCheck key={`${scope}:${index}`} roleId={props.role.id} rolePermissions={rolePermissions} apiName={p.apiName || ""} contentType={p.section || ""} contentId={contentId || undefined} action={p.action || ""} label={p.displayAction || ""} onChange={handlePermissionChange} />);
       }
     });
     return result;
@@ -110,10 +113,17 @@ export const RolePermissions: React.FC<Props> = (props) => {
   return (
     <SettingsPanel id="rolePermissionsBox" headerText={Locale.label("settings.rolePermissions.permEdit")} headerIcon="lock" help="docs/b1-admin/settings/roles-permissions">
       {cloudflare && <><TextField select fullWidth size="small" label="Permission scope" value={scope} onChange={event => { setScope(event.target.value); setFilter(""); }} data-testid="role-permission-scope" sx={{ mb: 2 }}>
-        <MenuItem value="">All groups and church resources</MenuItem>
-        {groups.map(group => <MenuItem value={group.id} key={group.id}>{group.name}</MenuItem>)}
-        {rolePermissions.filter(grant => grant.contentId && !groups.some(group => group.id === grant.contentId)).filter((grant, index, array) => array.findIndex(item => item.contentId === grant.contentId) === index).map(grant => <MenuItem value={grant.contentId} key={grant.contentId}>Unavailable scope ({grant.contentId})</MenuItem>)}
-      </TextField><Typography variant="body2" sx={{ mb: 2 }}>{scope ? "Group permissions cover this group, Plans cover this ministry, and Tasks cover work assigned to this group. Existing global grants still apply." : "These permissions apply across the church. Choose a group or ministry to manage its available scoped permissions."}</Typography>{scopeError && <Alert severity="warning">{scopeError}</Alert>}</>}
+        <MenuItem value="">All church resources</MenuItem>
+        {groups.map(group => <MenuItem value={scopeKey(group)} key={scopeKey(group)}>
+          {group.scopeType && group.scopeType !== "group"
+            ? `${group.scopeType === "calendars" ? "Calendar" : group.scopeType === "sermons" ? "Sermon" : "Playlist"}: ${group.name}`
+            : group.name}
+        </MenuItem>)}
+        {rolePermissions
+          .filter(grant => grant.contentId && !groups.some(group => group.id === grant.contentId))
+          .filter((grant, index, array) => array.findIndex(item => item.contentId === grant.contentId) === index)
+          .map(grant => <MenuItem value={grant.contentId} key={grant.contentId}>Unavailable scope ({grant.contentId})</MenuItem>)}
+      </TextField><Typography variant="body2" sx={{ mb: 2 }}>{scope ? "This permission applies to the selected resource. Calendar permissions include its events; playlist permissions include its sermons. Group, ministry and task scopes retain their existing boundaries. Global grants still apply." : "These permissions apply across the church. Choose a group, ministry, calendar, sermon or playlist to manage its available scoped permissions."}</Typography>{scopeError && <Alert severity="warning">{scopeError}</Alert>}</>}
       <TextField
         fullWidth
         size="small"

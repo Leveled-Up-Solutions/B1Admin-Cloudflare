@@ -34,7 +34,7 @@ test("original roles keep group scopes separate and create a manual setup link w
     await expect(editMembers()).not.toBeChecked();
     await Promise.all([page.waitForResponse(response => response.url().includes("/rolepermissions") && response.request().method() === "POST" && response.ok()), editMembers().check()]);
     await page.getByTestId("role-permission-scope").getByRole("combobox").click();
-    await page.getByRole("option", { name: "All groups and church resources", exact: true }).click();
+    await page.getByRole("option", { name: "All church resources", exact: true }).click();
     await page.getByTestId("role-permission-filter").locator("input").fill("Group");
     await expect(editMembers()).toBeChecked();
     await page.getByTestId("role-permission-scope").getByRole("combobox").click();

@@ -1,6 +1,7 @@
 import React from "react";
 import { Alert, Box, Button, Checkbox, FormControlLabel, LinearProgress, Stack, Typography } from "@mui/material";
 import { ApiHelper } from "@churchapps/apphelper";
+import { authorizeArchiveMedia, downloadArchiveMedia } from "./mediaAccess";
 
 type ArchiveFile = { id: string; fileName: string; fileType: string; size: number; contentPath: string };
 type UploadPart = { partNumber: number; size: number; sha256: string };
@@ -29,8 +30,9 @@ async function fingerprint(bytes: ArrayBuffer) {
 }
 
 /** R2 archives stay authenticated; never put a session token in a media URL. */
-export function CloudflareSermonFiles({ sermonId }: { sermonId: string }) {
+export function CloudflareSermonFiles({ sermonId, canEdit = true }: { sermonId: string; canEdit?: boolean }) {
   const [files, setFiles] = React.useState<ArchiveFile[]>([]);
+  const [playing, setPlaying] = React.useState<{ file: ArchiveFile; url: string; openedAt: string } | null>(null);
   const [sessions, setSessions] = React.useState<UploadSession[]>([]);
   const [error, setError] = React.useState("");
   const [notice, setNotice] = React.useState("");
@@ -38,19 +40,26 @@ export function CloudflareSermonFiles({ sermonId }: { sermonId: string }) {
   const [selected, setSelected] = React.useState<File | null>(null);
   const [resumable, setResumable] = React.useState(false);
   const [progress, setProgress] = React.useState<{ bytes: number; total: number; message: string } | null>(null);
+  const media = React.useRef<HTMLMediaElement | null>(null);
+  const setMediaRef = React.useCallback((element: HTMLMediaElement | null) => {
+    const previous = media.current;
+    if (previous && previous !== element) { previous.pause(); previous.removeAttribute("src"); previous.load(); }
+    media.current = element;
+  }, []);
   const input = React.useRef<HTMLInputElement>(null);
   const controller = React.useRef<AbortController | null>(null);
   const creation = React.useRef<{ file: File; key: string } | null>(null);
   const loadSessions = React.useCallback(async () => {
+    if (!canEdit) { setSessions([]); return; }
     const response = await fileRequest("/uploads?" + new URLSearchParams({ contentId: sermonId }));
     setSessions(await response.json());
-  }, [sermonId]);
+  }, [sermonId, canEdit]);
   const load = React.useCallback(async () => {
     const [result] = await Promise.all([ApiHelper.get("/files/sermon/" + encodeURIComponent(sermonId), "ContentApi"), loadSessions()]);
     setFiles(result);
   }, [sermonId, loadSessions]);
   React.useEffect(() => {
-    setSelected(null); setProgress(null); setNotice(""); setError(""); creation.current = null;
+    setPlaying(null); setSelected(null); setProgress(null); setNotice(""); setError(""); creation.current = null;
     load().catch(err => setError(err instanceof Error ? err.message : "Could not load archive files."));
     return () => controller.current?.abort();
   }, [load]);
@@ -143,16 +152,11 @@ export function CloudflareSermonFiles({ sermonId }: { sermonId: string }) {
       await loadSessions(); setProgress(null); setNotice("Upload aborted.");
     });
   }
-  async function download(file: ArchiveFile) {
-    if (file.size > MAX_RAW_BYTES) {
-      setError("Browser downloads currently support files up to 25 MiB. This file is archived, but cannot be downloaded here yet.");
-      return;
-    }
+  async function openFile(file: ArchiveFile, play = false) {
     await withErrors(async () => {
-      const response = await fileRequest("/download/" + encodeURIComponent(file.id));
-      const url = URL.createObjectURL(await response.blob());
-      const link = document.createElement("a"); link.href = url; link.download = file.fileName; link.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      const access = await authorizeArchiveMedia(file.id, ApiHelper.getConfig("ContentApi")!.jwt, "staff");
+      if (play) setPlaying({ file, url: access.playUrl, openedAt: access.expiresAt });
+      else downloadArchiveMedia(access.downloadUrl, file.fileName);
     });
   }
   async function remove(file: ArchiveFile) {
@@ -164,37 +168,41 @@ export function CloudflareSermonFiles({ sermonId }: { sermonId: string }) {
     <Stack spacing={2}>
       <Typography variant="h3">Archive files</Typography>
       <Typography variant="body2" color="text.secondary">Attach sermon audio, video or documents in R2. Members can download these files after this sermon is published. Maximum 1 GiB per file. Files over 25 MiB upload in resumable parts.</Typography>
-      <Typography variant="body2" color="text.secondary">Browser downloads currently support files up to 25 MiB.</Typography>
+      <Typography variant="body2" color="text.secondary">Play or download archived media privately in your browser. Access expires with your session or after two hours; choose Play again to refresh it.</Typography>
+      {playing && (playing.file.fileType.startsWith("audio/") ? <audio key={playing.openedAt} ref={setMediaRef} controls autoPlay preload="metadata" src={playing.url} aria-label={playing.file.fileName} onError={() => setError("Playback stopped or this format is unsupported. Choose Play again to refresh access, or download the archive.")} /> : <video key={playing.openedAt} ref={setMediaRef} controls autoPlay preload="metadata" playsInline src={playing.url} aria-label={playing.file.fileName} onError={() => setError("Playback stopped or this format is unsupported. Choose Play again to refresh access, or download the archive.")} />)}
       {error && <Alert severity="error">{error}</Alert>}
       {notice && <Alert severity="info">{notice}</Alert>}
       {files.map(file => <Stack key={file.id} direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
         <Typography sx={{ flex: 1 }}>{file.fileName} · {formatSize(file.size)}</Typography>
-        <Button onClick={() => download(file)} disabled={busy} aria-label={"Download " + file.fileName}>Download</Button>
-        <Button color="error" onClick={() => remove(file)} disabled={busy} aria-label={"Delete " + file.fileName}>Delete</Button>
+        {/^(audio|video)\//.test(file.fileType) && <Button onClick={() => openFile(file, true)} disabled={busy} aria-label={"Play " + file.fileName}>Play</Button>}
+        <Button onClick={() => openFile(file)} disabled={busy} aria-label={"Download " + file.fileName}>Download</Button>
+        {canEdit && <Button color="error" onClick={() => remove(file)} disabled={busy} aria-label={"Delete " + file.fileName}>Delete</Button>}
       </Stack>)}
       {!files.length && <Typography variant="body2" color="text.secondary">No files attached.</Typography>}
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
-        <input ref={input} type="file" aria-label="Sermon archive file" accept="audio/mpeg,audio/mp4,audio/wav,video/mp4,image/png,image/jpeg,image/webp,application/pdf,text/plain,application/zip" disabled={busy} onChange={event => { setSelected(event.target.files?.[0] || null); setError(""); creation.current = null; }} />
-        <Button variant="outlined" disabled={busy || !selected} onClick={upload}>Upload archive file</Button>
-      </Stack>
-      <FormControlLabel control={<Checkbox checked={resumable} disabled={busy} onChange={event => setResumable(event.target.checked)} />} label="Use resumable upload for this file" />
-      {progress && <Box aria-live="polite">
-        <Typography variant="body2">{progress.message} · {formatSize(progress.bytes)} of {formatSize(progress.total)}</Typography>
-        <LinearProgress variant="determinate" value={Math.min(100, progress.bytes / progress.total * 100)} aria-label="Archive upload progress" />
-        {busy && controller.current && <Button onClick={() => controller.current?.abort()}>Pause upload</Button>}
-      </Box>}
-      {sessions.length > 0 && <Box>
-        <Typography variant="body2">Unfinished uploads expire after 24 hours. Select the original file to resume; saved parts are checked before uploading continues.</Typography>
-        <Button disabled={busy} onClick={() => withErrors(load)}>Refresh uploads</Button>
-      </Box>}
-      {sessions.map(session => <Stack key={session.id} spacing={1} data-testid={"archive-upload-" + session.id}>
-        <Typography>{session.fileName} · {session.parts.length} of {session.totalParts} parts saved · {session.state}</Typography>
-        <Typography variant="caption">Expires {new Date(session.expiresAt).toLocaleString()}</Typography>
-        <Stack direction="row" spacing={1}>
-          <Button disabled={busy || (!selected && session.state !== "completing")} onClick={() => uploadParts(session)} aria-label={"Resume " + session.fileName}>{session.state === "completing" ? "Finish upload" : "Resume upload"}</Button>
-          <Button color="error" disabled={busy} onClick={() => abortUpload(session)} aria-label={"Abort " + session.fileName}>Abort upload</Button>
+      {canEdit && <>
+        <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
+          <input ref={input} type="file" aria-label="Sermon archive file" accept="audio/mpeg,audio/mp4,audio/wav,video/mp4,image/png,image/jpeg,image/webp,application/pdf,text/plain,application/zip" disabled={busy} onChange={event => { setSelected(event.target.files?.[0] || null); setError(""); creation.current = null; }} />
+          <Button variant="outlined" disabled={busy || !selected} onClick={upload}>Upload archive file</Button>
         </Stack>
-      </Stack>)}
+        <FormControlLabel control={<Checkbox checked={resumable} disabled={busy} onChange={event => setResumable(event.target.checked)} />} label="Use resumable upload for this file" />
+        {progress && <Box aria-live="polite">
+          <Typography variant="body2">{progress.message} · {formatSize(progress.bytes)} of {formatSize(progress.total)}</Typography>
+          <LinearProgress variant="determinate" value={Math.min(100, progress.bytes / progress.total * 100)} aria-label="Archive upload progress" />
+          {busy && controller.current && <Button onClick={() => controller.current?.abort()}>Pause upload</Button>}
+        </Box>}
+        {sessions.length > 0 && <Box>
+          <Typography variant="body2">Unfinished uploads expire after 24 hours. Select the original file to resume; saved parts are checked before uploading continues.</Typography>
+          <Button disabled={busy} onClick={() => withErrors(load)}>Refresh uploads</Button>
+        </Box>}
+        {sessions.map(session => <Stack key={session.id} spacing={1} data-testid={"archive-upload-" + session.id}>
+          <Typography>{session.fileName} · {session.parts.length} of {session.totalParts} parts saved · {session.state}</Typography>
+          <Typography variant="caption">Expires {new Date(session.expiresAt).toLocaleString()}</Typography>
+          <Stack direction="row" spacing={1}>
+            <Button disabled={busy || (!selected && session.state !== "completing")} onClick={() => uploadParts(session)} aria-label={"Resume " + session.fileName}>{session.state === "completing" ? "Finish upload" : "Resume upload"}</Button>
+            <Button color="error" disabled={busy} onClick={() => abortUpload(session)} aria-label={"Abort " + session.fileName}>Abort upload</Button>
+          </Stack>
+        </Stack>)}
+      </>}
     </Stack>
   </Box>;
 }

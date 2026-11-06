@@ -13,6 +13,7 @@ import { GroupJoinRequestTask } from "./components/GroupJoinRequestTask";
 import { TaskReminderEdit } from "./components/TaskReminderEdit";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Assignment as AssignmentIcon } from "@mui/icons-material";
+import { ProfileRequestReview } from "../../cloudflare/ProfileRequestReview";
 
 export const TaskPage = () => {
   const params = useParams();
@@ -111,7 +112,8 @@ export const TaskPage = () => {
     );
   }
 
-  const editable = canEditTask(task.data.assignedToType === "group" ? task.data.assignedToId : undefined);
+  const protectedProfileRequest = process.env.REACT_APP_STAGE === "cloudflare" && task.data.taskType === "directoryUpdate";
+  const editable = !protectedProfileRequest && canEditTask(task.data.assignedToType === "group" ? task.data.assignedToId : undefined);
   const open = task.data.status === "Open";
   const quiet = { typography: "body2", color: "text.secondary", overflowWrap: "anywhere" } as const;
 
@@ -157,7 +159,9 @@ export const TaskPage = () => {
   return (
     <PageContainer>
       <RecordLayout identity={identity} spacing={3} data-testid="task-record">
-        {task.data.taskType === "directoryUpdate" && <RequestedChanges task={task.data} />}
+        {task.data.taskType === "directoryUpdate" && (protectedProfileRequest
+          ? <ProfileRequestReview taskId={task.data.id} onChanged={() => { task.refetch(); queryClient.invalidateQueries({ queryKey: ["/tasks", "DoingApi"] }); queryClient.invalidateQueries({ queryKey: ["/tasks/closed", "DoingApi"] }); }} />
+          : <RequestedChanges task={task.data} />)}
         {task.data.taskType === "accountDeletion" && <AccountDeletionRequest task={task.data} />}
         {task.data.taskType === "groupJoinRequest" && <GroupJoinRequestTask task={task.data} />}
         {process.env.REACT_APP_STAGE !== "cloudflare" && <Notes context={context as UserContextInterface} conversationId={task.data.conversationId || ""} createConversation={handleCreateConversation as () => Promise<string>} />}

@@ -24,6 +24,7 @@ import { useForm, Controller } from "react-hook-form";
 import { FormCard } from "../../components/ui";
 import { useConfirmDelete } from "../../hooks";
 import { AppDatePicker } from "../../components";
+import { canEditArchivePlaylist } from "../../cloudflare/sermonPermissions";
 
 interface Props {
   currentPlaylist: PlaylistInterface,
@@ -40,6 +41,7 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
   "use no memo"; // compiler caches register() results, breaking RHF field re-registration after reset()
   const [error, setError] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  const canEdit = IS_CLOUDFLARE ? canEditArchivePlaylist(props.currentPlaylist) : UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit);
   const thumbnailRef = React.useRef<string | null>(null);
   const [thumbnailDisplay, setThumbnailDisplay] = React.useState<string | null>(null);
 
@@ -71,28 +73,24 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
 
   const handleDelete = async () => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorizedDelete"));
+    if (!canEdit) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorizedDelete"));
     if (errs.length > 0) return;
 
     if (await confirm(Locale.label("sermons.playlists.playlistEdit.deleteConfirm"))) {
       setSaving(true); setError("");
-      try { await ApiHelper.delete("/playlists/" + watchedId, "ContentApi"); props.updatedFunction?.(); }
-      catch (err) { setError(err instanceof Error ? err.message : "Could not delete playlist."); }
-      finally { setSaving(false); }
+      try { await ApiHelper.delete("/playlists/" + watchedId, "ContentApi"); props.updatedFunction?.(); } catch (err) { setError(err instanceof Error ? err.message : "Could not delete playlist."); } finally { setSaving(false); }
     }
   };
 
   const onValid = async (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorized"));
     if (errs.length > 0) return;
 
     const p: PlaylistInterface = { ...props.currentPlaylist, ...values, thumbnail: thumbnailRef.current ?? undefined };
     p.publishDate = values.publishDate ? DateHelper.toDate(values.publishDate) : undefined;
     setSaving(true); setError("");
-    try { await ApiHelper.post("/playlists", [p], "ContentApi"); props.updatedFunction?.(); }
-    catch (err) { setError(err instanceof Error ? err.message : "Could not save playlist."); }
-    finally { setSaving(false); }
+    try { await ApiHelper.post("/playlists", [p], "ContentApi"); props.updatedFunction?.(); } catch (err) { setError(err instanceof Error ? err.message : "Could not save playlist."); } finally { setSaving(false); }
   };
 
   return (

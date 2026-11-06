@@ -9,3 +9,12 @@
 .mp-household-list { list-style: none; padding: 0; margin: 18px 0; }
 .mp-household-list li { padding: 12px 0; border-bottom: 1px solid var(--mp-line); }
 .mp-household-list small { display: block; color: var(--mp-muted); }
+.member-portal .mp-pagination { margin: 24px 0 36px; }
+.member-portal .mp-pagination .mp-button-row { justify-content: space-between; }
+.member-portal .mp-pagination button { max-width: 100%; white-space: normal; }
+.member-portal .mp-calendar-filter { margin-bottom: 24px; }
+.member-portal .mp-family-proposal { margin-top: 24px; }
+.member-portal .mp-proposal-field { padding: 16px 0; border-bottom: 1px solid var(--mp-line); }
+.member-portal .mp-profile-requests { margin-top: 32px; }
+.member-portal .mp-profile-requests .mp-section-title { flex-wrap: wrap; }
+.member-portal .mp-household-list button { margin-top: 10px; }

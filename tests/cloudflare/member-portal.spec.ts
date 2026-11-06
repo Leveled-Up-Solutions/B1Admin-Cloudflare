@@ -72,7 +72,7 @@ test("mobile member portal supports local group and serving actions with authent
     await sermon.getByRole("button", { name: "View archive files", exact: true }).click();
     await sermon.getByRole("button", { name: `Play synthetic-${stamp}.wav`, exact: true }).click();
     await expect.poll(() => sermon.locator("audio").evaluate((element: HTMLAudioElement) => element.readyState)).toBeGreaterThanOrEqual(2);
-    expect(await sermon.locator("audio").evaluate((element: HTMLAudioElement) => new URL(element.src).protocol)).toBe("blob:");
+    expect(await sermon.locator("audio").evaluate((element: HTMLAudioElement) => new URL(element.src).pathname)).toBe(`/api/media/files/${file.id}/play`);
     expect(await sermon.locator("audio").evaluate((element: HTMLAudioElement) => element.duration)).toBe(1);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
 
