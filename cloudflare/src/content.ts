@@ -1,5 +1,14 @@
 import type { Context, Env } from './types';
-import { all, first, HttpError, id, json, now, records, requiredString, requireAdmin } from './http';
+import {
+  requireResource,
+  requireSermonAccess,
+  resourceAllowed,
+  resourceReadSql,
+  resourceSnapshot,
+  resourceWriteGuard,
+  type ResourceRequirement,
+} from './resource-permissions';
+import { all, first, HttpError, id, json, now, records, requiredString } from './http';
 
 import {
   boundedBytes,
@@ -90,6 +99,48 @@ function serialize(resource: Resource, row: Row): Row {
   return row;
 }
 
+export async function authorizedArchiveFile(
+  ctx: Context,
+  fileId: string,
+  publishedOnly = false,
+): Promise<FileRow & { objectKey: string }> {
+  const row = await first(
+    ctx,
+    "SELECT * FROM content_files WHERE churchId=? AND id=? AND state='ready'",
+    ctx.principal.churchId,
+    fileId,
+  );
+  if (!row) throw new HttpError(404, 'File not found');
+  if (publishedOnly) {
+    if (
+      !(await first(
+        ctx,
+        "SELECT id FROM content_sermons WHERE churchId=? AND id=? AND visibility='public' AND publishedAt IS NOT NULL AND publishDate<=?",
+        ctx.principal.churchId,
+        row.contentId,
+        now(),
+      ))
+    )
+      throw new HttpError(404, 'File not found');
+  } else await requireSermonAccess(ctx, row.contentId, 'View');
+  return row as FileRow & { objectKey: string };
+}
+async function contentGuard(ctx: Context, resource: Resource, row: Row, previous: Row | null) {
+  const kind = resource === 'sermons' ? 'Sermons' : 'Playlists';
+  const requirements: ResourceRequirement[] = [
+    { resource: kind, row: previous || (resource === 'sermons' ? row : null) },
+  ];
+  if (resource === 'sermons' && previous && previous.playlistId !== row.playlistId)
+    requirements.push(
+      row.playlistId ? { resource: 'Playlists', row: { id: row.playlistId } } : { resource: 'Sermons' },
+    );
+  return resourceWriteGuard(ctx, {
+    requirements,
+    snapshots: [
+      previous ? resourceSnapshot(tables[resource], previous) : { table: tables[resource], id: row.id, absent: true },
+    ],
+  });
+}
 async function contentRecords(
   ctx: Context,
   resource: Resource,
@@ -101,21 +152,24 @@ async function contentRecords(
   const method = ctx.request.method;
   if (resource === 'playlists' && operation) return undefined;
   if (operation === 'publish' && method === 'POST' && recordId) {
-    requireAdmin(ctx);
     const row = await first(ctx, `SELECT * FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId);
     if (!row) throw new HttpError(404, 'Content not found');
     const publishedAt = now();
     const statement = ctx.env.DB.prepare(
       `UPDATE ${table} SET publishedAt=?,updatedAt=? WHERE churchId=? AND id=?`,
     ).bind(publishedAt, publishedAt, churchId, recordId);
-    await ctx.env.DB.batch([statement, auditStatement(ctx, `content.${resource}.publish`, recordId)]);
+    await ctx.env.DB.batch([
+      ...(await contentGuard(ctx, resource, row, row)),
+      statement,
+      auditStatement(ctx, `content.${resource}.publish`, recordId),
+    ]);
     return json({ publishedAt });
   }
   if (operation === 'published' && method === 'DELETE' && recordId) {
-    requireAdmin(ctx);
-    if (!(await first(ctx, `SELECT id FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId)))
-      throw new HttpError(404, 'Content not found');
+    const row = await first(ctx, `SELECT * FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId);
+    if (!row) throw new HttpError(404, 'Content not found');
     await ctx.env.DB.batch([
+      ...(await contentGuard(ctx, resource, row, row)),
       ctx.env.DB.prepare(`UPDATE ${table} SET publishedAt=NULL,updatedAt=? WHERE churchId=? AND id=?`).bind(
         now(),
         churchId,
@@ -130,19 +184,33 @@ async function contentRecords(
     if (recordId) {
       const row = await first(ctx, `SELECT * FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId);
       if (!row) throw new HttpError(404, 'Content not found');
-      return json(serialize(resource, row));
+      requireResource(ctx, resource === 'sermons' ? 'Sermons' : 'Playlists', 'View', row);
+      if (resource === 'sermons' && row.playlistId)
+        row.playlistTitle =
+          (await first(ctx, 'SELECT title FROM content_playlists WHERE churchId=? AND id=?', churchId, row.playlistId))
+            ?.title || '';
+      return json({
+        ...serialize(resource, row),
+        canEdit: resourceAllowed(ctx, resource === 'sermons' ? 'Sermons' : 'Playlists', 'Edit', row),
+      });
     }
+    const scope = resourceReadSql(ctx, resource === 'sermons' ? 'Sermons' : 'Playlists', 'r');
     const playlistId = resource === 'sermons' ? ctx.url.searchParams.get('playlistId') : null;
     const rows = await all(
       ctx,
-      `SELECT * FROM ${table} WHERE churchId=? ${playlistId ? 'AND playlistId=?' : ''} ORDER BY publishDate DESC LIMIT 500`,
+      `SELECT r.* ${resource === 'sermons' ? ',p.title playlistTitle' : ''} FROM ${table} r ${resource === 'sermons' ? 'LEFT JOIN content_playlists p ON p.churchId=r.churchId AND p.id=r.playlistId' : ''} WHERE r.churchId=? AND ${scope.sql} ${playlistId ? 'AND r.playlistId=?' : ''} ORDER BY r.publishDate DESC LIMIT 500`,
       churchId,
+      ...scope.values,
       ...(playlistId ? [playlistId] : []),
     );
-    return json(rows.map((row) => serialize(resource, row)));
+    return json(
+      rows.map((row) => ({
+        ...serialize(resource, row),
+        canEdit: resourceAllowed(ctx, resource === 'sermons' ? 'Sermons' : 'Playlists', 'Edit', row),
+      })),
+    );
   }
   if (method === 'POST' && !recordId) {
-    requireAdmin(ctx);
     const inputs = await records(ctx.request);
     const statements: D1PreparedStatement[] = [];
     const outputs: Row[] = [];
@@ -163,6 +231,7 @@ async function contentRecords(
         )
           throw new HttpError(404, 'Playlist not found');
       }
+      statements.push(...(await contentGuard(ctx, resource, { id: entityId, ...values }, previous)));
       const columns = Object.keys(values);
       if (previous)
         statements.push(
@@ -185,9 +254,9 @@ async function contentRecords(
     return json(outputs);
   }
   if (method === 'DELETE' && recordId) {
-    requireAdmin(ctx);
-    if (!(await first(ctx, `SELECT id FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId)))
-      throw new HttpError(404, 'Content not found');
+    const row = await first(ctx, `SELECT * FROM ${table} WHERE churchId=? AND id=?`, churchId, recordId);
+    if (!row) throw new HttpError(404, 'Content not found');
+    requireResource(ctx, resource === 'sermons' ? 'Sermons' : 'Playlists', 'Edit', row);
     if (
       resource === 'sermons' &&
       (await first(ctx, 'SELECT id FROM content_files WHERE churchId=? AND contentId=? LIMIT 1', churchId, recordId))
@@ -199,6 +268,7 @@ async function contentRecords(
     )
       throw new HttpError(409, 'Move or delete playlist sermons first');
     await ctx.env.DB.batch([
+      ...(await contentGuard(ctx, resource, row, row)),
       ctx.env.DB.prepare(`DELETE FROM ${table} WHERE churchId=? AND id=?`).bind(churchId, recordId),
       auditStatement(ctx, `content.${resource}.delete`, recordId),
     ]);
@@ -208,7 +278,6 @@ async function contentRecords(
 }
 
 async function upload(ctx: Context, raw: boolean): Promise<Response> {
-  requireAdmin(ctx);
   let input: Row;
   let bytes: Uint8Array;
   if (raw) {
@@ -264,6 +333,7 @@ async function upload(ctx: Context, raw: boolean): Promise<Response> {
     ))
   )
     throw new HttpError(404, 'Content target not found');
+  const sermon = await requireSermonAccess(ctx, contentId, 'Edit');
   const row = {
     id: id(),
     churchId: ctx.principal.churchId,
@@ -276,10 +346,14 @@ async function upload(ctx: Context, raw: boolean): Promise<Response> {
   };
   const objectKey = `churches/${encodeURIComponent(row.churchId)}/files/${row.id}`;
   // Persist pending metadata first. A failed put/commit remains discoverable by the cleanup job.
-  await ctx.env.DB.prepare(
-    'INSERT INTO content_files (id,churchId,contentType,contentId,fileName,fileType,size,objectKey,state,dateModified) VALUES (?,?,?,?,?,?,?,?,?,?)',
-  )
-    .bind(
+  await ctx.env.DB.batch([
+    ...resourceWriteGuard(ctx, {
+      requirements: [{ resource: 'Sermons', row: sermon }],
+      snapshots: [resourceSnapshot('content_sermons', sermon)],
+    }),
+    ctx.env.DB.prepare(
+      'INSERT INTO content_files (id,churchId,contentType,contentId,fileName,fileType,size,objectKey,state,dateModified) VALUES (?,?,?,?,?,?,?,?,?,?)',
+    ).bind(
       row.id,
       row.churchId,
       contentType,
@@ -290,14 +364,21 @@ async function upload(ctx: Context, raw: boolean): Promise<Response> {
       objectKey,
       'pending',
       row.dateModified,
-    )
-    .run();
+    ),
+  ]);
   try {
     await ctx.env.FILES.put(objectKey, bytes, {
       httpMetadata: { contentType: fileType },
       customMetadata: { churchId: row.churchId, fileId: row.id },
     });
     await ctx.env.DB.batch([
+      ...resourceWriteGuard(ctx, {
+        requirements: [{ resource: 'Sermons', row: sermon }],
+        snapshots: [
+          resourceSnapshot('content_sermons', sermon),
+          resourceSnapshot('content_files', { ...row, state: 'pending' }),
+        ],
+      }),
       ctx.env.DB.prepare("UPDATE content_files SET state='ready' WHERE churchId=? AND id=? AND state='pending'").bind(
         row.churchId,
         row.id,
@@ -305,7 +386,15 @@ async function upload(ctx: Context, raw: boolean): Promise<Response> {
       auditStatement(ctx, 'content.files.upload', row.id),
     ]);
   } catch (error) {
-    // Best effort immediate compensation. If R2/D1 is unavailable, the pending row permits later retry.
+    // A lost D1 response does not prove the atomic ready+audit batch failed.
+    // Reconcile before compensating; if this read also fails, retain the bytes
+    // and persisted state so cleanup can safely inspect the outcome later.
+    const current = await first(ctx, 'SELECT state FROM content_files WHERE churchId=? AND id=?', row.churchId, row.id);
+    if (current?.state === 'ready') return json([fileResponse(row)], 201);
+    if (current && !['pending', 'deleting'].includes(current.state)) throw error;
+    // A cleanup claim may win while R2.put is in flight. Both deleting and
+    // pending records are hidden; remove a late object even if cleanup already
+    // attempted deletion before that put finished.
     try {
       await ctx.env.FILES.delete(objectKey);
       await ctx.env.DB.prepare("DELETE FROM content_files WHERE churchId=? AND id=? AND state='pending'")
@@ -327,47 +416,29 @@ async function files(ctx: Context): Promise<Response | undefined> {
   if (method === 'POST' && (parts.length === 0 || (parts[0] === 'upload' && parts.length === 1)))
     return upload(ctx, parts[0] === 'upload');
   if (['GET', 'HEAD'].includes(method) && parts[0] === 'download' && parts.length === 2) {
-    const row = await first(
-      ctx,
-      "SELECT * FROM content_files WHERE churchId=? AND id=? AND state='ready'",
-      churchId,
-      parts[1],
-    );
-    if (!row) throw new HttpError(404, 'File not found');
-    if (
-      ctx.principal.role === 'member' &&
-      !(await first(
-        ctx,
-        "SELECT id FROM content_sermons WHERE churchId=? AND id=? AND visibility='public' AND publishedAt IS NOT NULL AND publishDate<=?",
-        churchId,
-        row.contentId,
-        now(),
-      ))
-    )
-      throw new HttpError(404, 'File not found');
+    const row = await authorizedArchiveFile(ctx, parts[1], ctx.principal.role === 'member');
     return downloadFile(ctx.request, ctx.env.FILES, row as FileRow & { objectKey: string });
   }
-  if (method === 'GET' && parts.length === 0)
+  if (method === 'GET' && parts.length === 0) {
+    const scope = resourceReadSql(ctx, 'Sermons', 's');
     return json(
       (
         await all(
           ctx,
-          "SELECT * FROM content_files WHERE churchId=? AND state='ready' ORDER BY dateModified DESC LIMIT 500",
+          `SELECT f.* FROM content_files f JOIN content_sermons s ON s.churchId=f.churchId AND s.id=f.contentId WHERE f.churchId=? AND f.state='ready' AND ${scope.sql} ORDER BY f.dateModified DESC LIMIT 500`,
           churchId,
+          ...scope.values,
         )
       ).map((row) => fileResponse(row as FileRow)),
     );
+  }
   if (method === 'GET' && parts.length === 1) {
-    const row = await first(
-      ctx,
-      "SELECT * FROM content_files WHERE churchId=? AND id=? AND state='ready'",
-      churchId,
-      parts[0],
-    );
-    if (!row) throw new HttpError(404, 'File not found');
+    const row = await authorizedArchiveFile(ctx, parts[0]);
     return json(fileResponse(row as FileRow));
   }
-  if (method === 'GET' && parts.length === 2)
+  if (method === 'GET' && parts.length === 2) {
+    if (parts[0] !== 'sermon') throw new HttpError(400, 'Unsupported file content type');
+    await requireSermonAccess(ctx, parts[1], 'View');
     return json(
       (
         await all(
@@ -379,10 +450,11 @@ async function files(ctx: Context): Promise<Response | undefined> {
         )
       ).map((row) => fileResponse(row as FileRow)),
     );
+  }
   if (method === 'DELETE' && parts.length === 1) {
-    requireAdmin(ctx);
     const row = await first(ctx, 'SELECT * FROM content_files WHERE churchId=? AND id=?', churchId, parts[0]);
     if (!row) throw new HttpError(404, 'File not found');
+    const sermon = await requireSermonAccess(ctx, row.contentId, 'Edit');
     if (
       await first(
         ctx,
@@ -394,6 +466,10 @@ async function files(ctx: Context): Promise<Response | undefined> {
       throw new HttpError(409, 'Abort the active upload session before deleting this pending file');
     // Hide immediately, then remove bytes. A failed deletion remains resumable and unreadable.
     await ctx.env.DB.batch([
+      ...resourceWriteGuard(ctx, {
+        requirements: [{ resource: 'Sermons', row: sermon }],
+        snapshots: [resourceSnapshot('content_sermons', sermon), resourceSnapshot('content_files', row)],
+      }),
       ctx.env.DB.prepare("UPDATE content_files SET state='deleting',dateModified=? WHERE churchId=? AND id=?").bind(
         now(),
         churchId,
@@ -410,7 +486,7 @@ async function files(ctx: Context): Promise<Response | undefined> {
   return undefined;
 }
 
-/** Retry incomplete R2 operations, with a grace period so active uploads are never collected. */
+/** Retry old incomplete R2 operations after atomically claiming their hidden state. */
 export async function cleanupFiles(env: Env): Promise<number> {
   const uploadsCleaned = await cleanupUploads(env);
   const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString();
@@ -423,10 +499,17 @@ export async function cleanupFiles(env: Env): Promise<number> {
   ).results;
   let cleaned = 0;
   for (const row of rows) {
-    await env.FILES.delete(row.objectKey);
-    await env.DB.prepare("DELETE FROM content_files WHERE id=? AND state IN ('pending','deleting') AND dateModified<?")
+    // The selection is only a candidate list. A ready commit may have won
+    // since that read; claim in D1 before deleting any bytes. The uploader's
+    // pending snapshot makes its final commit mutually exclusive with this.
+    const claimed = await env.DB.prepare(
+      "UPDATE content_files SET state='deleting' WHERE id=? AND state IN ('pending','deleting') AND dateModified<? AND NOT EXISTS(SELECT 1 FROM media_uploads WHERE fileId=content_files.id AND state IN ('creating','uploading','completing','aborting')) RETURNING objectKey",
+    )
       .bind(row.id, cutoff)
-      .run();
+      .first<{ objectKey: string }>();
+    if (!claimed) continue;
+    await env.FILES.delete(claimed.objectKey);
+    await env.DB.prepare("DELETE FROM content_files WHERE id=? AND state='deleting'").bind(row.id).run();
     cleaned++;
   }
   return cleaned + uploadsCleaned;

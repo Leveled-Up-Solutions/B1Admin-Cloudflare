@@ -1,5 +1,5 @@
 import type { Context, Env } from './types';
-import { allowed } from './permissions';
+import { requireSermonAccess, resourceSnapshot, resourceWriteGuard } from './resource-permissions';
 import { all, body, first, HttpError, id, json, now, requiredString } from './http';
 import { boundedBytes, fileMetadata, fileResponse, MAX_MULTIPART_BYTES, PART_BYTES } from './media';
 
@@ -35,6 +35,25 @@ type Part = {
 };
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const OPEN_STATES = ['creating', 'uploading', 'completing'];
+async function guarded(ctx: Context, contentId: string, statements: D1PreparedStatement[], session?: Session) {
+  const sermon = await requireSermonAccess(ctx, contentId, 'Edit');
+  const guard = resourceWriteGuard(ctx, {
+    requirements: [{ resource: 'Sermons', row: sermon }],
+    snapshots: [resourceSnapshot('content_sermons', sermon)],
+    checks: session
+      ? [
+          {
+            sql: 'EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND churchId=? AND userId=? AND contentId=?)',
+            values: [session.id, ctx.principal.churchId, ctx.principal.userId, contentId],
+          },
+        ]
+      : [],
+  });
+  return (await ctx.env.DB.batch([...guard, ...statements])).slice(guard.length);
+}
+async function guardedRun(ctx: Context, session: Session, statement: D1PreparedStatement) {
+  return (await guarded(ctx, session.contentId, [statement], session))[0];
+}
 async function load(ctx: Context, sessionId: string): Promise<Session> {
   const session = await first<Session>(
     ctx,
@@ -93,20 +112,26 @@ function validateObject(object: R2Object, session: Session) {
   )
     throw new HttpError(409, 'Completed upload metadata does not match this session');
 }
-async function finalize(env: Env, session: Session, object: R2Object): Promise<Session> {
+async function finalize(ctx: Context, session: Session, object: R2Object): Promise<Session> {
+  const env = ctx.env;
   validateObject(object, session);
   const completedAt = now();
-  await env.DB.batch([
-    env.DB.prepare(
-      "UPDATE content_files SET state='ready',dateModified=? WHERE id=? AND churchId=? AND state='pending' AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='completing')",
-    ).bind(completedAt, session.fileId, session.churchId, session.id),
-    env.DB.prepare(
-      "UPDATE media_uploads SET state='complete',finishedAt=?,updatedAt=? WHERE id=? AND state='completing' AND EXISTS(SELECT 1 FROM content_files WHERE id=? AND state='ready')",
-    ).bind(completedAt, completedAt, session.id, session.fileId),
-    env.DB.prepare(
-      "INSERT OR IGNORE INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?,churchId,userId,'content.files.multipart.complete',fileId,? FROM media_uploads WHERE id=? AND state='complete'",
-    ).bind(`${session.id}:complete`, completedAt, session.id),
-  ]);
+  await guarded(
+    ctx,
+    session.contentId,
+    [
+      env.DB.prepare(
+        "UPDATE content_files SET state='ready',dateModified=? WHERE id=? AND churchId=? AND state='pending' AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='completing')",
+      ).bind(completedAt, session.fileId, session.churchId, session.id),
+      env.DB.prepare(
+        "UPDATE media_uploads SET state='complete',finishedAt=?,updatedAt=? WHERE id=? AND state='completing' AND EXISTS(SELECT 1 FROM content_files WHERE id=? AND state='ready')",
+      ).bind(completedAt, completedAt, session.id, session.fileId),
+      env.DB.prepare(
+        "INSERT OR IGNORE INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?,churchId,userId,'content.files.multipart.complete',fileId,? FROM media_uploads WHERE id=? AND state='complete'",
+      ).bind(`${session.id}:complete`, completedAt, session.id),
+    ],
+    session,
+  );
   const current = await env.DB.prepare('SELECT * FROM media_uploads WHERE id=?').bind(session.id).first<Session>();
   if (!current || current.state !== 'complete') throw new HttpError(409, 'Upload completion was cancelled');
   return current;
@@ -131,6 +156,7 @@ async function create(ctx: Context): Promise<Response> {
     ))
   )
     throw new HttpError(404, 'Sermon not found');
+  await requireSermonAccess(ctx, metadata.contentId, 'Edit');
   const previous = await first<Session>(
     ctx,
     'SELECT * FROM media_uploads WHERE churchId=? AND userId=? AND idempotencyKey=?',
@@ -172,7 +198,7 @@ async function create(ctx: Context): Promise<Response> {
   };
   // The pending file blocks deletion of its sermon and is hidden from every file/public/member read.
   try {
-    await ctx.env.DB.batch([
+    await guarded(ctx, session.contentId, [
       ctx.env.DB.prepare(
         "INSERT INTO content_files(id,churchId,contentId,fileName,fileType,size,objectKey,state,dateModified) VALUES(?,?,?,?,?,?,?,'pending',?)",
       ).bind(
@@ -208,6 +234,8 @@ async function create(ctx: Context): Promise<Response> {
       audit(ctx.env, session, 'content.files.multipart.start'),
     ]);
   } catch (error) {
+    if ((error instanceof HttpError && error.status === 403) || String(error).includes('authorized_write_snapshot'))
+      throw error;
     const raced = await first<Session>(
       ctx,
       'SELECT * FROM media_uploads WHERE churchId=? AND userId=? AND idempotencyKey=?',
@@ -241,11 +269,13 @@ async function create(ctx: Context): Promise<Response> {
     throw new HttpError(503, 'Upload creation failed; start again with a new idempotency key');
   }
   try {
-    const saved = await ctx.env.DB.prepare(
-      "UPDATE media_uploads SET uploadId=?,state='uploading',updatedAt=? WHERE id=? AND state='creating'",
-    )
-      .bind(upload.uploadId, now(), sessionId)
-      .run();
+    const saved = await guardedRun(
+      ctx,
+      session,
+      ctx.env.DB.prepare(
+        "UPDATE media_uploads SET uploadId=?,state='uploading',updatedAt=? WHERE id=? AND state='creating'",
+      ).bind(upload.uploadId, now(), sessionId),
+    );
     if (!saved.meta.changes) {
       await upload.abort();
       throw new HttpError(409, 'Upload was cancelled during creation');
@@ -293,12 +323,16 @@ async function uploadPart(ctx: Context, session: Session, partNumber: number): P
   if (session.state !== 'uploading') throw new HttpError(409, 'Upload manifest is frozen');
   if (!part) {
     try {
-      await ctx.env.DB.prepare(
-        "INSERT INTO media_upload_parts(sessionId,partNumber,size,sha256,state) VALUES(?,?,?,?,'pending')",
-      )
-        .bind(session.id, partNumber, bytes.length, sha256)
-        .run();
+      await guardedRun(
+        ctx,
+        session,
+        ctx.env.DB.prepare(
+          "INSERT INTO media_upload_parts(sessionId,partNumber,size,sha256,state) VALUES(?,?,?,?,'pending')",
+        ).bind(session.id, partNumber, bytes.length, sha256),
+      );
     } catch (error) {
+      if ((error instanceof HttpError && error.status === 403) || String(error).includes('authorized_write_snapshot'))
+        throw error;
       part = await first<Part>(
         ctx,
         'SELECT * FROM media_upload_parts WHERE sessionId=? AND partNumber=?',
@@ -311,11 +345,14 @@ async function uploadPart(ctx: Context, session: Session, partNumber: number): P
     }
   }
   // Each in-flight attempt gets a distinct R2 part number. A late retry can never overwrite the selected manifest.
-  const attempt = await ctx.env.DB.prepare(
-    "UPDATE media_upload_parts SET attempts=attempts+1 WHERE sessionId=? AND partNumber=? AND state='pending' AND attempts<8 AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='uploading' AND expiresAt>?) RETURNING attempts",
-  )
-    .bind(session.id, partNumber, session.id, now())
-    .first<{ attempts: number }>();
+  const attemptResult = await guardedRun(
+    ctx,
+    session,
+    ctx.env.DB.prepare(
+      "UPDATE media_upload_parts SET attempts=attempts+1 WHERE sessionId=? AND partNumber=? AND state='pending' AND attempts<8 AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='uploading' AND expiresAt>?) RETURNING attempts",
+    ).bind(session.id, partNumber, session.id, now()),
+  );
+  const attempt = attemptResult.results[0] as { attempts: number } | undefined;
   if (!attempt) {
     part = await first<Part>(
       ctx,
@@ -339,11 +376,13 @@ async function uploadPart(ctx: Context, session: Session, partNumber: number): P
   } catch {
     throw new HttpError(503, 'R2 part upload did not complete; retry this part using the same file');
   }
-  await ctx.env.DB.prepare(
-    "UPDATE media_upload_parts SET providerPartNumber=?,etag=?,state='ready' WHERE sessionId=? AND partNumber=? AND state='pending' AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='uploading' AND expiresAt>?)",
-  )
-    .bind(uploaded.partNumber, uploaded.etag, session.id, partNumber, session.id, now())
-    .run();
+  await guardedRun(
+    ctx,
+    session,
+    ctx.env.DB.prepare(
+      "UPDATE media_upload_parts SET providerPartNumber=?,etag=?,state='ready' WHERE sessionId=? AND partNumber=? AND state='pending' AND EXISTS(SELECT 1 FROM media_uploads WHERE id=? AND state='uploading' AND expiresAt>?)",
+    ).bind(uploaded.partNumber, uploaded.etag, session.id, partNumber, session.id, now()),
+  );
   part = await first<Part>(
     ctx,
     'SELECT * FROM media_upload_parts WHERE sessionId=? AND partNumber=?',
@@ -370,27 +409,29 @@ async function complete(ctx: Context, session: Session): Promise<Response> {
     parts.reduce((sum, part) => sum + part.size, 0) !== session.size
   )
     throw new HttpError(409, 'Upload every part before completing');
-  const frozen = await ctx.env.DB.prepare(
-    "UPDATE media_uploads SET state='completing',updatedAt=? WHERE id=? AND state='uploading' AND expiresAt>?",
-  )
-    .bind(now(), session.id, now())
-    .run();
+  const frozen = await guardedRun(
+    ctx,
+    session,
+    ctx.env.DB.prepare(
+      "UPDATE media_uploads SET state='completing',updatedAt=? WHERE id=? AND state='uploading' AND expiresAt>?",
+    ).bind(now(), session.id, now()),
+  );
   if (!frozen.meta.changes) {
     session = await load(ctx, session.id);
     if (session.state === 'complete') return json(await dto(ctx.env, session));
     if (session.state !== 'completing') throw new HttpError(409, 'Upload cannot be completed in this state');
   }
   const existing = await ctx.env.FILES.head(session.objectKey);
-  if (existing) return json(await dto(ctx.env, await finalize(ctx.env, session, existing)));
+  if (existing) return json(await dto(ctx.env, await finalize(ctx, session, existing)));
   try {
     const object = await ctx.env.FILES.resumeMultipartUpload(session.objectKey, session.uploadId!).complete(
       parts.map((part) => ({ partNumber: part.providerPartNumber!, etag: part.etag! })),
     );
-    return json(await dto(ctx.env, await finalize(ctx.env, session, object)));
+    return json(await dto(ctx.env, await finalize(ctx, session, object)));
   } catch (error) {
     // A negative HEAD cannot disprove an in-flight completion. Never reopen this frozen manifest.
     const object = await ctx.env.FILES.head(session.objectKey);
-    if (object) return json(await dto(ctx.env, await finalize(ctx.env, session, object)));
+    if (object) return json(await dto(ctx.env, await finalize(ctx, session, object)));
     if (error instanceof HttpError) throw error;
     throw new HttpError(503, 'Completion is pending; retry completion with this same session');
   }
@@ -413,11 +454,13 @@ async function abortSession(env: Env, session: Session): Promise<void> {
 async function abort(ctx: Context, session: Session): Promise<Response> {
   if (session.state === 'complete') throw new HttpError(409, 'Upload is complete; delete the archived file instead');
   if (session.state !== 'aborted') {
-    await ctx.env.DB.prepare(
-      "UPDATE media_uploads SET state='aborting',updatedAt=? WHERE id=? AND state IN ('creating','uploading','completing')",
-    )
-      .bind(now(), session.id)
-      .run();
+    await guardedRun(
+      ctx,
+      session,
+      ctx.env.DB.prepare(
+        "UPDATE media_uploads SET state='aborting',updatedAt=? WHERE id=? AND state IN ('creating','uploading','completing')",
+      ).bind(now(), session.id),
+    );
     session = await load(ctx, session.id);
     if (session.state === 'complete') throw new HttpError(409, 'Upload is complete; delete the archived file instead');
     if (session.state === 'aborting') await abortSession(ctx.env, session);
@@ -463,14 +506,13 @@ export async function cleanupUploads(env: Env): Promise<number> {
 export async function mediaUploads(ctx: Context): Promise<Response | undefined> {
   const route = /^\/content\/files\/uploads(?:\/([^/]+)(?:\/parts\/(\d+)|\/(complete))?)?$/.exec(ctx.path);
   if (!route) return undefined;
-  if (!allowed(ctx, 'ContentApi', 'Content', 'Edit') && !allowed(ctx, 'ContentApi', 'StreamingServices', 'Edit'))
-    throw new HttpError(403, 'Sermon archive editing permission required');
   const [, sessionId, part, operation] = route,
     method = ctx.request.method;
   if (!sessionId) {
     if (method === 'POST') return create(ctx);
     if (method === 'GET') {
       const contentId = requiredString(ctx.url.searchParams.get('contentId'), 'contentId', 100);
+      await requireSermonAccess(ctx, contentId, 'Edit');
       const sessions = await all<Session>(
         ctx,
         "SELECT * FROM media_uploads WHERE churchId=? AND userId=? AND contentId=? AND state IN ('creating','uploading','completing','aborting') ORDER BY createdAt DESC LIMIT 20",
@@ -483,11 +525,34 @@ export async function mediaUploads(ctx: Context): Promise<Response | undefined> 
     return undefined;
   }
   const session = await load(ctx, sessionId);
-  if (part && method === 'PUT') return uploadPart(ctx, session, Number(part));
-  if (operation === 'complete' && method === 'POST') return complete(ctx, session);
-  if (!part && !operation) {
-    if (method === 'GET') return json(await dto(ctx.env, session));
-    if (method === 'DELETE') return abort(ctx, session);
+  try {
+    await requireSermonAccess(ctx, session.contentId, 'Edit');
+    if (part && method === 'PUT') return await uploadPart(ctx, session, Number(part));
+    if (operation === 'complete' && method === 'POST') return await complete(ctx, session);
+    if (!part && !operation) {
+      if (method === 'GET') return json(await dto(ctx.env, session));
+      if (method === 'DELETE') return await abort(ctx, session);
+    }
+    return undefined;
+  } catch (error) {
+    if (
+      (error instanceof HttpError && error.status === 403) ||
+      (error instanceof Error && error.message.includes('authorized_write_snapshot'))
+    ) {
+      // Compensation may discard only this owner's still-pending upload. Never
+      // publish bytes after authorization is lost, including across R2 I/O.
+      try {
+        await ctx.env.DB.prepare(
+          "UPDATE media_uploads SET state='aborting',updatedAt=? WHERE id=? AND churchId=? AND userId=? AND state IN ('creating','uploading','completing')",
+        )
+          .bind(now(), session.id, ctx.principal.churchId, ctx.principal.userId)
+          .run();
+        const current = await load(ctx, session.id);
+        if (current.state === 'aborting') await abortSession(ctx.env, current);
+      } catch {
+        /* persisted pending/aborting metadata remains private; cleanup retries */
+      }
+    }
+    throw error;
   }
-  return undefined;
 }

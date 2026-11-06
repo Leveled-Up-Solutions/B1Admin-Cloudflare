@@ -1,5 +1,13 @@
 import type { Context } from './types';
-import { all, body, first, HttpError, id, json, now, records, requiredString, requireAdmin } from './http';
+import {
+  requireResource,
+  resourceAllowed,
+  resourceReadSql,
+  resourceSnapshot,
+  resourceWriteGuard,
+  type ResourceSnapshot,
+} from './resource-permissions';
+import { all, body, first, HttpError, id, json, now, records, requiredString } from './http';
 
 import {
   attachEventExceptions,
@@ -59,18 +67,68 @@ function serialized(row: Row): Row {
   return { ...row, allDay: Boolean(row.allDay) };
 }
 
+async function calendarRecord(ctx: Context, calendarId: string, action: 'View' | 'Edit') {
+  const row = await first(ctx, 'SELECT * FROM calendars WHERE churchId=? AND id=?', ctx.principal.churchId, calendarId);
+  if (!row) throw new HttpError(404, 'Calendar not found');
+  requireResource(ctx, 'Calendars', action, row);
+  return row;
+}
+async function eventRecord(ctx: Context, eventId: string, action: 'View' | 'Edit') {
+  const row = await first(
+    ctx,
+    'SELECT * FROM calendar_events WHERE churchId=? AND id=?',
+    ctx.principal.churchId,
+    eventId,
+  );
+  if (!row) throw new HttpError(404, 'Event not found');
+  await calendarRecord(ctx, row.calendarId, action);
+  return row;
+}
+async function eventGuard(ctx: Context, row: Row, previous: Row | null, extra: ResourceSnapshot[] = []) {
+  const calendarIds = [...new Set([row.calendarId, ...(previous ? [previous.calendarId] : [])])];
+  const parents = await Promise.all(calendarIds.map((calendarId) => calendarRecord(ctx, calendarId, 'Edit')));
+  return resourceWriteGuard(ctx, {
+    requirements: parents.map((parent) => ({ resource: 'Calendars', row: parent })),
+    snapshots: [
+      previous ? resourceSnapshot('calendar_events', previous) : { table: 'calendar_events', id: row.id, absent: true },
+      ...parents.map((parent) => resourceSnapshot('calendars', parent)),
+      ...extra,
+    ],
+  });
+}
 async function calendars(ctx: Context, calendarId?: string): Promise<Response | undefined> {
   const churchId = ctx.principal.churchId;
   if (ctx.request.method === 'GET') {
     if (calendarId) {
       const row = await first(ctx, 'SELECT * FROM calendars WHERE churchId=? AND id=?', churchId, calendarId);
       if (!row) throw new HttpError(404, 'Calendar not found');
-      return json(row);
+      requireResource(ctx, 'Calendars', 'View', row);
+      row.groupName = row.groupId
+        ? (await first(ctx, 'SELECT name FROM groups WHERE churchId=? AND id=?', churchId, row.groupId))?.name
+        : null;
+      return json({
+        ...row,
+        canEdit: resourceAllowed(ctx, 'Calendars', 'Edit', row),
+        canCreate: resourceAllowed(ctx, 'Calendars', 'Edit'),
+      });
     }
-    return json(await all(ctx, 'SELECT * FROM calendars WHERE churchId=? ORDER BY name,id LIMIT 500', churchId));
+    const scope = resourceReadSql(ctx, 'Calendars', 'c');
+    return json(
+      (
+        await all(
+          ctx,
+          `SELECT c.*,g.name groupName FROM calendars c LEFT JOIN groups g ON g.churchId=c.churchId AND g.id=c.groupId WHERE c.churchId=? AND ${scope.sql} ORDER BY c.name,c.id LIMIT 500`,
+          churchId,
+          ...scope.values,
+        )
+      ).map((row) => ({
+        ...row,
+        canEdit: resourceAllowed(ctx, 'Calendars', 'Edit', row),
+        canCreate: resourceAllowed(ctx, 'Calendars', 'Edit'),
+      })),
+    );
   }
   if (ctx.request.method === 'POST' && !calendarId) {
-    requireAdmin(ctx);
     const inputs = await records(ctx.request);
     const statements: D1PreparedStatement[] = [];
     const result: Row[] = [];
@@ -109,6 +167,14 @@ async function calendars(ctx: Context, calendarId?: string): Promise<Response | 
         groupId,
         updatedAt: now(),
       };
+      statements.push(
+        ...resourceWriteGuard(ctx, {
+          requirements: [{ resource: 'Calendars', row: previous }],
+          snapshots: [
+            previous ? resourceSnapshot('calendars', previous) : { table: 'calendars', id: entityId, absent: true },
+          ],
+        }),
+      );
       const columns = ['name', 'description', 'color', 'timeZone', 'groupId', 'updatedAt'];
       statements.push(
         previous
@@ -126,14 +192,16 @@ async function calendars(ctx: Context, calendarId?: string): Promise<Response | 
     return json(result);
   }
   if (ctx.request.method === 'DELETE' && calendarId) {
-    requireAdmin(ctx);
-    if (!(await first(ctx, 'SELECT id FROM calendars WHERE churchId=? AND id=?', churchId, calendarId)))
-      throw new HttpError(404, 'Calendar not found');
+    const previous = await calendarRecord(ctx, calendarId, 'Edit');
     if (
       await first(ctx, 'SELECT id FROM calendar_events WHERE churchId=? AND calendarId=? LIMIT 1', churchId, calendarId)
     )
       throw new HttpError(409, 'Delete or move calendar events first');
     await ctx.env.DB.batch([
+      ...resourceWriteGuard(ctx, {
+        requirements: [{ resource: 'Calendars', row: previous }],
+        snapshots: [resourceSnapshot('calendars', previous)],
+      }),
       ctx.env.DB.prepare('DELETE FROM calendars WHERE churchId=? AND id=?').bind(churchId, calendarId),
       audit(ctx, 'calendar.delete', calendarId),
     ]);
@@ -204,6 +272,7 @@ async function seriesOccurrence(
     eventId,
   );
   if (!series) throw new HttpError(404, 'Event not found');
+  await calendarRecord(ctx, series.calendarId, ctx.request.method === 'GET' ? 'View' : 'Edit');
   if (!series.recurrenceRule) throw new HttpError(400, 'Event is not a recurring series');
   const next = new Date(Date.parse(date) + 86400000).toISOString().slice(0, 10);
   const occurrence = expandCalendarEvents([series], date, next).find((row) => row.occurrenceDate === date);
@@ -234,9 +303,9 @@ async function occurrenceRoute(ctx: Context, eventId: string, date: string): Pro
   if (!['GET', 'POST', 'DELETE'].includes(ctx.request.method)) return undefined;
   const { series, occurrence } = await seriesOccurrence(ctx, eventId, date);
   if (ctx.request.method === 'GET') return json(occurrence);
-  requireAdmin(ctx);
   const churchId = ctx.principal.churchId;
   const statements = [
+    ...(await eventGuard(ctx, series, series)),
     ctx.env.DB.prepare(
       'DELETE FROM calendar_events WHERE churchId=? AND recurrenceParentId=? AND recurrenceOriginalDate=?',
     ).bind(churchId, eventId, date),
@@ -274,7 +343,6 @@ async function occurrenceRoute(ctx: Context, eventId: string, date: string): Pro
 }
 async function futureRoute(ctx: Context, eventId: string, date: string): Promise<Response | undefined> {
   if (!['POST', 'DELETE'].includes(ctx.request.method)) return undefined;
-  requireAdmin(ctx);
   const { series, occurrence } = await seriesOccurrence(ctx, eventId, date);
   const churchId = ctx.principal.churchId;
   const statements: D1PreparedStatement[] = [];
@@ -299,7 +367,7 @@ async function futureRoute(ctx: Context, eventId: string, date: string): Promise
     )
       throw new HttpError(409, 'Future occurrence edits exist; use resetExceptions=true to replace them');
   }
-  statements.push(...clearExceptions(ctx, eventId, date));
+  statements.push(...(await eventGuard(ctx, row || series, series)), ...clearExceptions(ctx, eventId, date));
   if (occurrence.recurrenceIndex === 1) {
     statements.push(
       ctx.env.DB.prepare('DELETE FROM calendar_events WHERE churchId=? AND id=?').bind(churchId, eventId),
@@ -337,11 +405,11 @@ async function exceptions(ctx: Context, exceptionId?: string): Promise<Response 
         exceptionId,
       );
       if (!row) throw new HttpError(404, 'Event exception not found');
+      await eventRecord(ctx, row.eventId, 'View');
       return json(row);
     }
     const eventId = requiredString(ctx.url.searchParams.get('eventId'), 'eventId', 100);
-    if (!(await first(ctx, 'SELECT id FROM calendar_events WHERE churchId=? AND id=?', churchId, eventId)))
-      throw new HttpError(404, 'Event not found');
+    await eventRecord(ctx, eventId, 'View');
     const rows = await all(
       ctx,
       'SELECT * FROM calendar_event_exceptions WHERE churchId=? AND eventId=? ORDER BY exceptionDate LIMIT 10001',
@@ -352,7 +420,6 @@ async function exceptions(ctx: Context, exceptionId?: string): Promise<Response 
     return json(rows);
   }
   if (ctx.request.method === 'POST' && !exceptionId) {
-    requireAdmin(ctx);
     const result: Row[] = [],
       statements: D1PreparedStatement[] = [];
     for (const input of await records(ctx.request)) {
@@ -382,6 +449,14 @@ async function exceptions(ctx: Context, exceptionId?: string): Promise<Response 
         exceptionDate: date,
         createdAt: now(),
       };
+      statements.push(
+        ...(await eventGuard(
+          ctx,
+          series,
+          series,
+          existing ? [resourceSnapshot('calendar_event_exceptions', existing)] : [],
+        )),
+      );
       if (!existing)
         statements.push(
           ctx.env.DB.prepare(
@@ -395,7 +470,6 @@ async function exceptions(ctx: Context, exceptionId?: string): Promise<Response 
     return json(result);
   }
   if (ctx.request.method === 'DELETE' && exceptionId) {
-    requireAdmin(ctx);
     const row = await first(
       ctx,
       'SELECT * FROM calendar_event_exceptions WHERE churchId=? AND id=?',
@@ -403,7 +477,9 @@ async function exceptions(ctx: Context, exceptionId?: string): Promise<Response 
       exceptionId,
     );
     if (!row) throw new HttpError(404, 'Event exception not found');
+    const series = await eventRecord(ctx, row.eventId, 'Edit');
     await ctx.env.DB.batch([
+      ...(await eventGuard(ctx, series, series, [resourceSnapshot('calendar_event_exceptions', row)])),
       ctx.env.DB.prepare(
         'DELETE FROM calendar_events WHERE churchId=? AND recurrenceParentId=? AND recurrenceOriginalDate=?',
       ).bind(churchId, row.eventId, row.exceptionDate),
@@ -421,10 +497,12 @@ async function events(ctx: Context, eventId?: string, groupIdFilter?: string): P
     if (eventId) {
       const row = await first(ctx, 'SELECT * FROM calendar_events WHERE churchId=? AND id=?', churchId, eventId);
       if (!row) throw new HttpError(404, 'Event not found');
+      await calendarRecord(ctx, row.calendarId, 'View');
       return json((await attachEventExceptions(ctx.env.DB, churchId, [row]))[0]);
     }
-    const terms = ['e.churchId=?'];
-    const args: any[] = [churchId];
+    const scope = resourceReadSql(ctx, 'Calendars', 'c');
+    const terms = ['e.churchId=?', scope.sql];
+    const args: any[] = [churchId, ...scope.values];
     const calendarId = ctx.url.searchParams.get('calendarId');
     const groupId = groupIdFilter || ctx.url.searchParams.get('groupId');
     if (calendarId) {
@@ -458,7 +536,6 @@ async function events(ctx: Context, eventId?: string, groupIdFilter?: string): P
     return json(await attachEventExceptions(ctx.env.DB, churchId, rows));
   }
   if (ctx.request.method === 'POST' && !eventId && !groupIdFilter) {
-    requireAdmin(ctx);
     const inputs = await records(ctx.request);
     const statements: D1PreparedStatement[] = [];
     const result: Row[] = [];
@@ -479,6 +556,7 @@ async function events(ctx: Context, eventId?: string, groupIdFilter?: string): P
       if (previous?.recurrenceParentId)
         throw new HttpError(409, 'Edit replacements through their series occurrence endpoint');
       const row = await eventRow(ctx, { ...previous, ...input }, entityId);
+      statements.push(...(await eventGuard(ctx, row, previous)));
       const scheduleChanged =
         previous &&
         ['start', 'end', 'allDay', 'timeZone', 'recurrenceRule', 'calendarId', 'groupId'].some(
@@ -519,10 +597,9 @@ async function events(ctx: Context, eventId?: string, groupIdFilter?: string): P
     return json(result);
   }
   if (ctx.request.method === 'DELETE' && eventId) {
-    requireAdmin(ctx);
-    if (!(await first(ctx, 'SELECT id FROM calendar_events WHERE churchId=? AND id=?', churchId, eventId)))
-      throw new HttpError(404, 'Event not found');
+    const previous = await eventRecord(ctx, eventId, 'Edit');
     await ctx.env.DB.batch([
+      ...(await eventGuard(ctx, previous, previous)),
       ctx.env.DB.prepare('DELETE FROM calendar_events WHERE churchId=? AND id=?').bind(churchId, eventId),
       audit(ctx, 'event.delete', eventId),
     ]);

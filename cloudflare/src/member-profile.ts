@@ -11,17 +11,32 @@ export function memberName(row: Record<string, any>) {
   };
 }
 
-const contactFields = ['mobilePhone', 'homePhone', 'address1', 'address2', 'city', 'state', 'zip'];
-const nameFields = ['firstName', 'lastName', 'middleName', 'nickName'];
+export const contactFields = ['mobilePhone', 'homePhone', 'address1', 'address2', 'city', 'state', 'zip'];
+export const nameFields = ['firstName', 'lastName', 'middleName', 'nickName'];
 const consentFields = ['directoryVisible', 'shareEmail'];
-function hasApproval(settings: string): boolean {
+export function approvalGroup(settings: string): string | null {
   const parsed = JSON.parse(settings);
   // Both ChurchApps' stored settings array and an object representation are recognized.
-  return Array.isArray(parsed)
-    ? parsed.some((item) => item?.keyName === 'directoryApprovalGroupId' && !!item.value)
-    : !!parsed?.directoryApprovalGroupId;
+  if (Array.isArray(parsed)) {
+    const entries = parsed.filter((item) => item?.keyName === 'directoryApprovalGroupId');
+    if (!entries.length) return null;
+    // A malformed duplicate must not be hidden by an earlier empty/valid entry.
+    if (entries.some((item) => typeof item.value !== 'string')) return '__invalid_review_group__';
+    return entries.find((item) => item.value !== '')?.value || null;
+  }
+  if (parsed && typeof parsed === 'object') {
+    if (!Object.prototype.hasOwnProperty.call(parsed, 'directoryApprovalGroupId')) return null;
+    const value = parsed.directoryApprovalGroupId;
+    return typeof value === 'string' ? value || null : '__invalid_review_group__';
+  }
+  // Only absence or an explicit empty string disables review. Malformed stored
+  // values, including false/0/null, must never silently permit direct writes.
+  return '__invalid_review_group__';
 }
-async function self(ctx: Context) {
+function hasApproval(settings: string) {
+  return !!approvalGroup(settings);
+}
+export async function self(ctx: Context) {
   const row = await first(
     ctx,
     `SELECT p.*,c.name churchName,c.subDomain,c.settings churchSettings FROM people p
@@ -53,17 +68,18 @@ function profile(row: Record<string, any>) {
     },
     church: { id: row.churchId, name: row.churchName, subDomain: row.subDomain },
     settings: {
-      profileEditMode: hasApproval(row.churchSettings) ? 'staff' : 'direct',
-      familyAddEnabled: !!row.householdId && !hasApproval(row.churchSettings),
+      profileEditMode: hasApproval(row.churchSettings) ? 'review' : 'direct',
+      familyAddEnabled: !!row.householdId,
+      familyEditMode: row.householdId ? 'review' : 'unavailable',
     },
   };
 }
-function clean(value: unknown, field: string, max: number, required = false): string {
+export function clean(value: unknown, field: string, max: number, required = false): string {
   if (typeof value !== 'string' || value.length > max || /[\x00-\x1f\x7f]/.test(value) || (required && !value.trim()))
     throw new HttpError(400, `Invalid ${field}`);
   return value.trim();
 }
-function birthDate(value: unknown): string | null {
+export function birthDate(value: unknown): string | null {
   if (value === null || value === '') return null;
   if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) throw new HttpError(400, 'Invalid birthDate');
   const parsed = new Date(value + 'T00:00:00.000Z');
@@ -72,7 +88,7 @@ function birthDate(value: unknown): string | null {
   return value;
 }
 /** Recheck identity, live session, household and policy in the mutation statement, not only before the batch. */
-function writeGuard(ctx: Context, row: Record<string, any>) {
+export function writeGuard(ctx: Context, row: Record<string, any>) {
   return {
     sql: `EXISTS(SELECT 1 FROM people mp JOIN user_churches uc ON uc.churchId=mp.churchId AND uc.personId=mp.id
       JOIN users u ON u.id=uc.userId JOIN sessions s ON s.userId=u.id JOIN churches c ON c.id=mp.churchId
@@ -189,7 +205,7 @@ export async function memberProfile(ctx: Context): Promise<Response | undefined>
     return json({
       household,
       members: members.slice(0, 100).map((p) => householdMember(p, principal.personId)),
-      canAdd: !!household && members.length < 100 && !hasApproval(row.churchSettings),
+      canAdd: !!household && members.length < 100,
     });
   }
   if (ctx.path === '/member/v1/household/members') {

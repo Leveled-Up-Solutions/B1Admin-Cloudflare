@@ -12,7 +12,13 @@ const catalog: Record<string, Record<string, string[]>> = {
     Roles: ['View', 'Edit'],
     Settings: ['Edit'],
   },
-  ContentApi: { Content: ['View', 'Edit'], StreamingServices: ['Edit'] },
+  ContentApi: {
+    Content: ['View', 'Edit'],
+    StreamingServices: ['Edit'],
+    Calendars: ['View', 'Edit', 'Admin'],
+    Sermons: ['View', 'Edit'],
+    Playlists: ['View', 'Edit'],
+  },
   DoingApi: { Plans: ['View', 'Edit'], Tasks: ['View', 'Edit'] },
 };
 export const permissionCatalog = Object.entries(catalog).flatMap(([apiName, sections]) =>
@@ -32,6 +38,25 @@ function permissions(ctx: Context): string[] {
 }
 function has(ctx: Context, key: string): boolean {
   return ctx.principal.role === 'admin' || permissions(ctx).includes(key);
+}
+function scopeMetadataFilter(ctx: Context, kinds: { apiName: string; contentType: string }[]) {
+  const values: string[] = [];
+  const clauses = kinds.map(({ apiName, contentType }) => {
+    const ministry = contentType === 'Plans' ? " AND instr(','||tags||',',',ministry,')>0" : '';
+    if (['View', 'Edit'].some((action) => allowed(ctx, apiName, contentType, action))) return `(1${ministry})`;
+    const prefix = `${apiName}_${contentType}_`;
+    const ids = permissions(ctx).flatMap((permission) =>
+      ['View', 'Edit'].flatMap((action) => {
+        const suffix = `_${action}`;
+        return permission.startsWith(prefix) && permission.endsWith(suffix)
+          ? [permission.slice(prefix.length, -suffix.length)].filter(Boolean)
+          : [];
+      }),
+    );
+    values.push(JSON.stringify(ids));
+    return `(id IN (SELECT value FROM json_each(?))${ministry})`;
+  });
+  return { sql: clauses.join(' OR '), values };
 }
 function access(ctx: Context, action: 'View' | 'Edit') {
   if (!has(ctx, `MembershipApi_Roles__${action}`)) throw new HttpError(403, 'Role management permission required');
@@ -188,28 +213,61 @@ export async function roles(ctx: Context): Promise<Response | undefined> {
   }
   if (path === '/membership/permissionscopes' && method === 'GET') {
     access(ctx, 'View');
-    const groups = await all(ctx, 'SELECT id,name,tags FROM groups WHERE churchId=? ORDER BY name,id LIMIT 1000', cid);
     const candidates = [
       { apiName: 'MembershipApi', contentType: 'Groups' },
       { apiName: 'MembershipApi', contentType: 'Group Members' },
       { apiName: 'DoingApi', contentType: 'Plans' },
       { apiName: 'DoingApi', contentType: 'Tasks' },
     ];
-    return json(
-      groups
-        .map((group) => ({
-          id: group.id,
-          name: group.name,
-          permissions: candidates.filter(
-            (permission) =>
-              (permission.contentType !== 'Plans' || (group.tags || '').split(',').includes('ministry')) &&
-              ['View', 'Edit'].some((action) =>
-                allowed(ctx, permission.apiName, permission.contentType, action, group.id),
-              ),
-          ),
-        }))
-        .filter((group) => group.permissions.length),
+    const groupFilter = scopeMetadataFilter(ctx, candidates);
+    const groups = await all(
+      ctx,
+      `SELECT id,name,tags FROM groups WHERE churchId=? AND (${groupFilter.sql}) ORDER BY name,id LIMIT 1000`,
+      cid,
+      ...groupFilter.values,
     );
+    const result = groups
+      .map((group) => ({
+        id: group.id,
+        name: group.name,
+        scopeType: 'group',
+        permissions: candidates
+          .filter(
+            (permission) => permission.contentType !== 'Plans' || (group.tags || '').split(',').includes('ministry'),
+          )
+          .map((permission) => ({
+            ...permission,
+            actions: ['View', 'Edit'].filter((action) =>
+              allowed(ctx, permission.apiName, permission.contentType, action, group.id),
+            ),
+          }))
+          .filter((permission) => permission.actions.length),
+      }))
+      .filter((group) => group.permissions.length);
+    for (const [contentType, table, nameColumn] of [
+      ['Calendars', 'calendars', 'name'],
+      ['Sermons', 'content_sermons', 'title'],
+      ['Playlists', 'content_playlists', 'title'],
+    ]) {
+      const filter = scopeMetadataFilter(ctx, [{ apiName: 'ContentApi', contentType }]);
+      const rows = await all(
+        ctx,
+        `SELECT id,${nameColumn} name FROM ${table} WHERE churchId=? AND (${filter.sql}) ORDER BY ${nameColumn},id LIMIT 1000`,
+        cid,
+        ...filter.values,
+      );
+      for (const row of rows) {
+        const actions = ['View', 'Edit'].filter((action) => allowed(ctx, 'ContentApi', contentType, action, row.id));
+        if (actions.length)
+          result.push({
+            id: row.id,
+            name: row.name,
+            scopeType: contentType.toLowerCase(),
+            permissions: [{ apiName: 'ContentApi', contentType, actions }],
+          });
+      }
+    }
+    return json(result);
   }
   if (!/^\/membership\/(roles|rolepermissions|rolemembers)(?:\/|$)/.test(path)) return undefined;
   access(ctx, method === 'GET' ? 'View' : 'Edit');

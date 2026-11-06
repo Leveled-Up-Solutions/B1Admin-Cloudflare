@@ -160,15 +160,15 @@ test('new family member uses current household, defaults private and creates no 
     409,
   );
 });
-test('directory approval policy blocks direct profile and family writes while preserving self-service consent', async () => {
+test('directory approval policy advertises review while blocking direct profile and family writes and preserving consent', async () => {
   for (const settings of [
     [{ keyName: 'directoryApprovalGroupId', value: 'group-welcome' }],
     { directoryApprovalGroupId: 'group-welcome' },
   ]) {
     await h.db.prepare('UPDATE churches SET settings=? WHERE id=?').bind(JSON.stringify(settings), 'church-demo').run();
     const me = await data(await h.req('/member/v1/me', { token }));
-    assert.deepEqual(me.settings, { profileEditMode: 'staff', familyAddEnabled: false });
-    assert.equal((await data(await h.req('/member/v1/household', { token }))).canAdd, false);
+    assert.deepEqual(me.settings, { profileEditMode: 'review', familyAddEnabled: true, familyEditMode: 'review' });
+    assert.equal((await data(await h.req('/member/v1/household', { token }))).canAdd, true);
     assert.equal((await h.req('/member/v1/me', { method: 'POST', token, json: { mobilePhone: '555' } })).status, 409);
     assert.equal(
       (await h.req('/member/v1/household/members', { method: 'POST', token, json: { first: 'No' } })).status,

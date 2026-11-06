@@ -5,6 +5,8 @@ import { authRoutes, authenticate } from './auth';
 import { membership } from './membership';
 import { calendar } from './calendar';
 import { member } from './member';
+import { memberApprovals } from './member-approvals';
+import { mediaAccessRoutes } from './media-access';
 import { groupRequests } from './group-requests';
 import { doing } from './doing';
 import { tasks } from './tasks';
@@ -26,12 +28,16 @@ const supported = [
   'membership.totpMfa',
   'membership.localRecovery',
   'membership.doingScopedPermissions',
+  'membership.contentScopedPermissions',
   'membership.groups',
   'content.calendars',
   'content.events',
   'content.calendarRecurrence',
   'member.portal',
   'member.profileAndHousehold',
+  'member.profileApprovals',
+  'member.householdProposals',
+  'member.pagedCollections',
   'member.churchSelection',
   'doing.plans',
   'doing.manualTasks',
@@ -39,6 +45,7 @@ const supported = [
   'content.files',
   'content.multipartUploads',
   'content.byteRanges',
+  'content.privateNativeMedia',
   'messaging.refresh',
 ];
 const unsupported = [
@@ -113,7 +120,7 @@ export default {
       if (path === '/capabilities' || path === '/instance')
         return decorate(
           json({
-            version: '0.3.0',
+            version: '0.4.0',
             stage: 'development-milestone',
             apiBase: '/api',
             apis: Object.fromEntries(
@@ -137,6 +144,8 @@ export default {
       if (auth) return decorate(auth, origin);
       const publicResponse = await publicRoutes(request, env, path);
       if (publicResponse) return decorate(publicResponse, origin);
+      const mediaResponse = await mediaAccessRoutes(request, env, path);
+      if (mediaResponse) return decorate(mediaResponse, origin);
       const principal = await authenticate(request, env);
       const ctx: Context = { request, url, env, principal, path };
       authorizeStaffRoute(ctx);
@@ -150,6 +159,8 @@ export default {
       if (schedulingResponse) return decorate(schedulingResponse, origin);
       const groupRequestResponse = await groupRequests(ctx);
       if (groupRequestResponse) return decorate(groupRequestResponse, origin);
+      const approvalResponse = await memberApprovals(ctx);
+      if (approvalResponse) return decorate(approvalResponse, origin);
       const memberResponse = await member(ctx);
       if (memberResponse) return decorate(memberResponse, origin);
       if (principal.role === 'member') throw new HttpError(403, 'Use the member API for this account');

@@ -96,6 +96,36 @@ function scopedDoingRoute(path: string, method: string, content: string): boolea
     (family.test(path) || (content === 'Plans' && /^\/membership\/associatedgroups(?:\/|$)/.test(path)))
   );
 }
+/** Explicit resource families only. Concrete resource access remains mandatory in handlers. */
+function resourceContentRoute(path: string, method: string): string[] {
+  if (!['GET', 'HEAD', 'POST', 'PUT', 'DELETE'].includes(method)) return [];
+  if (
+    /^\/content\/calendars(?:\/[^/]+)?\/?$/.test(path) ||
+    /^\/content\/events(?:\/[^/]+|\/group\/[^/]+|\/[^/]+\/(?:occurrences|future)\/\d{4}-\d{2}-\d{2})?\/?$/.test(path) ||
+    /^\/content\/eventexceptions(?:\/[^/]+)?\/?$/.test(path)
+  )
+    return ['Calendars'];
+  if (/^\/content\/sermons(?:\/[^/]+(?:\/(?:publish|published))?)?\/?$/.test(path)) return ['Sermons', 'Playlists'];
+  if (/^\/content\/playlists(?:\/[^/]+)?\/?$/.test(path)) return ['Playlists'];
+  if (
+    /^\/content\/files(?:\/[^/]+|\/(?:download|sermon)\/[^/]+|\/uploads(?:\/[^/]+(?:\/(?:complete|parts\/\d+))?)?)?\/?$/.test(
+      path,
+    )
+  )
+    return ['Sermons', 'Playlists'];
+  return [];
+}
+function resourceContentGrant(ctx: Context, kinds: string[], read: boolean): boolean {
+  const actions = read ? ['View', 'Edit'] : ['Edit'];
+  return kinds.some(
+    (kind) =>
+      (kind === 'Calendars' && allowed(ctx, 'ContentApi', 'Calendars', 'Admin')) ||
+      (ctx.principal.permissions || []).some((key) => {
+        const prefix = `ContentApi_${kind}_`;
+        return key.startsWith(prefix) && actions.some((action) => key.endsWith('_' + action));
+      }),
+  );
+}
 /** These exact routes have their own ownership/publication checks; this never grants staff writes. */
 function selfServiceRoute(method: string, path: string): boolean {
   if (method === 'POST')
@@ -194,7 +224,9 @@ export function authorizeStaffRoute(ctx: Context): void {
   if (api === 'ContentApi' && /^\/content\/(sermons|playlists|files)/.test(path))
     pass ||= allowed(ctx, api, 'StreamingServices', 'Edit');
   const scopedPass =
-    !pass && api === 'DoingApi' && scopedDoingRoute(path, method, content) && scopedDoingGrant(ctx, content, read);
+    !pass &&
+    ((api === 'DoingApi' && scopedDoingRoute(path, method, content) && scopedDoingGrant(ctx, content, read)) ||
+      (api === 'ContentApi' && resourceContentGrant(ctx, resourceContentRoute(path, method), read)));
   pass ||= scopedPass;
   if (!pass && selfServiceRoute(method, path)) return;
   if (!pass) throw new HttpError(403, `${content} ${read ? 'view' : 'edit'} permission required`);

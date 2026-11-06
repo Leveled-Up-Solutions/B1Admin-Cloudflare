@@ -69,7 +69,7 @@ function context(path, env, method = 'POST', bytes) {
       churchId: 'church-demo',
       personId: 'person-admin',
       role: 'admin',
-      sessionId: 'test',
+      sessionId: JSON.parse(Buffer.from(admin.split('.')[1], 'base64url').toString()).sid,
     },
   };
 }
@@ -269,10 +269,14 @@ test('unknown R2 completion retains a frozen hidden session and reconciles on re
 test('R2 completion followed by D1 failure is safely retryable', async () => {
   const s = await create(4);
   await data(await part(s, 1, 'data'));
+  const saved = await row(s);
   const failed = {
     prepare: (...args) => h.db.prepare(...args),
-    batch: async () => {
-      throw new Error('Synthetic D1 failure');
+    batch: async (statements) => {
+      // The manifest-freeze batch now includes its live permission guard. Fail
+      // only after R2 completion, the failure point this regression exercises.
+      if (await bucket.head(saved.objectKey)) throw new Error('Synthetic D1 failure');
+      return h.db.batch(statements);
     },
   };
   await assert.rejects(

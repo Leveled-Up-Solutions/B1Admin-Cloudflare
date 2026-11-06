@@ -1,5 +1,6 @@
 import type { Env } from './types';
 import { cleanupFiles } from './content';
+import { cleanupMediaAccess } from './media-session';
 
 /** Safe local maintenance only. Deliberately does not send or execute workflows. */
 export async function scheduledCleanup(env: Env, scheduledTime = Date.now()): Promise<void> {
@@ -10,6 +11,7 @@ export async function scheduledCleanup(env: Env, scheduledTime = Date.now()): Pr
     env.DB.prepare('DELETE FROM auth_mfa_challenges WHERE expiresAt <= ?').bind(completedAt),
     env.DB.prepare('DELETE FROM auth_mfa_enrollments WHERE expiresAt <= ?').bind(completedAt),
   ]);
+  await cleanupMediaAccess(env, completedAt);
   await cleanupFiles(env);
   // Retry-safe marker: runs can repeat after interruption; each maintenance action is idempotent.
   const runId = `cleanup:${completedAt.slice(0, 13)}`;

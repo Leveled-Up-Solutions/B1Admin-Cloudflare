@@ -3,6 +3,8 @@ import { allowed } from './permissions';
 import { advancedPeopleSearch } from './directory-search';
 import { validTimeZone } from './plan-time';
 import { groupWriteGuard } from './group-write';
+import { doingWriteGuard } from './doing-permissions';
+import { approvalGroup } from './member-profile';
 import { all, first, json, body, records, requireAdmin, requiredString, HttpError, id, now } from './http';
 export function personJson(row: any): any {
   if (!row) return null;
@@ -121,6 +123,22 @@ function requireGroupEdit(ctx: Context, groupId?: string) {
 function requireMemberEdit(ctx: Context, groupId: string) {
   if (!groupMembersAllowed(ctx, 'Edit', groupId)) throw new HttpError(403, 'Group member edit permission required');
 }
+function withDirectoryReviewGroup(settings: string, groupId: string): string {
+  const parsed = JSON.parse(settings);
+  if (Array.isArray(parsed)) {
+    let replaced = false;
+    const result = parsed.flatMap((entry) => {
+      if (entry?.keyName !== 'directoryApprovalGroupId') return [entry];
+      if (replaced) return [];
+      replaced = true;
+      return [{ ...entry, value: groupId }];
+    });
+    if (!replaced && groupId) result.push({ keyName: 'directoryApprovalGroupId', value: groupId });
+    return JSON.stringify(result);
+  }
+  if (parsed && typeof parsed === 'object') return JSON.stringify({ ...parsed, directoryApprovalGroupId: groupId });
+  throw new HttpError(409, 'The stored church settings format needs staff repair before changing review policy');
+}
 export async function membership(ctx: Context): Promise<Response | undefined> {
   const { request, url, principal, env } = ctx;
   const path = ctx.path.replace(/\/$/, '').toLowerCase();
@@ -135,7 +153,22 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
   };
   if ((path === '/membership/churches/current' || ctx.path === '/membership/churches/' + cid) && method === 'GET') {
     const church = await first(ctx, 'SELECT id,name,subDomain,settings,timeZone FROM churches WHERE id=?', cid);
-    return json({ ...church, settings: JSON.parse(church!.settings) });
+    return json({
+      ...church,
+      settings: JSON.parse(church!.settings),
+      directoryApprovalGroupId: approvalGroup(church!.settings) || '',
+    });
+  }
+  if (path === '/membership/churches/directoryreviewgroups' && method === 'GET') {
+    if (!allowed(ctx, 'MembershipApi', 'Settings', 'Edit'))
+      throw new HttpError(403, 'Settings edit permission required');
+    const groups = await all(
+      ctx,
+      'SELECT id,name FROM groups WHERE churchId=? AND archived=0 ORDER BY name,id LIMIT 1001',
+      cid,
+    );
+    if (groups.length > 1000) throw new HttpError(413, 'Too many groups for the directory review selector');
+    return json(groups);
   }
   if (path === '/membership/churches' && method === 'POST') {
     if (!allowed(ctx, 'MembershipApi', 'Settings', 'Edit'))
@@ -145,18 +178,63 @@ export async function membership(ctx: Context): Promise<Response | undefined> {
     const existing = await first(ctx, 'SELECT * FROM churches WHERE id=?', cid);
     const row = input[0];
     // Installation and public-host settings have separate operational boundaries.
-    if (Object.keys(row).some((key) => !['id', 'churchId', 'name', 'timeZone', 'subDomain', 'settings'].includes(key)))
+    if (
+      Object.keys(row).some(
+        (key) =>
+          !['id', 'churchId', 'name', 'timeZone', 'directoryApprovalGroupId', 'subDomain', 'settings'].includes(key),
+      )
+    )
       throw new HttpError(400, 'This church field is not yet supported');
     tenant(ctx, row);
     if ((row.subDomain !== undefined && row.subDomain !== existing!.subDomain) || row.settings !== undefined)
-      throw new HttpError(400, 'Only church name and timeZone can be changed here');
+      throw new HttpError(400, 'Only church name, timeZone and directoryApprovalGroupId can be changed here');
     const name = requiredString(row.name ?? existing!.name, 'church name');
     const zone = validTimeZone(row.timeZone ?? existing!.timeZone);
+    let settings = existing!.settings as string;
+    const checks: { sql: string; values: (string | number | null)[] }[] = [
+      {
+        sql: `EXISTS(SELECT 1 FROM user_churches uc WHERE uc.churchId=? AND uc.userId=? AND uc.personId=? AND
+        (uc.role='admin' OR EXISTS(SELECT 1 FROM role_members rm JOIN role_permissions rp ON rp.churchId=rm.churchId AND rp.roleId=rm.roleId
+        WHERE rm.churchId=uc.churchId AND rm.userId=uc.userId AND rp.apiName='MembershipApi' AND rp.contentType='Settings' AND rp.contentId='' AND rp.action='Edit')))`,
+        values: [cid, principal.userId, principal.personId],
+      },
+      {
+        sql: 'EXISTS(SELECT 1 FROM churches WHERE id=? AND settings=? AND name=? AND timeZone=?)',
+        values: [cid, existing!.settings, existing!.name, existing!.timeZone],
+      },
+    ];
+    if (row.directoryApprovalGroupId !== undefined) {
+      if (
+        typeof row.directoryApprovalGroupId !== 'string' ||
+        row.directoryApprovalGroupId.length > 128 ||
+        /[\x00-\x1f\x7f]/.test(row.directoryApprovalGroupId)
+      )
+        throw new HttpError(400, 'Invalid directory approval group');
+      const groupId = row.directoryApprovalGroupId.trim();
+      if (groupId) {
+        if (!(await first(ctx, 'SELECT id FROM groups WHERE churchId=? AND id=? AND archived=0', cid, groupId)))
+          throw new HttpError(400, 'Choose an active group in this church');
+        checks.push({
+          sql: 'EXISTS(SELECT 1 FROM groups WHERE churchId=? AND id=? AND archived=0)',
+          values: [cid, groupId],
+        });
+      }
+      settings = withDirectoryReviewGroup(settings, groupId);
+    }
     await env.DB.batch([
-      env.DB.prepare('UPDATE churches SET name=?,timeZone=? WHERE id=?').bind(name, zone, cid),
+      ...doingWriteGuard(ctx, { checks }),
+      env.DB.prepare('UPDATE churches SET name=?,timeZone=?,settings=? WHERE id=?').bind(name, zone, settings, cid),
       auditStatement(ctx, 'churches.save', cid),
     ]);
-    return json([{ id: cid, name, subDomain: existing!.subDomain, timeZone: zone }]);
+    return json([
+      {
+        id: cid,
+        name,
+        subDomain: existing!.subDomain,
+        timeZone: zone,
+        directoryApprovalGroupId: approvalGroup(settings) || '',
+      },
+    ]);
   }
   if (path === '/membership/people/advancedsearch' && method === 'POST')
     return json((await advancedPeopleSearch(ctx, await body(request))).map(serialize));

@@ -2,6 +2,7 @@ import { builtinGrants, loadGrants, permissionKey } from './permissions';
 import { lifecycleRoutes } from './auth-lifecycle';
 import { mfaRoutes, startMfaLogin, finishMfaLogin } from './mfa';
 import { recoveryRoutes } from './recovery';
+import { mediaContextCookie, revokeMediaAccess } from './media-session';
 import { checkPassword } from './passwords';
 import { body, HttpError, json, id, now } from './http';
 import type { Env, Principal } from './types';
@@ -183,7 +184,9 @@ export async function authRoutes(request: Request, env: Env, path: string): Prom
     const input = await body(request);
     if (input.mfaToken) {
       const result = await finishMfaLogin(request, env, input);
-      return json(await responseFor(env, result.user, result.sessionId));
+      const response = json(await responseFor(env, result.user, result.sessionId));
+      response.headers.append('Set-Cookie', mediaContextCookie(result.sessionId));
+      return response;
     }
     let user: any;
     let sid: string;
@@ -241,7 +244,9 @@ export async function authRoutes(request: Request, env: Env, path: string): Prom
         ).bind(id(), now(), user.id, sid),
       ]);
     }
-    return json(await responseFor(env, user, sid));
+    const response = json(await responseFor(env, user, sid));
+    response.headers.append('Set-Cookie', mediaContextCookie(sid));
+    return response;
   }
   if (path === '/membership/churches/select' && request.method === 'POST') {
     const token = (request.headers.get('authorization') || '').replace(/^Bearer /, '');
@@ -253,17 +258,23 @@ export async function authRoutes(request: Request, env: Env, path: string): Prom
       (uc) => uc.church.id === input.churchId || uc.church.subDomain === input.subDomain,
     );
     if (!selected) throw new HttpError(403, 'Church membership required');
-    return json(selected);
+    const clearedCookies = await revokeMediaAccess(env, claims.sid, request);
+    const response = json(selected);
+    for (const cookie of clearedCookies) response.headers.append('Set-Cookie', cookie);
+    return response;
   }
   if (path === '/membership/users/logout' && request.method === 'POST') {
     const claims = await verify(env, (request.headers.get('authorization') || '').replace(/^Bearer /, ''));
+    const clearedCookies = await revokeMediaAccess(env, claims.sid, request);
     await env.DB.batch([
       env.DB.prepare('DELETE FROM sessions WHERE id=?').bind(claims.sid),
       env.DB.prepare(
         "INSERT INTO audit_log(id,churchId,userId,action,entityId,createdAt) SELECT ?||':'||churchId,churchId,userId,'logout.success',userId,? FROM user_churches WHERE userId=?",
       ).bind(id(), now(), claims.id),
     ]);
-    return json({ success: true });
+    const response = json({ success: true });
+    for (const cookie of clearedCookies) response.headers.append('Set-Cookie', cookie);
+    return response;
   }
   return undefined;
 }

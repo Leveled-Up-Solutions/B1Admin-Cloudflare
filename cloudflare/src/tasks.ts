@@ -160,7 +160,9 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
         item.followupKey ||
         item.conversationId ||
         item.automationId ||
-        item.taskType
+        item.taskType ||
+        item.memberRequestId ||
+        item.profileRequestId
       )
         throw new HttpError(400, 'Only standalone manual tasks are supported');
       const taskId = item.id ? requiredString(item.id, 'id') : id();
@@ -168,6 +170,8 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
       const exists = await first(ctx, 'SELECT churchId FROM tasks WHERE id=?', taskId);
       if (exists && exists.churchId !== cid) throw new HttpError(404, 'Task not found');
       const existingRow = exists ? await access(ctx, taskId) : null;
+      if (existingRow?.taskType === 'directoryUpdate')
+        throw new HttpError(409, 'Directory change tasks must be decided through the profile review actions');
       const existing = existingRow ? dto(existingRow) : null;
       const row = { ...existing, ...item };
       const title = requiredString(row.title, 'title', 500);
@@ -191,18 +195,22 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
           ],
           snapshots: [existingRow ? doingSnapshot('tasks', existingRow) : { table: 'tasks', id: taskId, absent: true }],
           checks: [
-            ...[assignedPersonId, associatedPersonId]
-              .filter(Boolean)
-              .map((personId) => ({
-                sql: 'EXISTS(SELECT 1 FROM people WHERE churchId=? AND id=? AND removed=0)',
-                values: [cid, personId!],
-              })),
-            ...[assignedGroupId, associatedGroupId]
-              .filter(Boolean)
-              .map((groupId) => ({
-                sql: 'EXISTS(SELECT 1 FROM groups WHERE churchId=? AND id=?)',
-                values: [cid, groupId!],
-              })),
+            ...(existingRow
+              ? [
+                  {
+                    sql: 'EXISTS(SELECT 1 FROM tasks WHERE churchId=? AND id=? AND taskType IS NULL)',
+                    values: [cid, taskId],
+                  },
+                ]
+              : []),
+            ...[assignedPersonId, associatedPersonId].filter(Boolean).map((personId) => ({
+              sql: 'EXISTS(SELECT 1 FROM people WHERE churchId=? AND id=? AND removed=0)',
+              values: [cid, personId!],
+            })),
+            ...[assignedGroupId, associatedGroupId].filter(Boolean).map((groupId) => ({
+              sql: 'EXISTS(SELECT 1 FROM groups WHERE churchId=? AND id=?)',
+              values: [cid, groupId!],
+            })),
           ],
         }),
         ctx.env.DB.prepare(
@@ -237,5 +245,9 @@ export async function tasks(ctx: Context): Promise<Response | undefined> {
   }
   if (/^\/doing\/tasks\/[^/]+$/.test(path) && method === 'GET')
     return json(dto(await access(ctx, ctx.path.split('/').pop()!)));
+  if (/^\/doing\/tasks\/[^/]+$/.test(path) && method === 'DELETE') {
+    const row = await access(ctx, ctx.path.split('/').pop()!);
+    if (row.taskType === 'directoryUpdate') throw new HttpError(409, 'Directory change tasks cannot be deleted');
+  }
   return undefined;
 }

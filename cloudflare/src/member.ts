@@ -3,6 +3,7 @@ import { all, first, json, HttpError, id, now } from './http';
 import { content } from './content';
 import { memberProfile } from './member-profile';
 import { attachEventExceptions, expandCalendarEvents, validateWindow } from './recurrence';
+import { memberPageOptions, memberPageResult, memberSearch } from './member-pagination';
 
 function name(row: Record<string, any>) {
   return {
@@ -10,19 +11,6 @@ function name(row: Record<string, any>) {
     last: row.lastName,
     display: [row.nickName || row.firstName, row.lastName].filter(Boolean).join(' '),
   };
-}
-function page(ctx: Context, max = 100) {
-  const limit = ctx.url.searchParams.get('limit') || String(max),
-    offset = ctx.url.searchParams.get('offset') || '0';
-  if (
-    !/^\d+$/.test(limit) ||
-    !/^\d+$/.test(offset) ||
-    Number(limit) < 1 ||
-    Number(limit) > max ||
-    Number(offset) > 10000
-  )
-    throw new HttpError(400, 'Invalid pagination');
-  return { limit: Number(limit), offset: Number(offset) };
 }
 /** Member-only wire surface: it never returns the staff person/household representation. */
 export async function member(ctx: Context): Promise<Response | undefined> {
@@ -99,50 +87,64 @@ export async function member(ctx: Context): Promise<Response | undefined> {
   }
   if (request.method !== 'GET') throw new HttpError(405, 'Member resources are read-only');
   if (ctx.path === '/member/v1/groups/available') {
-    const { limit, offset } = page(ctx);
-    return json(
+    const options = memberPageOptions(ctx),
+      { query } = memberSearch(ctx);
+    return memberPageResult(
       await all(
         ctx,
-        "SELECT g.id,g.name,g.categoryName,g.about,g.joinPolicy FROM groups g WHERE g.churchId=? AND g.joinPolicy IN ('open','request') AND g.archived=0 AND NOT EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id AND gm.personId=?) ORDER BY g.name,g.id LIMIT ? OFFSET ?",
+        "SELECT g.id,g.name,g.categoryName,g.about,g.joinPolicy FROM groups g WHERE g.churchId=? AND g.joinPolicy IN ('open','request') AND g.archived=0 AND NOT EXISTS(SELECT 1 FROM group_members gm WHERE gm.churchId=g.churchId AND gm.groupId=g.id AND gm.personId=?) AND (?='' OR instr(lower(g.name),lower(?))>0) ORDER BY g.name,g.id LIMIT ? OFFSET ?",
         principal.churchId,
         principal.personId,
-        limit,
-        offset,
+        query,
+        query,
+        options.limit + 1,
+        options.offset,
       ),
+      options,
     );
   }
 
   if (ctx.path === '/member/v1/directory') {
-    const { limit, offset } = page(ctx);
+    const options = memberPageOptions(ctx),
+      { query } = memberSearch(ctx);
     const rows = await all(
       ctx,
-      'SELECT id,firstName,lastName,nickName,email,shareEmail FROM people WHERE churchId=? AND removed=0 AND directoryVisible=1 ORDER BY lastName,firstName,id LIMIT ? OFFSET ?',
+      "SELECT id,firstName,lastName,nickName,email,shareEmail FROM people WHERE churchId=? AND removed=0 AND directoryVisible=1 AND (?='' OR instr(lower(firstName||' '||lastName||' '||COALESCE(nickName,'')||' '||lastName),lower(?))>0) ORDER BY lastName,firstName,id LIMIT ? OFFSET ?",
       principal.churchId,
-      limit,
-      offset,
+      query,
+      query,
+      options.limit + 1,
+      options.offset,
     );
-    return json(
+    return memberPageResult(
       rows.map((row) => ({
         id: row.id,
         name: name(row),
         contactInfo: row.shareEmail ? { email: row.email } : {},
       })),
+      options,
     );
   }
   if (ctx.path === '/member/v1/groups') {
-    const { limit, offset } = page(ctx);
+    const options = memberPageOptions(ctx),
+      { query } = memberSearch(ctx);
     const rows = await all(
       ctx,
-      'SELECT g.id,g.name,g.categoryName,g.about,gm.leader FROM groups g JOIN group_members gm ON gm.churchId=g.churchId AND gm.groupId=g.id WHERE gm.churchId=? AND gm.personId=? ORDER BY g.name,g.id LIMIT ? OFFSET ?',
+      "SELECT g.id,g.name,g.categoryName,g.about,g.meetingTime,g.meetingLocation,gm.leader FROM groups g JOIN group_members gm ON gm.churchId=g.churchId AND gm.groupId=g.id WHERE gm.churchId=? AND gm.personId=? AND (?='' OR instr(lower(g.name),lower(?))>0) ORDER BY g.name,g.id LIMIT ? OFFSET ?",
       principal.churchId,
       principal.personId,
-      limit,
-      offset,
+      query,
+      query,
+      options.limit + 1,
+      options.offset,
     );
-    return json(rows.map((row) => ({ ...row, leader: !!row.leader })));
+    return memberPageResult(
+      rows.map((row) => ({ ...row, leader: !!row.leader })),
+      options,
+    );
   }
   if (ctx.path === '/member/v1/calendar') {
-    const { limit, offset } = page(ctx, 200);
+    const options = memberPageOptions(ctx, 200);
     const suppliedFrom = ctx.url.searchParams.get('from'),
       suppliedTo = ctx.url.searchParams.get('to');
     for (const value of [suppliedFrom, suppliedTo]) {
@@ -173,7 +175,10 @@ export async function member(ctx: Context): Promise<Response | undefined> {
     if (rows.length > 500) throw new HttpError(400, 'Calendar has too many series; request a smaller window');
     // Tenant and both group-visibility checks happen before exceptions or recurrence are loaded.
     const events = await attachEventExceptions(ctx.env.DB, principal.churchId, rows);
-    return json(expandCalendarEvents(events, from, to).slice(offset, offset + limit));
+    return memberPageResult(
+      expandCalendarEvents(events, from, to).slice(options.offset, options.offset + options.limit + 1),
+      options,
+    );
   }
   const archiveList = /^\/member\/v1\/sermons\/([^/]+)\/files$/.exec(ctx.path);
   if (archiveList) {
@@ -199,16 +204,20 @@ export async function member(ctx: Context): Promise<Response | undefined> {
     );
   }
   if (ctx.path === '/member/v1/sermons') {
-    const { limit, offset } = page(ctx);
-    return json(
+    const options = memberPageOptions(ctx),
+      { query } = memberSearch(ctx);
+    return memberPageResult(
       await all(
         ctx,
-        "SELECT id,title,description,speaker,publishDate,videoUrl,audioUrl,thumbnail,publishedAt FROM content_sermons WHERE churchId=? AND visibility='public' AND publishedAt IS NOT NULL AND publishDate<=? ORDER BY publishDate DESC,id LIMIT ? OFFSET ?",
+        "SELECT id,title,description,speaker,publishDate,videoUrl,audioUrl,thumbnail,publishedAt FROM content_sermons WHERE churchId=? AND visibility='public' AND publishedAt IS NOT NULL AND publishDate<=? AND (?='' OR instr(lower(title||' '||COALESCE(description,'')||' '||COALESCE(speaker,'')),lower(?))>0) ORDER BY publishDate DESC,id LIMIT ? OFFSET ?",
         principal.churchId,
         now(),
-        limit,
-        offset,
+        query,
+        query,
+        options.limit + 1,
+        options.offset,
       ),
+      options,
     );
   }
   throw new HttpError(404, 'Member API route not found');

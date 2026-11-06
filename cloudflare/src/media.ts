@@ -112,6 +112,7 @@ export async function downloadFile(
   request: Request,
   bucket: R2Bucket,
   row: FileRow & { objectKey: string },
+  options: { inline?: boolean } = {},
 ): Promise<Response> {
   const metadata = await bucket.head(row.objectKey);
   if (!metadata) throw new HttpError(404, 'File data not found');
@@ -120,7 +121,7 @@ export async function downloadFile(
     'Content-Type': row.fileType,
     'Content-Length': String(metadata.size),
     'Accept-Ranges': 'bytes',
-    'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(row.fileName)}`,
+    'Content-Disposition': `${options.inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(row.fileName)}`,
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "sandbox; default-src 'none'",
     'Cache-Control': 'private, no-store, no-transform',

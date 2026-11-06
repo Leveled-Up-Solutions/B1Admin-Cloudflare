@@ -78,12 +78,12 @@ test('permission scope metadata exposes only scopes the role viewer can delegate
     const scopes = await data(await h.req('/membership/permissionScopes', { token: member }));
     assert.deepEqual(scopes.map((row) => row.id).sort(), ['group-media', 'group-sound']);
     assert.deepEqual(scopes.find((row) => row.id === 'group-sound').permissions, [
-      { apiName: 'DoingApi', contentType: 'Plans' },
+      { apiName: 'DoingApi', contentType: 'Plans', actions: ['Edit'] },
     ]);
     assert.deepEqual(scopes.find((row) => row.id === 'group-media').permissions, [
-      { apiName: 'DoingApi', contentType: 'Tasks' },
+      { apiName: 'DoingApi', contentType: 'Tasks', actions: ['View'] },
     ]);
-    assert.ok(scopes.every((row) => Object.keys(row).sort().join(',') === 'id,name,permissions'));
+    assert.ok(scopes.every((row) => Object.keys(row).sort().join(',') === 'id,name,permissions,scopeType'));
     const broad = await data(await h.req('/membership/permissionScopes', { token: admin }));
     assert.equal(broad.find((row) => row.id === 'group-sound').permissions.length, 4);
     assert.ok(!broad.find((row) => row.id === 'group-media').permissions.some((row) => row.contentType === 'Plans'));
