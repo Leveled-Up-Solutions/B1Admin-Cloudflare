@@ -25,4 +25,3 @@ export function MemberSermon({ sermon, token }: { sermon: Row; token: string }) 
     <MemberSermonArchive sermonId={sermon.id} token={token} />
   </article>;
 }
-

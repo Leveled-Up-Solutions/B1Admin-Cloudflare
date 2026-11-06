@@ -8,18 +8,20 @@ This is a local development milestone using synthetic records. It is not a compl
 
 - People and original household editing, supported advanced directory search, group membership and join approvals.
 - Existing Serving/Plans and My Work workflows: service plans, positions, assignments, service order, scheduling preferences, blockout dates and manual tasks.
-- Calendars with bounded recurrence and occurrence editing, sermon archive and resumable R2 file storage.
-- Administrative roles, exact group/ministry/task permissions and audit records, using the existing screens. Manual account setup links, password changes, authenticator MFA and offline local recovery with session revocation.
-- A member portal/PWA with own-profile and household flows and explicit church selection; native mobile applications are not required for this milestone.
+- Calendars with bounded recurrence and occurrence editing, sermon archive, resumable R2 storage and native private range playback/downloads.
+- Administrative roles, exact group/ministry/task/calendar/sermon/playlist permissions and audit records, using the existing screens. Manual account setup links, password changes, authenticator MFA and offline local recovery with session revocation.
+- A member portal/PWA with paged directory, groups, calendar and sermon views; own-profile and family-change review; and explicit church selection. Native mobile applications are not required for this milestone.
 - Explicit APIs for a separate future church website. This repository does **not** rebuild `pottershandsministries.org`.
 
 The frontend's Cloudflare mode uses this installation's API. Supported request/response contracts retain ChurchApps shapes where practical. Other suite clients still need their API hosts and authentication behavior verified; matching endpoint names alone does not establish interoperability.
 
 Giving, all check-in, outbound email/SMS/push, advertising, payment gateways, external content providers and workflow automation are excluded. Fair volunteer rotation and station-specific qualification policies are a later design task; this milestone first ports the existing Serving workflow.
 
+Configured profile review creates protected My Work tasks with atomic approve/decline actions; it does not enable general workflow automation. Exact content scopes and existing-family proposals are documented fork behavior, not claims of full upstream parity. See [resource permissions](docs/cloudflare/RESOURCE-PERMISSIONS.md), [member review](docs/cloudflare/MEMBER-APPROVALS.md) and [upstream workflow comparison](docs/cloudflare/WORKFLOW-PARITY.md).
+
 ## Run locally
 
-Use Node.js 22.22 or newer in the Node 22 line and Corepack/Yarn for the upstream frontend. The Worker package has its own npm lockfile.
+Use Node.js 22.22.2 or newer in the Node 22 line and Corepack/Yarn for the upstream frontend. The Worker package has its own npm lockfile.
 
 ```sh
 corepack yarn install --immutable
@@ -51,6 +53,8 @@ The Worker build command builds a deployment bundle with `wrangler deploy --dry-
 ## Architecture and attribution
 
 - [Module boundaries, supported Plans contracts and backlog](docs/cloudflare/MODULES.md)
+- [Member portal, privacy and pagination](docs/cloudflare/MEMBER-PORTAL.md)
+- [Calendar, archive and private media APIs](docs/cloudflare/CALENDAR_SERMON_API.md)
 - [Pinned upstream architecture and license audit](docs/cloudflare/UPSTREAM.md)
 - [Original upstream README](docs/upstream-README.md)
 - [B1Admin MIT license](LICENSE), [API notice](docs/cloudflare/LICENSE-API), [Packages notice](docs/cloudflare/LICENSE-PACKAGES)
