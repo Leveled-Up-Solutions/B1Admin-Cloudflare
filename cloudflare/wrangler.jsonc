@@ -1,0 +1,16 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "b1admin-cloudflare-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {"APP_ENV":"development","ALLOWED_ORIGINS":"http://localhost:3101,http://127.0.0.1:3101,http://localhost:8787,http://127.0.0.1:8787"},
+  "d1_databases": [{"binding":"DB","database_name":"b1-local","database_id":"00000000-0000-0000-0000-000000000001","migrations_dir":"migrations"}],
+  "r2_buckets": [{"binding":"FILES","bucket_name":"b1-local-files"}],
+  "durable_objects": {"bindings":[{"name":"REALTIME","class_name":"ChurchRealtime"}]},
+  "migrations": [{"tag":"v1","new_sqlite_classes":["ChurchRealtime"]}],
+  "assets": {"directory":"../dist","binding":"ASSETS","not_found_handling":"single-page-application","run_worker_first":["/api/*"]},
+  "triggers": {"crons":["0 * * * *"]},
+  "dev": {"ip":"127.0.0.1","port":8787,"local_protocol":"http"}
+}

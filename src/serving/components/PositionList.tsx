@@ -29,7 +29,7 @@ export const PositionList = (props: Props) => {
     if (person) {
       const image = (
         <span>
-          <Avatar src={PersonHelper.getPhotoUrl(person)} sx={{ width: 32, height: 32 }} />
+          <Avatar src={process.env.REACT_APP_STAGE === "cloudflare" ? "/apphelper/images/person.png" : PersonHelper.getPhotoUrl(person)} sx={{ width: 32, height: 32 }} />
         </span>
       );
       let wrappedImage = image;

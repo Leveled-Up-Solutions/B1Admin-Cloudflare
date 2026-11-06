@@ -96,9 +96,9 @@ export const B1MobilePage: React.FC = () => {
       const toSave = (existing: GenericSettingInterface | null, keyName: string, value: string): GenericSettingInterface => ({ ...(existing || { churchId, keyName }), public: 1, value });
       const approval = toSave(approvalSetting, "directoryApprovalGroupId", selectedGroupId);
       const visibility = toSave(visibilitySetting, "directoryVisibility", directoryVisibility);
-      const addrSett = toSave(addressSetting, "addressVisibility", pref.address);
-      const phoneSett = toSave(phoneSetting, "phoneVisibility", pref.phoneNumber);
-      const emailSett = toSave(emailSetting, "emailVisibility", pref.email);
+      const addrSett = toSave(addressSetting, "addressVisibility", pref.address || "");
+      const phoneSett = toSave(phoneSetting, "phoneVisibility", pref.phoneNumber || "");
+      const emailSett = toSave(emailSetting, "emailVisibility", pref.email || "");
       const msgAge = toSave(msgAgeSetting, "messagingMinimumAge", messagingMinimumAge);
       const hideSignIn = toSave(hideSignInSetting, "mobileHideSignInPrompt", hideSignInPrompt ? "true" : "false");
       const promptText = toSave(signInPromptTextSetting, "mobileSignInPromptText", signInPromptText.trim());

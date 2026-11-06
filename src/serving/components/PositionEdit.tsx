@@ -108,7 +108,8 @@ export const PositionEdit = (props: Props) => {
   };
 
   useEffect(() => {
-    ApiHelper.get("/groups/tag/team", "MembershipApi").then((data: any) => setGroups(data));
+    ApiHelper.get(process.env.REACT_APP_STAGE === "cloudflare" ? "/planTeams/" + props.position.planId : "/groups/tag/team",
+      process.env.REACT_APP_STAGE === "cloudflare" ? "DoingApi" : "MembershipApi").then((data: any) => setGroups(data));
   }, []);
 
   return (

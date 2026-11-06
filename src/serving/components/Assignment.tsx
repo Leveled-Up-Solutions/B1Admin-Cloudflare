@@ -35,16 +35,16 @@ const flatCardSx = { "& .MuiPaper-root": { border: 0, boxShadow: "none", bgcolor
 
 export const Assignment = (props: Props) => {
   const [plan, setPlan] = React.useState<PlanInterface | null>(props.plan || null);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.plan?.ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!props.plan?.ministryId,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && !!props.plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === props.plan.ministryId);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
   const [positions, setPositions] = React.useState<PositionInterface[]>([]);
   const [assignments, setAssignments] = React.useState<AssignmentInterface[]>([]);
   const [people, setPeople] = React.useState<PersonInterface[]>([]);
@@ -144,24 +144,22 @@ export const Assignment = (props: Props) => {
     setAssignments(d);
     setLoaded(true);
 
-    const groupIds = ArrayHelper.getUniqueValues(positionsData, "groupId").filter(id => id);
-    if (groupIds.length > 0) {
-      ApiHelper.get("/groups/ids?ids=" + groupIds.join(","), "MembershipApi").then((data: GroupInterface[]) => {
-        setGroups(data);
-      });
-    }
-
-    ApiHelper.get("/times/plan/" + props.plan?.id, "DoingApi").then((data: any) => {
-      setTimes(data);
-    });
-    ApiHelper.get("/blockoutDates/upcoming", "DoingApi").then((data: any) => {
-      setBlockoutDates(data);
-    });
-    const peopleIds = ArrayHelper.getUniqueValues(d, "personId");
-    if (peopleIds.length > 0) {
-      ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi").then((data: PersonInterface[]) => {
-        setPeople(data);
-      });
+    if (process.env.REACT_APP_STAGE === "cloudflare") {
+      const [teams, roster, planTimes] = await Promise.all([
+        ApiHelper.get("/planTeams/" + props.plan.id, "DoingApi"),
+        ApiHelper.get("/planPeople/" + props.plan.id, "DoingApi"),
+        ApiHelper.get("/times/plan/" + props.plan.id, "DoingApi")
+      ]);
+      setGroups(teams); setPeople(roster); setTimes(planTimes);
+      // Scoped plan editors may not inspect other people's availability.
+      setBlockoutDates(hasPlansEditAccess() ? await ApiHelper.get("/blockoutDates/upcoming", "DoingApi") : []);
+    } else {
+      const groupIds = ArrayHelper.getUniqueValues(positionsData, "groupId").filter(id => id);
+      if (groupIds.length > 0) ApiHelper.get("/groups/ids?ids=" + groupIds.join(","), "MembershipApi").then(setGroups);
+      ApiHelper.get("/times/plan/" + props.plan?.id, "DoingApi").then(setTimes);
+      ApiHelper.get("/blockoutDates/upcoming", "DoingApi").then(setBlockoutDates);
+      const peopleIds = ArrayHelper.getUniqueValues(d, "personId");
+      if (peopleIds.length > 0) ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi").then(setPeople);
     }
   }, [props.plan]);
 
@@ -225,10 +223,10 @@ export const Assignment = (props: Props) => {
         </TextAction>
       </Box>
     ),
-    canEdit && positions.length > 0 && plan?.lastAutofillRunId && (
+    process.env.REACT_APP_STAGE !== "cloudflare" && canEdit && positions.length > 0 && plan?.lastAutofillRunId && (
       <TextAction key="undo" onClick={handleUndoAutoAssign} data-testid="undo-auto-assign-button">{Locale.label("plans.assignment.undoAutoAssign") || "Undo Auto Assign"}</TextAction>
     ),
-    canEdit && positions.length > 0 && (
+    process.env.REACT_APP_STAGE !== "cloudflare" && canEdit && positions.length > 0 && (
       <TextAction key="auto" onClick={handleAutoAssign} data-testid="auto-assign-button">{Locale.label("plans.assignment.autoAssign")}</TextAction>
     ),
     canEdit && <TextAction key="add" onClick={addPosition} data-testid="add-position-button">{Locale.label("plans.assignment.addPosition")}</TextAction>,
@@ -317,7 +315,7 @@ export const Assignment = (props: Props) => {
               assignment={assignment}
               peopleNeeded={peopleNeededForPosition}
               updatedFunction={handleAssignmentUpdate}
-              assignedPersonIds={assignments.filter(a => a.positionId === position.id).map(a => a.personId)}
+              assignedPersonIds={assignments.filter(a => a.positionId === position.id).map(a => a.personId).filter((id): id is string => !!id)}
             />
           )}
           {!loaded && <Typography variant="body2" color="text.secondary" data-testid="assignment-loading">{Locale.label("common.loading")}</Typography>}

@@ -1,80 +1,62 @@
-<img align="right" width="150" src="https://raw.githubusercontent.com/ChurchApps/B1Admin/main/public/images/logo.png">
+# B1Admin on Cloudflare
 
-# B1Admin
+A Cloudflare adaptation of [ChurchApps B1Admin](https://github.com/ChurchApps/B1Admin) for Leveled Up Solutions. It retains the existing React/Vite application and ports selected API behavior to **Cloudflare Workers, D1 and R2**, with a Durable Object for tenant-scoped realtime coordination.
 
-[![License](https://img.shields.io/github/license/ChurchApps/B1Admin?style=flat-square)](https://github.com/ChurchApps/B1Admin/blob/main/LICENSE)
-[![Stars](https://img.shields.io/github/stars/ChurchApps/B1Admin?style=flat-square&color=yellow)](https://github.com/ChurchApps/B1Admin/stargazers)
-[![Last Commit](https://img.shields.io/github/last-commit/ChurchApps/B1Admin?style=flat-square)](https://github.com/ChurchApps/B1Admin/commits)
-[![Sponsor](https://img.shields.io/badge/Sponsor-ea4aaa?style=flat-square&logo=githubsponsors&logoColor=white)](https://github.com/sponsors/ChurchApps)
-[![Slack](https://img.shields.io/badge/Slack-4A154B?style=flat-square&logo=slack&logoColor=white)](https://join.slack.com/t/livechurchsolutions/shared_invite/zt-i88etpo5-ZZhYsQwQLVclW12DKtVflg)
+This is a local development milestone using synthetic records. It is not a complete port of the ChurchApps suite, a production deployment, or a migration of real church data. The original MIT license and upstream attribution remain intact.
 
-> **B1Admin** is completely free, open-source church management software that allows you to manage key data on church members and visitors. It offers comprehensive features including member and guest information tracking, attendance management with a self check-in app, group coordination, donation tracking with detailed reports, and custom form creation. Visit <a href="https://b1.church/">https://b1.church/</a> to learn more.
+## Scope
 
-<p align="center">
-    <img width="100%" alt="B1Admin demo — people, groups, attendance, and donations" src="https://raw.githubusercontent.com/ChurchApps/B1Admin/main/public/images/b1admin-demo.gif">
-</p>
+- People and original household editing, supported advanced directory search, group membership and join approvals.
+- Existing Serving/Plans and My Work workflows: service plans, positions, assignments, service order, scheduling preferences, blockout dates and manual tasks.
+- Calendars with bounded recurrence and occurrence editing, sermon archive, resumable R2 storage and native private range playback/downloads.
+- Administrative roles, exact group/ministry/task/calendar/sermon/playlist permissions and audit records, using the existing screens. Manual account setup links, password changes, authenticator MFA and offline local recovery with session revocation.
+- A member portal/PWA with paged directory, groups, calendar and sermon views; own-profile and family-change review; and explicit church selection. Native mobile applications are not required for this milestone.
+- Explicit APIs for a separate future church website. This repository does **not** rebuild `pottershandsministries.org`.
 
-## 🚀 Self-Hosting (Beta)
+The frontend's Cloudflare mode uses this installation's API. Supported request/response contracts retain ChurchApps shapes where practical. Other suite clients still need their API hosts and authentication behavior verified; matching endpoint names alone does not establish interoperability.
 
-Run your own private instance — B1Admin, the B1 member portal, the API, and a MySQL database.
+Giving, all check-in, outbound email/SMS/push, advertising, payment gateways, external content providers and workflow automation are excluded. Fair volunteer rotation and station-specific qualification policies are a later design task; this milestone first ports the existing Serving workflow.
 
-### Docker
+Configured profile review creates protected My Work tasks with atomic approve/decline actions; it does not enable general workflow automation. Exact content scopes and existing-family proposals are documented fork behavior, not claims of full upstream parity. See [resource permissions](docs/cloudflare/RESOURCE-PERMISSIONS.md), [member review](docs/cloudflare/MEMBER-APPROVALS.md) and [upstream workflow comparison](docs/cloudflare/WORKFLOW-PARITY.md).
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/ChurchApps/B1Admin/main/deploy/install.sh | bash -s -- --domain church.example.org
+## Run locally
+
+Use Node.js 22.22.2 or newer in the Node 22 line and Corepack/Yarn for the upstream frontend. The Worker package has its own npm lockfile.
+
+```sh
+corepack yarn install --immutable
+corepack yarn postinstall
+npm ci --prefix cloudflare
+corepack yarn build:cloudflare
+corepack yarn setup:cloudflare
+corepack yarn dev:cloudflare
 ```
 
-Prebuilt images, automatic HTTPS, one domain (`/` website, `/admin` dashboard, `/api`). Leave out `--domain` for a local install at http://localhost. Then open `/admin` and register — the first account becomes the server admin. Upgrade any time with `./deploy/b1 upgrade` (it backs up first). See the [Docker self-hosting guide](https://support.churchapps.org/docs/developer/deployment/docker) for email, backups, and the rest.
+Open `http://localhost:8787` for administration or `/portal` for members. The setup script creates local session and MFA encryption keys, applies local D1 migrations and loads synthetic examples. The documented development account is `admin@example.test` with password `LocalDemo2026!`; these are public fixtures, never production credentials.
 
-### Railway
+Read [the running and verification guide](docs/cloudflare/RUNNING.md) for the current commands, additional demo accounts and limitations. Do not point the synthetic seed process at a live database.
 
-Prefer managed hosting? Deploy the same stack with one click ([guide](https://support.churchapps.org/docs/developer/deployment/railway-template)):
+## Verify
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/b1-template)
+```sh
+corepack yarn typecheck
+corepack yarn check:cloudflare
+corepack yarn test:cloudflare
+corepack yarn build:cloudflare
+npm run build --prefix cloudflare
+```
 
-## Get Involved
+For the full compiled browser suite, install Chromium with `yarn playwright install chromium`, then run `yarn test:cloudflare:browser`. It creates fresh temporary local D1/R2/DO state and stops its own loopback server afterward.
 
-### 🤝 Help Support Us
+The Worker build command builds a deployment bundle with `wrangler deploy --dry-run`; it does not deploy. Tests use local Workers/D1/R2 simulation. Executed browser checks and remaining limitations are recorded separately in the running guide; this README does not claim every upstream screen or external integration has been tested.
 
-The only reason this program is free is because of the generous support from users. If you want to support us to keep this free, please head over to [ChurchApps](https://churchapps.org/partner) or [sponsor us on GitHub](https://github.com/sponsors/ChurchApps/). Thank you so much!
+## Architecture and attribution
 
-### 🏘️ Join the Community
+- [Module boundaries, supported Plans contracts and backlog](docs/cloudflare/MODULES.md)
+- [Member portal, privacy and pagination](docs/cloudflare/MEMBER-PORTAL.md)
+- [Calendar, archive and private media APIs](docs/cloudflare/CALENDAR_SERMON_API.md)
+- [Pinned upstream architecture and license audit](docs/cloudflare/UPSTREAM.md)
+- [Original upstream README](docs/upstream-README.md)
+- [B1Admin MIT license](LICENSE), [API notice](docs/cloudflare/LICENSE-API), [Packages notice](docs/cloudflare/LICENSE-PACKAGES)
 
-We have a great community for end-users on [Facebook](https://www.facebook.com/churchapps.org). It's a good way to ask questions, get tips and follow new updates. Come join us!
-
-### ⚠️ Report an Issue
-
-If you discover an issue or have a feature request, simply submit it to our [issues log](https://github.com/ChurchApps/ChurchAppsSupport/issues). Don't be shy, that's how the program gets better.
-
-### 💬 Join us on Slack
-
-If you would like to contribute in any way, head over to our [Slack Channel](https://join.slack.com/t/livechurchsolutions/shared_invite/zt-i88etpo5-ZZhYsQwQLVclW12DKtVflg) and introduce yourself. We'd love to hear from you.
-
-### 🏗️ Start Coding
-
-If you'd like to set up the project locally, see our [development guide](https://churchapps.org/dev). The short version is:
-
-1. Copy `dotenv.sample.txt` to `.env` and updated it to point to the appropriate API urls.
-2. Install the dependencies with: `npm install`
-3. Run `npm run postinstall` to get language files
-4. run `npm start` to launch the project.
-
-### ⚙️ Payment Gateway Setup
-
-To accept online donations you must first register for developer credentials with one of the supported payment providers:
-
-- **Stripe**: Visit https://dashboard.stripe.com/register (or sign in at https://dashboard.stripe.com/login), then navigate to **Developers → API keys** to copy your Publishable Key and Secret Key for both test and live modes.
-- **PayPal**: Go to https://developer.paypal.com/, log in or create an account, then under **My Apps & Credentials** create a new application to obtain your Sandbox and Live Client ID and Secret.
-- **KingdomFunding**: Kingdom Funding is a payment processing option built with Christian values in mind! To get started:
-  1. Visit the Kingdom Funding signup page (https://kingdomfundinginternational.com/churches/apply?sponsor=b1) and fill out the application form.
-  2. Kingdom Funding will walk you through the account onboarding process, including identity verification and bank account setup.
-  3. Once your account is approved, you will receive your API Source Key (private key) and Tokenization Key (public key) from the merchant portal.
-  4. In B1Admin, go to **Settings → Giving Settings**, select **Kingdom Funding** as the provider, paste in your Public Key (Tokenization Key) and Private Key (API Source Key), and save.
-  5. **Configure the webhook URL in your Kingdom Funding (NMI) merchant portal** so the system gets notified about transaction state changes (recurring charges, ACH settlements, returns):
-     - URL: `https://api.churchapps.org/giving/donate/webhook/kingdomfunding?churchId={YOUR_CHURCH_ID}` (replace `{YOUR_CHURCH_ID}` with the church ID from B1Admin — the exact URL is also shown with a copy button in Giving Settings when Kingdom Funding is selected)
-     - Kingdom Funding does not generate a signing key for you: choose your own secret, enter it on the webhook endpoint in the merchant portal, and paste the same value into the **Webhook Key** field in B1Admin's Giving Settings. Both sides must match — webhooks are rejected if the key is missing or wrong.
-     - Subscribe at minimum to: `transaction.sale.success`, `transaction.auth.success`, the refund events, and the ACH `check.*` status events (e.g. `check.status.settled`, `check.status.returned`).
-
-After obtaining your tokens, open **Settings → Giving Settings** in B1Admin, select the provider, paste in your Public and Private keys, and toggle "Pay Fees" as desired. Finally, configure your fee parameters in **Fee Options**.
-
-[![B1Admin Dev Setup](https://img.youtube.com/vi/5zsEJEp6yMw/0.jpg)](https://www.youtube.com/watch?v=5zsEJEp6yMw)
+Keep credentials, real church records, private files and generated local runtime state out of the repository. Upstream deployment workflows are retained as reference documentation rather than active production deployment jobs.

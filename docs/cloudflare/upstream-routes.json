@@ -1,0 +1,6062 @@
+[
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/my",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/tree",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/trend",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/groups",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/groupsummary",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/sessionStatus",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords/search",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/attendancerecords",
+    "source": "src/modules/attendance/controllers/AttendanceRecordController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/campuses/:id",
+    "source": "src/modules/attendance/controllers/CampusController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/campuses",
+    "source": "src/modules/attendance/controllers/CampusController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/checkin/settings",
+    "source": "src/modules/attendance/controllers/CheckinController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/checkin/page",
+    "source": "src/modules/attendance/controllers/CheckinController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/checkin/broadcast",
+    "source": "src/modules/attendance/controllers/CheckinController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/groupservicetimes/:id",
+    "source": "src/modules/attendance/controllers/GroupServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/groupservicetimes",
+    "source": "src/modules/attendance/controllers/GroupServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/groupservicetimes",
+    "source": "src/modules/attendance/controllers/GroupServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/groupservicetimes/:id",
+    "source": "src/modules/attendance/controllers/GroupServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/headcounts/:id",
+    "source": "src/modules/attendance/controllers/HeadcountController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/headcounts",
+    "source": "src/modules/attendance/controllers/HeadcountController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/headcounts",
+    "source": "src/modules/attendance/controllers/HeadcountController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/headcounts/:id",
+    "source": "src/modules/attendance/controllers/HeadcountController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/labeltemplates/:id",
+    "source": "src/modules/attendance/controllers/LabelTemplateController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/labeltemplates",
+    "source": "src/modules/attendance/controllers/LabelTemplateController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/labeltemplates",
+    "source": "src/modules/attendance/controllers/LabelTemplateController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/labeltemplates/:id",
+    "source": "src/modules/attendance/controllers/LabelTemplateController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/services/search",
+    "source": "src/modules/attendance/controllers/ServiceController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/services/:id",
+    "source": "src/modules/attendance/controllers/ServiceController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/services",
+    "source": "src/modules/attendance/controllers/ServiceController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/services",
+    "source": "src/modules/attendance/controllers/ServiceController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/services/:id",
+    "source": "src/modules/attendance/controllers/ServiceController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/servicetimes/public/:churchId",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/servicetimes/search",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/servicetimes/:id",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/servicetimes",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/servicetimes",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/servicetimes/:id",
+    "source": "src/modules/attendance/controllers/ServiceTimeController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/sessions/:id",
+    "source": "src/modules/attendance/controllers/SessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/sessions",
+    "source": "src/modules/attendance/controllers/SessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/sessions",
+    "source": "src/modules/attendance/controllers/SessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/sessions/:id",
+    "source": "src/modules/attendance/controllers/SessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visits/checkin",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/visits/checkin",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visits/code/:code",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/visits/checkout",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visits/:id/guardians",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visits/:id",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visits",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/visits",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/visits/:id",
+    "source": "src/modules/attendance/controllers/VisitController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/visitsessions/log",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visitsessions/download/:sessionId",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visitsessions/:id",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "GET",
+    "path": "/attendance/visitsessions",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "POST",
+    "path": "/attendance/visitsessions",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/visitsessions/:id",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "attendance",
+    "method": "DELETE",
+    "path": "/attendance/visitsessions",
+    "source": "src/modules/attendance/controllers/VisitSessionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/status",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/types",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/submissions",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/submissions/:id",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/submissions/:id/approve",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/submissions/:id/request-changes",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/submissions/:id/reject",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/pending-files/:submissionId/:name",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/reports",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/reports/:id/claim",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/reports/:id/resolve",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/admin/assets",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/assets/:id/publishers",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/assets/:id/unpublish",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/assets/:id/republish",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/assets/:id/remove",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/assets/:id/feature",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/songs/:id/listen",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/sync-audio",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/sync-output",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/admin/score-missing",
+    "source": "src/modules/commons/controllers/CommonsAdminController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets/saved",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets/mine",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets/:id",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets/:id/history",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/assets/:id/editable",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/assets/:id/download",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/assets/:id/files/:name/download",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "PUT",
+    "path": "/commons/assets/:id/saved",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/assets/:id/unpublish",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/assets/:id/republish",
+    "source": "src/modules/commons/controllers/CommonsAssetController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/authors/mine",
+    "source": "src/modules/commons/controllers/CommonsAuthorController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "PUT",
+    "path": "/commons/authors/mine",
+    "source": "src/modules/commons/controllers/CommonsAuthorController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/authors/:id",
+    "source": "src/modules/commons/controllers/CommonsAuthorController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/reports",
+    "source": "src/modules/commons/controllers/CommonsReportController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/similar",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/mine",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/library",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/songs/:id/library",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "DELETE",
+    "path": "/commons/songs/:id/library",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/songs/:id/abc",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/:id",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/:id/page",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/:id/chordpro",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/songs/:id/lyrics",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/songs",
+    "source": "src/modules/commons/controllers/CommonsSongController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/submissions/mine",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/submissions/licenses",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/submissions/:id/preview",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "GET",
+    "path": "/commons/submissions/:id",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "PUT",
+    "path": "/commons/submissions/:id",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions/:id/postUrl",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions/:id/upload/:name",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions/:id/files",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "DELETE",
+    "path": "/commons/submissions/:id/files/:name",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions/:id/submit",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "POST",
+    "path": "/commons/submissions/:id/withdraw",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "commons",
+    "method": "DELETE",
+    "path": "/commons/submissions/:id",
+    "source": "src/modules/commons/controllers/CommonsSubmissionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangements/:id",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangements/song/:songId",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangements/songDetail/:songDetailId",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangements",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/arrangements",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/arrangements/:id",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/arrangements/freeShow/missing",
+    "source": "src/modules/content/controllers/ArrangementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangementKeys/presenter/:churchId/:id",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangementKeys/:id",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangementKeys/arrangement/:arrangementId",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/arrangementKeys",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/arrangementKeys",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/arrangementKeys/:id",
+    "source": "src/modules/content/controllers/ArrangementKeyController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/search",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/stats",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/updateCopyrights",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/updateCopyright",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/books",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/:bookKey/chapters",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/chapters/:chapterKey/verses",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/:translationKey/verses/:startVerseKey-:endVerseKey",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/availableTranslations/:source",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/updateTranslations/:source",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles/updateTranslations",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/bibles",
+    "source": "src/modules/content/controllers/BibleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/blocks/:churchId/tree/:id",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/blocks/blockType/:blockType",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/blocks/public/footer/:churchId",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/blocks/:id",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/blocks",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/blocks",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/blocks/:id",
+    "source": "src/modules/content/controllers/BlockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/calendarBlockouts/:id",
+    "source": "src/modules/content/controllers/CalendarBlockoutController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/calendarBlockouts",
+    "source": "src/modules/content/controllers/CalendarBlockoutController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/calendarBlockouts",
+    "source": "src/modules/content/controllers/CalendarBlockoutController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/calendarBlockouts/:id",
+    "source": "src/modules/content/controllers/CalendarBlockoutController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedCalendars/:id",
+    "source": "src/modules/content/controllers/CuratedCalendarController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedCalendars",
+    "source": "src/modules/content/controllers/CuratedCalendarController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/curatedCalendars",
+    "source": "src/modules/content/controllers/CuratedCalendarController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/curatedCalendars/:id",
+    "source": "src/modules/content/controllers/CuratedCalendarController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedEvents/calendar/:curatedCalendarId",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedEvents/public/calendar/:churchId/:curatedCalendarId",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedEvents/:id",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/curatedEvents",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/curatedEvents",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/curatedEvents/:id",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/curatedEvents/calendar/:curatedCalendarId/event/:eventId",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/curatedEvents/calendar/:curatedCalendarId/group/:groupId",
+    "source": "src/modules/content/controllers/CuratedEventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/elements/:id",
+    "source": "src/modules/content/controllers/ElementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/elements/duplicate/:id",
+    "source": "src/modules/content/controllers/ElementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/elements",
+    "source": "src/modules/content/controllers/ElementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/elements/:id",
+    "source": "src/modules/content/controllers/ElementController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventBookings/event/:eventId",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventBookings/calendar",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventBookings/pending",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/eventBookings",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/eventBookings/:id/approve",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/eventBookings/:id/reject",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/eventBookings/:id",
+    "source": "src/modules/content/controllers/EventBookingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/timeline/group/:groupId",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/timeline",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/registerable",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/requests/mine",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/pending",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/subscribe",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/group/:groupId",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/public/tag/:churchId/:tag",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/public/registerable/:churchId",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/public/:churchId/:id/ical",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/public/:churchId/:id",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/public/group/:churchId/:groupId",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/holidays",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/:id",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/conflicts",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/request",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/ical",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/:id/approve",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/:id/reject",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/events/:id",
+    "source": "src/modules/content/controllers/EventController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventExceptions/:id",
+    "source": "src/modules/content/controllers/EventExceptionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/eventExceptions",
+    "source": "src/modules/content/controllers/EventExceptionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/eventExceptions/:id",
+    "source": "src/modules/content/controllers/EventExceptionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/rsvps/group/:groupId",
+    "source": "src/modules/content/controllers/EventRsvpController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/events/:eventId/rsvps",
+    "source": "src/modules/content/controllers/EventRsvpController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/events/:eventId/rsvp",
+    "source": "src/modules/content/controllers/EventRsvpController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/events/:eventId/rsvp",
+    "source": "src/modules/content/controllers/EventRsvpController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventTemplates/:id",
+    "source": "src/modules/content/controllers/EventTemplateController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/eventTemplates",
+    "source": "src/modules/content/controllers/EventTemplateController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/eventTemplates",
+    "source": "src/modules/content/controllers/EventTemplateController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/eventTemplates/:id",
+    "source": "src/modules/content/controllers/EventTemplateController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/files/download/:id",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/files/:id",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/files/:contentType/:contentId",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/files",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/files",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/files/postUrl",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/files/:id",
+    "source": "src/modules/content/controllers/FileController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/gallery/stock/:folder",
+    "source": "src/modules/content/controllers/GalleryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/gallery/:folder",
+    "source": "src/modules/content/controllers/GalleryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/gallery/requestUpload",
+    "source": "src/modules/content/controllers/GalleryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/gallery/:folder/:image",
+    "source": "src/modules/content/controllers/GalleryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/globalStyles/church/:churchId",
+    "source": "src/modules/content/controllers/GlobalStyleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/globalStyles/:id",
+    "source": "src/modules/content/controllers/GlobalStyleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/globalStyles",
+    "source": "src/modules/content/controllers/GlobalStyleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/globalStyles",
+    "source": "src/modules/content/controllers/GlobalStyleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/globalStyles/:id",
+    "source": "src/modules/content/controllers/GlobalStyleController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/hymns/public/:churchId/:id",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/hymns/public/:churchId",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/hymns/:id",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/hymns",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/hymns",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/hymns/:id/publish",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/hymns/:id/unpublish",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/hymns/:id",
+    "source": "src/modules/content/controllers/HymnController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/links/church/:churchId/filtered",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/links/church/:churchId",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/links/:id",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/links",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/links",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/links/:id",
+    "source": "src/modules/content/controllers/LinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pages/:churchId/tree",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages/:id/publish",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages/:id/discard",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/pages/:id/published",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pages/public/:churchId",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pages/:id",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pages",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages/duplicate/:id",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages/temp/ai",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages/importTree",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pages",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/pages/:id",
+    "source": "src/modules/content/controllers/PageController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pageHistory/page/:pageId",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pageHistory/block/:blockId",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/pageHistory/:id",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pageHistory",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pageHistory/restore/:id",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/pageHistory/restoreSnapshot",
+    "source": "src/modules/content/controllers/PageHistoryController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/playlists/public/:churchId",
+    "source": "src/modules/content/controllers/PlaylistController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/playlists/:id",
+    "source": "src/modules/content/controllers/PlaylistController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/playlists",
+    "source": "src/modules/content/controllers/PlaylistController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/playlists",
+    "source": "src/modules/content/controllers/PlaylistController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/playlists/:id",
+    "source": "src/modules/content/controllers/PlaylistController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/podcast/feed",
+    "source": "src/modules/content/controllers/PodcastController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts/public/:churchId",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts/public/:churchId/categories",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts/public/:churchId/slug/:slug",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts/rss/:churchId",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts/:id",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/posts",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/posts",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/posts/:id",
+    "source": "src/modules/content/controllers/PostController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/raw/:id",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/hasAccount",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/search",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/products/:id",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/arrangement/raw/:id",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/download",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/authUrl",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/access",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/praiseCharts/library",
+    "source": "src/modules/content/controllers/PraiseChartsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/preview/data/:key",
+    "source": "src/modules/content/controllers/PreviewController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/redirects/public/:churchId",
+    "source": "src/modules/content/controllers/RedirectController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/redirects/:id",
+    "source": "src/modules/content/controllers/RedirectController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/redirects",
+    "source": "src/modules/content/controllers/RedirectController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/redirects",
+    "source": "src/modules/content/controllers/RedirectController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/redirects/:id",
+    "source": "src/modules/content/controllers/RedirectController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/register",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/types/event/:eventId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/types",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/registrations/types/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/selections/event/:eventId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/selections",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/registrations/selections/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/coupons/validate",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/coupons/event/:eventId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/coupons",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/registrations/coupons/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/payments/:registrationId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/event/:eventId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/event/:eventId/count",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/person/:personId",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/registrations/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "PUT",
+    "path": "/content/registrations/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/:id/pay",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/:id/promote",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/registrations/:id/cancel",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/registrations/:id",
+    "source": "src/modules/content/controllers/RegistrationController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/resources/:id",
+    "source": "src/modules/content/controllers/ResourceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/resources",
+    "source": "src/modules/content/controllers/ResourceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/resources",
+    "source": "src/modules/content/controllers/ResourceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/resources/:id",
+    "source": "src/modules/content/controllers/ResourceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/rooms/:id",
+    "source": "src/modules/content/controllers/RoomController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/rooms",
+    "source": "src/modules/content/controllers/RoomController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/rooms",
+    "source": "src/modules/content/controllers/RoomController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/rooms/:id",
+    "source": "src/modules/content/controllers/RoomController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sections/:id",
+    "source": "src/modules/content/controllers/SectionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/sections/duplicate/:id",
+    "source": "src/modules/content/controllers/SectionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/sections",
+    "source": "src/modules/content/controllers/SectionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/sections/tree",
+    "source": "src/modules/content/controllers/SectionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/sections/:id",
+    "source": "src/modules/content/controllers/SectionController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/public/freeshowSample",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/public/tvWrapper/:churchId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/public/tvFeed/:churchId/:sermonId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/public/tvFeed/:churchId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/timeline",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/lookup",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/socialSuggestions",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/outline",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/youtubeImport/:channelId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/vimeoImport/:channelId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/:id",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/public/:churchId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/sermons/rss/:churchId",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/sermons/:id",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/sermons",
+    "source": "src/modules/content/controllers/SermonController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/settings/my",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/settings",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/settings/my",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/settings",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/settings/public/:churchId",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/settings/imports",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/settings/my/:id",
+    "source": "src/modules/content/controllers/SettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songs/search",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songs/:id",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songs",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/songs",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/songs/import",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/songs/:id",
+    "source": "src/modules/content/controllers/SongController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songDetailLinks/:id",
+    "source": "src/modules/content/controllers/SongDetailLinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songDetailLinks/songDetail/:songDetailId",
+    "source": "src/modules/content/controllers/SongDetailLinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/songDetailLinks",
+    "source": "src/modules/content/controllers/SongDetailLinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/songDetailLinks/:id",
+    "source": "src/modules/content/controllers/SongDetailLinkController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songDetails/:id",
+    "source": "src/modules/content/controllers/SongDetailsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/songDetails",
+    "source": "src/modules/content/controllers/SongDetailsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/songDetails/create",
+    "source": "src/modules/content/controllers/SongDetailsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/songDetails",
+    "source": "src/modules/content/controllers/SongDetailsController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/stock/search",
+    "source": "src/modules/content/controllers/StockController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/storage/providers",
+    "source": "src/modules/content/controllers/StorageSettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/storage/providers",
+    "source": "src/modules/content/controllers/StorageSettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/storage/exchange",
+    "source": "src/modules/content/controllers/StorageSettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/storage/providers/:id",
+    "source": "src/modules/content/controllers/StorageSettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/storage/status",
+    "source": "src/modules/content/controllers/StorageSettingController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/streamingServices/:id/hostChat",
+    "source": "src/modules/content/controllers/StreamingServiceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "GET",
+    "path": "/content/streamingServices",
+    "source": "src/modules/content/controllers/StreamingServiceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "DELETE",
+    "path": "/content/streamingServices/:id",
+    "source": "src/modules/content/controllers/StreamingServiceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/streamingServices",
+    "source": "src/modules/content/controllers/StreamingServiceController.ts"
+  },
+  {
+    "module": "content",
+    "method": "POST",
+    "path": "/content/support/createAudio",
+    "source": "src/modules/content/controllers/SupportController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/my",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/my/upcoming",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/monthCounts",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/:id",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/plan/ids",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/plan/:planId",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/assignments/accept/:id",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/assignments/decline/:id",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/assignments/public/respond",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/assignments/public/respond",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/assignments/signup",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/assignments/signup/:id",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/assignments",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/assignments/:id",
+    "source": "src/modules/doing/controllers/AssignmentController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/blockoutDates/ids",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/blockoutDates/my",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/blockoutDates/upcoming",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/blockoutDates/:id",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/blockoutDates",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/blockoutDates/:id",
+    "source": "src/modules/doing/controllers/BlockoutDateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conditions/:id",
+    "source": "src/modules/doing/controllers/ConditionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conditions/trigger/:id",
+    "source": "src/modules/doing/controllers/ConditionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conditions/stepRoute/:id",
+    "source": "src/modules/doing/controllers/ConditionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/conditions",
+    "source": "src/modules/doing/controllers/ConditionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/conditions/:id",
+    "source": "src/modules/doing/controllers/ConditionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conjunctions/:id",
+    "source": "src/modules/doing/controllers/ConjunctionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conjunctions/trigger/:id",
+    "source": "src/modules/doing/controllers/ConjunctionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/conjunctions/stepRoute/:id",
+    "source": "src/modules/doing/controllers/ConjunctionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/conjunctions",
+    "source": "src/modules/doing/controllers/ConjunctionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/conjunctions/:id",
+    "source": "src/modules/doing/controllers/ConjunctionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/ids",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/ministry/:ministryId",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/ministry/:ministryId/:providerId",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/church",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/church/:providerId",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/contentProviderAuths/church/:providerId",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths/:id",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/contentProviderAuths",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/contentProviderAuths",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/contentProviderAuths/exchange",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/contentProviderAuths/refresh",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/contentProviderAuths/:id",
+    "source": "src/modules/doing/controllers/ContentProviderAuthController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/overview",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/presenter",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/ids",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/textRange",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/confirmationWorkflows",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/:id",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/types/:planTypeId",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/public/current/:planTypeId",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/public/signup/:churchId",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plans/signup/:planId/volunteers",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/autofill/:id",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/autofill/:id/undo",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/notifyRange",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/textRange",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/:id/issueRequests",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans/copy/:id",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plans",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/plans/:id",
+    "source": "src/modules/doing/controllers/PlanController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planFeed/presenter/:churchId/:planId",
+    "source": "src/modules/doing/controllers/PlanFeedController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planFeed/signage/:planTypeId",
+    "source": "src/modules/doing/controllers/PlanFeedController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItems/ids",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItems/:id",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItems/presenter/:churchId/:planId",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItems/plan/:planId",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/planItems/sort",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/planItems",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/planItems/:id",
+    "source": "src/modules/doing/controllers/PlanItemController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItemTimes/plan/:planId",
+    "source": "src/modules/doing/controllers/PlanItemTimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planItemTimes/planItem/:planItemId",
+    "source": "src/modules/doing/controllers/PlanItemTimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/planItemTimes",
+    "source": "src/modules/doing/controllers/PlanItemTimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/planItemTimes/:id",
+    "source": "src/modules/doing/controllers/PlanItemTimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plantemplates/ministry/:ministryId",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/plantemplates/:id",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plantemplates",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plantemplates/fromPlan/:planId",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/plantemplates/apply/:id",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/plantemplates/:id",
+    "source": "src/modules/doing/controllers/PlanTemplateController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planTypes/ids",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planTypes/ministryId/:ministryId",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planTypes/:id",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/planTypes",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/planTypes",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/planTypes/:id/lessonTrim",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/planTypes/:id/lessonTrim",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/planTypes/:id",
+    "source": "src/modules/doing/controllers/PlanTypeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/positions/ids",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/positions/plan/ids",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/positions/plan/:planId",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/positions/:id",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/positions",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/positions/:id",
+    "source": "src/modules/doing/controllers/PositionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/providerProxy/browse",
+    "source": "src/modules/doing/controllers/ProviderProxyController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/providerProxy/getPresentations",
+    "source": "src/modules/doing/controllers/ProviderProxyController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/providerProxy/getPlaylist",
+    "source": "src/modules/doing/controllers/ProviderProxyController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/providerProxy/getInstructions",
+    "source": "src/modules/doing/controllers/ProviderProxyController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/providerProxy/getExpandedInstructions",
+    "source": "src/modules/doing/controllers/ProviderProxyController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/scheduleEntries/group/:screenGroupId",
+    "source": "src/modules/doing/controllers/ScheduleEntryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/scheduleEntries/:id",
+    "source": "src/modules/doing/controllers/ScheduleEntryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/scheduleEntries",
+    "source": "src/modules/doing/controllers/ScheduleEntryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/scheduleEntries",
+    "source": "src/modules/doing/controllers/ScheduleEntryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/scheduleEntries/:id",
+    "source": "src/modules/doing/controllers/ScheduleEntryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/schedulingPreferences/my",
+    "source": "src/modules/doing/controllers/SchedulingPreferenceController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/schedulingPreferences/people",
+    "source": "src/modules/doing/controllers/SchedulingPreferenceController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/schedulingPreferences/:id",
+    "source": "src/modules/doing/controllers/SchedulingPreferenceController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/schedulingPreferences",
+    "source": "src/modules/doing/controllers/SchedulingPreferenceController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/schedulingPreferences/:id",
+    "source": "src/modules/doing/controllers/SchedulingPreferenceController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/screens/manifest/:deviceId",
+    "source": "src/modules/doing/controllers/ScreenController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/screens/status/:deviceId",
+    "source": "src/modules/doing/controllers/ScreenController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/screens/timeZone",
+    "source": "src/modules/doing/controllers/ScreenController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/screens",
+    "source": "src/modules/doing/controllers/ScreenController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/screenGroups/:id",
+    "source": "src/modules/doing/controllers/ScreenGroupController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/screenGroups",
+    "source": "src/modules/doing/controllers/ScreenGroupController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/screenGroups",
+    "source": "src/modules/doing/controllers/ScreenGroupController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/screenGroups/:id",
+    "source": "src/modules/doing/controllers/ScreenGroupController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/playlists/:id",
+    "source": "src/modules/doing/controllers/ScreenPlaylistController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/playlists",
+    "source": "src/modules/doing/controllers/ScreenPlaylistController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/playlists",
+    "source": "src/modules/doing/controllers/ScreenPlaylistController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/playlists/:id",
+    "source": "src/modules/doing/controllers/ScreenPlaylistController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/timeline",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/closed",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/directoryUpdate/:personId",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/board/:workflowId",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/cards/my",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/:id",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks/:id/contact",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/tasks",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/loadForGroups",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/addToWorkflow",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/bulkAddToWorkflow",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/bulk/moveStep",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/bulk/complete",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/bulk/reassign",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/bulk/snooze",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/accountDeletionDecision",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/moveStep",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/skip",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/sendBack",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/complete",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/remove",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/reassign",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/pin",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/conversation",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/tasks/:id/snooze",
+    "source": "src/modules/doing/controllers/TaskController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/times/plans",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/times/all",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/times/:id",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/times/plan/:planId",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/times",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/times/:id",
+    "source": "src/modules/doing/controllers/TimeController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowCategories/:id",
+    "source": "src/modules/doing/controllers/WorkflowCategoryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowCategories",
+    "source": "src/modules/doing/controllers/WorkflowCategoryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowCategories",
+    "source": "src/modules/doing/controllers/WorkflowCategoryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflowCategories/:id",
+    "source": "src/modules/doing/controllers/WorkflowCategoryController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflows/templates",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflows/:id/report",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflows/:id",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflows",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflows/fromTemplate",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflows/:id/duplicate",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflows",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflows/:id",
+    "source": "src/modules/doing/controllers/WorkflowController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowStepActions/step/:stepId",
+    "source": "src/modules/doing/controllers/WorkflowStepActionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowStepActions/workflow/:workflowId",
+    "source": "src/modules/doing/controllers/WorkflowStepActionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowStepActions",
+    "source": "src/modules/doing/controllers/WorkflowStepActionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflowStepActions/:id",
+    "source": "src/modules/doing/controllers/WorkflowStepActionController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowSteps/workflow/:workflowId",
+    "source": "src/modules/doing/controllers/WorkflowStepController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowSteps/:id",
+    "source": "src/modules/doing/controllers/WorkflowStepController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowSteps",
+    "source": "src/modules/doing/controllers/WorkflowStepController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflowSteps/:id",
+    "source": "src/modules/doing/controllers/WorkflowStepController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowStepRoutes/step/:stepId",
+    "source": "src/modules/doing/controllers/WorkflowStepRouteController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowStepRoutes/workflow/:workflowId",
+    "source": "src/modules/doing/controllers/WorkflowStepRouteController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowStepRoutes",
+    "source": "src/modules/doing/controllers/WorkflowStepRouteController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflowStepRoutes/:id",
+    "source": "src/modules/doing/controllers/WorkflowStepRouteController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers/check",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers/fields",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers/workflow/:workflowId",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers/executions/workflow/:workflowId",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers/:id/executions",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/executions/:id/retry",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/executions/:id/pause",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/executions/:id/resume",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/:id/pauseAll",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/:id/resumeAll",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers/:id/runNow",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "GET",
+    "path": "/doing/workflowTriggers",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "POST",
+    "path": "/doing/workflowTriggers",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "doing",
+    "method": "DELETE",
+    "path": "/doing/workflowTriggers/:id",
+    "source": "src/modules/doing/controllers/WorkflowTriggerController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns/churchId/:churchId",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns/progress/people",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns/progress",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns/:id/progress",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns/:id",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/campaigns",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/campaigns",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/campaigns/:id",
+    "source": "src/modules/giving/controllers/CampaignController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/customers/:id/subscriptions",
+    "source": "src/modules/giving/controllers/CustomerController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/customers/:id",
+    "source": "src/modules/giving/controllers/CustomerController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/customers",
+    "source": "src/modules/giving/controllers/CustomerController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/customers/:id",
+    "source": "src/modules/giving/controllers/CustomerController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donate/gateways/:churchId",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/client-token",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/create-order",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/log",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/webhook/:provider",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/retry/:donationId",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/refund/:donationId",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/replay-stripe-events",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/charge",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/subscribe",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/fee",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/captcha-verify",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donate/register-domain",
+    "source": "src/modules/giving/controllers/DonateController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donationbatches/:id",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donationbatches",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donationbatches",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/donationbatches/:id",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donationbatches/:id/close",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donationbatches/:id/reopen",
+    "source": "src/modules/giving/controllers/DonationBatchController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/kpis",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/exchange-rates",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/summary",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/my",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/my/summary",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/failed",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations/:id",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/donations",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/donations",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/donations/:id",
+    "source": "src/modules/giving/controllers/DonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/eventLog/type/:type",
+    "source": "src/modules/giving/controllers/EventLogController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/eventLog/:id",
+    "source": "src/modules/giving/controllers/EventLogController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/eventLog",
+    "source": "src/modules/giving/controllers/EventLogController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/eventLog",
+    "source": "src/modules/giving/controllers/EventLogController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/eventLog/:id",
+    "source": "src/modules/giving/controllers/EventLogController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funds/churchId/:churchId",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funds/public/:churchId/:fundId/total",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funds/:id",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funds",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/funds",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/funds/:id",
+    "source": "src/modules/giving/controllers/FundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funddonations/my",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funddonations/totals",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funddonations/:id",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/funddonations",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/funddonations",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/funddonations/:id",
+    "source": "src/modules/giving/controllers/FundDonationController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/gateways/churchId/:churchId",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/gateways/configured/:churchId",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/gateways/:id",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/gateways",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/gateways",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "PATCH",
+    "path": "/giving/gateways/:id",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/gateways/:id",
+    "source": "src/modules/giving/controllers/GatewayController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/paymentmethods/personid/:id",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/addcard",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/updatecard",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/ach-setup-intent",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/ach-setup-intent-anon",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/addbankaccount",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/updatebank",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/paymentmethods/verifybank",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/paymentmethods/:id/:customerid",
+    "source": "src/modules/giving/controllers/PaymentMethodController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/pledges/my",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/pledges/my",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/pledges/my/:id",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/pledges/:id",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/pledges",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/pledges",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/pledges/:id",
+    "source": "src/modules/giving/controllers/PledgeController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/subscriptions/:id",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/subscriptions",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/subscriptions",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/subscriptions/:id",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/subscriptions/:id/pause",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "POST",
+    "path": "/giving/subscriptions/:id/resume",
+    "source": "src/modules/giving/controllers/SubscriptionController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/subscriptionfunds/:id",
+    "source": "src/modules/giving/controllers/SubscriptionFundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "GET",
+    "path": "/giving/subscriptionfunds",
+    "source": "src/modules/giving/controllers/SubscriptionFundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/subscriptionfunds/:id",
+    "source": "src/modules/giving/controllers/SubscriptionFundController.ts"
+  },
+  {
+    "module": "giving",
+    "method": "DELETE",
+    "path": "/giving/subscriptionfunds/subscription/:id",
+    "source": "src/modules/giving/controllers/SubscriptionFundController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/answers",
+    "source": "src/modules/membership/controllers/AnswerController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/answers",
+    "source": "src/modules/membership/controllers/AnswerController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/apiKeys/scopes",
+    "source": "src/modules/membership/controllers/ApiKeyController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/apiKeys",
+    "source": "src/modules/membership/controllers/ApiKeyController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/apiKeys",
+    "source": "src/modules/membership/controllers/ApiKeyController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/apiKeys/:id",
+    "source": "src/modules/membership/controllers/ApiKeyController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/associatedGroups/content/:contentType/:contentId",
+    "source": "src/modules/membership/controllers/AssociatedGroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/associatedGroups/group/:groupId",
+    "source": "src/modules/membership/controllers/AssociatedGroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/associatedGroups",
+    "source": "src/modules/membership/controllers/AssociatedGroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/associatedGroups/:id",
+    "source": "src/modules/membership/controllers/AssociatedGroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/auditlogs",
+    "source": "src/modules/membership/controllers/AuditLogController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/auditlogs/person/:personId",
+    "source": "src/modules/membership/controllers/AuditLogController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/batches",
+    "source": "src/modules/membership/controllers/BatchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/batches",
+    "source": "src/modules/membership/controllers/BatchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/batches/:id/results",
+    "source": "src/modules/membership/controllers/BatchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/batches/:id/complete",
+    "source": "src/modules/membership/controllers/BatchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/batches/:id/undo",
+    "source": "src/modules/membership/controllers/BatchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/campuses/:id",
+    "source": "src/modules/membership/controllers/CampusController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/campuses",
+    "source": "src/modules/membership/controllers/CampusController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/campuses/public/:churchId",
+    "source": "src/modules/membership/controllers/CampusController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/campuses",
+    "source": "src/modules/membership/controllers/CampusController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/campuses/:id",
+    "source": "src/modules/membership/controllers/CampusController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/all",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/search",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/search/",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/lookup/",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/churches/deleteAbandoned",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/:id",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/:id/getDomainAdmin",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches/:id/impersonate",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/churches",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/byIds",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/:id/archive",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/:id/emailApproval",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/add",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/churches/select",
+    "source": "src/modules/membership/controllers/ChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/clientErrors",
+    "source": "src/modules/membership/controllers/ClientErrorController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/caddy",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/caddy/init",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/authorize",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/hostmap",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/lookup/:domainName",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/public/lookup/:domainName",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/public/owner/:domainName",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/:id",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/domains",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/domains/:id",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/domains/health/check",
+    "source": "src/modules/membership/controllers/DomainController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/forms/archived",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/forms/standalone/:id",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/forms/group/:groupId",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/forms/:id",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/forms",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/forms",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/forms/duplicate/:id",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/forms/:id",
+    "source": "src/modules/membership/controllers/FormController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/formsubmissions/my",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/formsubmissions/:id",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/formsubmissions/group/:groupId",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/formsubmissions",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/formsubmissions/formId/:formId",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/formsubmissions",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/formsubmissions/:id/person",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/formsubmissions/:id",
+    "source": "src/modules/membership/controllers/FormSubmissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/gdpr/people/:personId/export",
+    "source": "src/modules/membership/controllers/GdprController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/gdpr/people/:personId/anonymize",
+    "source": "src/modules/membership/controllers/GdprController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/search",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/my/:tag",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/my",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/public/:churchId/slug/:slug",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/public/:churchId/label",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/public/:churchId/list",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/public/:churchId/:id",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/tag/:tag",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/public/:churchId/tag/:tag",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/health/summary",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/:id/health",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/:id/plans",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups/:id",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groups",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groups",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/groups/:id",
+    "source": "src/modules/membership/controllers/GroupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupjoinrequests/my",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupjoinrequests/group/:groupId",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupjoinrequests/pending",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupjoinrequests",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupjoinrequests/:id/approve",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupjoinrequests/:id/decline",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/groupjoinrequests/:id",
+    "source": "src/modules/membership/controllers/GroupJoinRequestController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers/my",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers/public/leaders/:churchId/:groupId",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers/public/:churchId/:groupId",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers/basic/:groupId",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers/:id",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/groupmembers",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupmembers",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupmembers/bulk-add",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupmembers/bulk-remove",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/groupmembers/self",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/groupmembers/:id",
+    "source": "src/modules/membership/controllers/GroupMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/households/:id",
+    "source": "src/modules/membership/controllers/HouseholdController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/households",
+    "source": "src/modules/membership/controllers/HouseholdController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/households",
+    "source": "src/modules/membership/controllers/HouseholdController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/households/:id",
+    "source": "src/modules/membership/controllers/HouseholdController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/householdpickup/:householdId",
+    "source": "src/modules/membership/controllers/HouseholdPickupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/householdpickup",
+    "source": "src/modules/membership/controllers/HouseholdPickupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/householdpickup/:id",
+    "source": "src/modules/membership/controllers/HouseholdPickupController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/lists/:id",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/lists/:id/people",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/lists/preview",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/lists",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/lists",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/lists/:id",
+    "source": "src/modules/membership/controllers/ListController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/memberpermissions/:id",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/memberpermissions/member/:id",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/memberpermissions/form/:id",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/memberpermissions/form/:id/my",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/memberpermissions",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/memberpermissions/:id",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/memberpermissions/member/:id",
+    "source": "src/modules/membership/controllers/MemberPermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/authorize",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/token",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/register",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/device/authorize",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/device/pending/:userCode",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/device/approve",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/device/deny",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/relay/sessions",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/relay/sessions/:sessionCode",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/relay/callback",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/connections",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/oauth/connections/:id",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/clients",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/clients/clientId/:clientId",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/oauth/clients/:id",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/clients",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/oauth/clients/:id",
+    "source": "src/modules/membership/controllers/OAuthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/palette",
+    "source": "src/modules/membership/controllers/PaletteController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/permissions",
+    "source": "src/modules/membership/controllers/PermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/guest-register/options",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/guest-register",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/public/email",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/timeline",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/claim/:churchId",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/recent",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/list",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/demographics",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/household/:householdId",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/loadOrCreate",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/household/:householdId",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/attendance",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/search/phone",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/search/group",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/search",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/basic",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/names",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/names",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/directory/:id",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/ids",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people/:id",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/people",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/search",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/duplicates",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/advancedSearch",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/familyMember",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/people/:id",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/bulk-delete",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/people/bulk-update",
+    "source": "src/modules/membership/controllers/PersonController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/personfields",
+    "source": "src/modules/membership/controllers/PersonFieldController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/personfields",
+    "source": "src/modules/membership/controllers/PersonFieldController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/personfields/:id",
+    "source": "src/modules/membership/controllers/PersonFieldController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/personfieldvalues/person/:personId",
+    "source": "src/modules/membership/controllers/PersonFieldValueController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/personfieldvalues/field/:fieldId",
+    "source": "src/modules/membership/controllers/PersonFieldValueController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/personfieldvalues",
+    "source": "src/modules/membership/controllers/PersonFieldValueController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/relay/sessions/:sessionCode/exchange",
+    "source": "src/modules/membership/controllers/ProviderRelayTokenController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/relay/refresh",
+    "source": "src/modules/membership/controllers/ProviderRelayTokenController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/oauth/relay/gocurriculum/catalog",
+    "source": "src/modules/membership/controllers/ProviderRelayTokenController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/query/members",
+    "source": "src/modules/membership/controllers/QueryController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/questions/sort/:id/up",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/questions/sort/:id/down",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/questions/unrestricted",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/questions/:id",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/questions",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/questions",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/questions/:id",
+    "source": "src/modules/membership/controllers/QuestionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/roles/church/:churchId",
+    "source": "src/modules/membership/controllers/RoleController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/roles/:id",
+    "source": "src/modules/membership/controllers/RoleController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/roles",
+    "source": "src/modules/membership/controllers/RoleController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/roles/:id",
+    "source": "src/modules/membership/controllers/RoleController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/rolemembers/roles/:id",
+    "source": "src/modules/membership/controllers/RoleMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/rolemembers",
+    "source": "src/modules/membership/controllers/RoleMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/rolemembers/:id",
+    "source": "src/modules/membership/controllers/RoleMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/rolemembers/self/:churchId/:userId",
+    "source": "src/modules/membership/controllers/RoleMemberController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/rolepermissions/roles/:id",
+    "source": "src/modules/membership/controllers/RolePermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/rolepermissions/:id",
+    "source": "src/modules/membership/controllers/RolePermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/rolepermissions",
+    "source": "src/modules/membership/controllers/RolePermissionController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/serverHealth/jobs",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/serverHealth/migrations",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/serverHealth/migrations/:module/run",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/serverHealth/migrations/:module/detect",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/serverHealth/migrations/:module/baseline",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/serverHealth",
+    "source": "src/modules/membership/controllers/ServerHealthController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/settings",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/settings",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/settings/:id",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/settings/public/:churchId/app-theme",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/settings/public/:churchId/checkin-theme",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/settings/public/:churchId",
+    "source": "src/modules/membership/controllers/SettingController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/sites",
+    "source": "src/modules/membership/controllers/SiteController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/sites",
+    "source": "src/modules/membership/controllers/SiteController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/sites/:id",
+    "source": "src/modules/membership/controllers/SiteController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "PATCH",
+    "path": "/membership/userchurch/:userId",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/userchurch",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/userchurch/userid/:userId",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/userchurch/personid/:personId",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/userchurch/user/:userId",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/userchurch/record/:userId/:churchId/:personId",
+    "source": "src/modules/membership/controllers/UserChurchController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/login",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/verifyCredentials",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/loadOrCreate",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/register",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/setPasswordGuid",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/forgot",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/verifyCode",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/checkEmail",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/setDisplayName",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/updateEmail",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/updateOptedOut",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/updatePassword",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/search",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/:id/details",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/:id/impersonate",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/sendInviteEmail",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/users",
+    "source": "src/modules/membership/controllers/UserController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/mfa/status",
+    "source": "src/modules/membership/controllers/UserMfaController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/mfa/setup",
+    "source": "src/modules/membership/controllers/UserMfaController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/mfa/enable",
+    "source": "src/modules/membership/controllers/UserMfaController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/mfa/disable",
+    "source": "src/modules/membership/controllers/UserMfaController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/users/mfa/reset/:userId",
+    "source": "src/modules/membership/controllers/UserMfaController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/sso/providers",
+    "source": "src/modules/membership/controllers/UserSsoController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/sso/authorize/:provider",
+    "source": "src/modules/membership/controllers/UserSsoController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/users/sso/callback/:provider",
+    "source": "src/modules/membership/controllers/UserSsoController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/visibilityPreferences",
+    "source": "src/modules/membership/controllers/VisibilityPreferenceController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/visibilityPreferences/my",
+    "source": "src/modules/membership/controllers/VisibilityPreferenceController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/webhooks/events",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/webhooks/deliveries/:deliveryId",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/webhooks/deliveries/:deliveryId/redeliver",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/webhooks/:id/test",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/webhooks/:id/deliveries",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/webhooks/:id",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "GET",
+    "path": "/membership/webhooks",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/webhooks",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "POST",
+    "path": "/membership/webhooks/:id/regenerate-secret",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "membership",
+    "method": "DELETE",
+    "path": "/membership/webhooks/:id",
+    "source": "src/modules/membership/controllers/WebhookController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/blockedips",
+    "source": "src/modules/messaging/controllers/BlockedIpController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/blockedips/clear",
+    "source": "src/modules/messaging/controllers/BlockedIpController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/connections/:churchId/:conversationId",
+    "source": "src/modules/messaging/controllers/ConnectionController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/connections",
+    "source": "src/modules/messaging/controllers/ConnectionController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/connections/:churchId/:conversationId/:socketId",
+    "source": "src/modules/messaging/controllers/ConnectionController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/connections/setName",
+    "source": "src/modules/messaging/controllers/ConnectionController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/timeline/ids",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/notes/feed",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/messages/:contentType/:contentId",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/:churchId/:contentType/:contentId",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/:churchId/:id",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/conversations",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/posts/group/:groupId",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/posts",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/conversations/start",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/conversations/ensure",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/conversations/current/:churchId/:contentType/:contentId",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/conversations/:churchId/:id",
+    "source": "src/modules/messaging/controllers/ConversationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/deliverylogs/content/:contentType/:contentId",
+    "source": "src/modules/messaging/controllers/DeliveryLogController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/deliverylogs/person/:personId",
+    "source": "src/modules/messaging/controllers/DeliveryLogController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/deliverylogs/recent",
+    "source": "src/modules/messaging/controllers/DeliveryLogController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/deliverylogs/:id",
+    "source": "src/modules/messaging/controllers/DeliveryLogController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devicecontents/deviceId/:deviceId",
+    "source": "src/modules/messaging/controllers/DeviceContentController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/devicecontents",
+    "source": "src/modules/messaging/controllers/DeviceContentController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/devicecontents/:id",
+    "source": "src/modules/messaging/controllers/DeviceContentController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/devices/enroll",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devices/pair/:pairingCode",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/devices/enrollAnon",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devices/status/:deviceId",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devices/:churchId",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devices/:churchId/person/:personId",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/devices/:churchId/:id",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/devices",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/devices/:churchId/:id",
+    "source": "src/modules/messaging/controllers/DeviceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/emailTemplates",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/emailTemplates/mergeFields",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/emailTemplates/sendStatus",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/emailTemplates/requestApproval",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/emailTemplates/preview/:groupId",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/emailTemplates/:id",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/emailTemplates",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/emailTemplates/send",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/emailTemplates/:churchId/:id",
+    "source": "src/modules/messaging/controllers/EmailTemplateController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/messages/conversation/:conversationId",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/messages/catchup/:churchId/:conversationId",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/messages/send",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/messages/setCallout",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/messages/:churchId/:id",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/messages",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/messages/:messageId/reactions",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/messages/:id",
+    "source": "src/modules/messaging/controllers/MessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/groupPreview/:groupId",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/churchPreview",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/:churchId/person/:personId",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/:churchId/:id",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications/markRead/:churchId/:personId",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications/sendTest",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/unreadCount",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notifications/my",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications/create",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications/group/send",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notifications/ping",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/notifications/my",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/notifications/:churchId/:id",
+    "source": "src/modules/messaging/controllers/NotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notificationpreferences/categories",
+    "source": "src/modules/messaging/controllers/NotificationPreferenceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/notificationpreferences/my",
+    "source": "src/modules/messaging/controllers/NotificationPreferenceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/notificationpreferences",
+    "source": "src/modules/messaging/controllers/NotificationPreferenceController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/privatemessages",
+    "source": "src/modules/messaging/controllers/PrivateMessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/privatemessages",
+    "source": "src/modules/messaging/controllers/PrivateMessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/privatemessages/existing/:personId",
+    "source": "src/modules/messaging/controllers/PrivateMessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/privatemessages/:id",
+    "source": "src/modules/messaging/controllers/PrivateMessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/privatemessages/:id",
+    "source": "src/modules/messaging/controllers/PrivateMessageController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/reminders/:entityType/:entityId",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/reminders/:entityType/:entityId",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/reminders/scope/:entityType/:scopeId",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/reminders/scope/:entityType/:scopeId",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/reminders/:defId",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/reminders/event/:eventId/preview",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/reminders/log",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/reminders/mute",
+    "source": "src/modules/messaging/controllers/ReminderController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/scheduledNotifications",
+    "source": "src/modules/messaging/controllers/ScheduledNotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/scheduledNotifications",
+    "source": "src/modules/messaging/controllers/ScheduledNotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/scheduledNotifications/:id/sendNow",
+    "source": "src/modules/messaging/controllers/ScheduledNotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/scheduledNotifications/:id",
+    "source": "src/modules/messaging/controllers/ScheduledNotificationController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/providers",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/status",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/inboundUrl",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/texting/inbound/:churchId/:token",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/texting/providers",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/texting/providers/:id",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/credits",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/preview/:groupId",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/texting/send",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/texting/sendPerson",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/sent",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/texting/sent/:id/details",
+    "source": "src/modules/messaging/controllers/TextingController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "GET",
+    "path": "/messaging/webpush/publicKey",
+    "source": "src/modules/messaging/controllers/WebPushController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/webpush/subscribe",
+    "source": "src/modules/messaging/controllers/WebPushController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "POST",
+    "path": "/messaging/webpush/unsubscribe",
+    "source": "src/modules/messaging/controllers/WebPushController.ts"
+  },
+  {
+    "module": "messaging",
+    "method": "DELETE",
+    "path": "/messaging/webpush/subscription/:id",
+    "source": "src/modules/messaging/controllers/WebPushController.ts"
+  },
+  {
+    "module": "reporting",
+    "method": "GET",
+    "path": "/reporting/reports/groupAttendanceDownload/run",
+    "source": "src/modules/reporting/controllers/ReportController.ts"
+  },
+  {
+    "module": "reporting",
+    "method": "GET",
+    "path": "/reporting/reports/:keyName",
+    "source": "src/modules/reporting/controllers/ReportController.ts"
+  },
+  {
+    "module": "reporting",
+    "method": "GET",
+    "path": "/reporting/reports/:keyName/run",
+    "source": "src/modules/reporting/controllers/ReportController.ts"
+  }
+]

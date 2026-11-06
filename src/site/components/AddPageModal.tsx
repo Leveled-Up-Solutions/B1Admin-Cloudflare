@@ -85,9 +85,10 @@ export function AddPageModal(props: Props) {
 
   const handleAiGenerate = async () => {
     const promptErrors: string[] = [];
-    if (!page?.title) promptErrors.push(Locale.label("site.addPageModal.errTitle"));
+    const title = page?.title;
+    if (!title) promptErrors.push(Locale.label("site.addPageModal.errTitle"));
     if (!aiPrompt || aiPrompt.trim().length < 10) promptErrors.push(Locale.label("site.addPageModal.errAiPromptTooShort"));
-    if (promptErrors.length > 0) {
+    if (promptErrors.length > 0 || !title) {
       setAiErrors(promptErrors);
       return;
     }
@@ -98,6 +99,7 @@ export function AddPageModal(props: Props) {
 
     try {
       const church = UserHelper.currentUserChurch.church;
+      if (!church.id) throw new Error(Locale.label("site.addPageModal.unauthorizedCreate"));
       const [globalStyles, records, existingPages] = await Promise.all([
         ApiHelper.get("/globalStyles", "ContentApi"),
         gatherChurchFacts(church.id),
@@ -131,7 +133,6 @@ export function AddPageModal(props: Props) {
       if (!first) throw new Error(Locale.label("site.addPageModal.errAllSectionsFailed"));
 
       setAiGenerationStatus(Locale.label("site.addPageModal.statusCreatingSections"));
-      const title = page.title;
       const url = props.requestedSlug || SlugHelper.slugifyString("/" + title.toLowerCase().replace(/\s+/g, "-"), "urlPath") || "/untitled";
       const savedPage = await ApiHelper.post("/pages/importTree", { title, url, layout: "headerFooter", siteId: props.siteId || undefined, sections: first.sections }, "ContentApi");
 

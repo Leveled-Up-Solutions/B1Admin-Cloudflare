@@ -1,4 +1,9 @@
-import type { SessionInterface as BaseSessionInterface, ServiceTimeInterface } from "@churchapps/helpers";
+import type { FormSubmissionInterface as BaseFormSubmissionInterface, SessionInterface as BaseSessionInterface, ServiceTimeInterface } from "@churchapps/helpers";
+
+// The API includes submissionDate; the installed helpers declaration omits it.
+export interface FormSubmissionInterface extends BaseFormSubmissionInterface {
+  submissionDate?: string | Date;
+}
 
 export interface SessionInterface extends BaseSessionInterface {
   serviceTime?: ServiceTimeInterface;

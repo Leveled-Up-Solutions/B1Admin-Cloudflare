@@ -31,16 +31,16 @@ export const PlanList = memo((props: Props) => {
   const [showTemplates, setShowTemplates] = React.useState(false);
   const [lessonMenuAnchor, setLessonMenuAnchor] = React.useState<null | HTMLElement>(null);
   const lessonAnchorRef = React.useRef<HTMLSpanElement>(null);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.ministry.id);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && (myMinistriesQuery.data || []).some((g) => g.id === props.ministry.id);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
 
   const plansQuery = useQuery<PlanInterface[]>({
     queryKey: props.planTypeId ? [`/plans/types/${props.planTypeId}`, "DoingApi"] : ["/plans", "DoingApi"],
@@ -166,7 +166,7 @@ export const PlanList = memo((props: Props) => {
     </Menu>
   );
 
-  const scheduleLessonVerb = (
+  const scheduleLessonVerb = process.env.REACT_APP_STAGE !== "cloudflare" && (
     <Box component="span" ref={lessonAnchorRef}>
       <TextAction onClick={() => setLessonMenuAnchor(lessonAnchorRef.current)} data-testid="schedule-lesson-button">
         <Box component="span" sx={toolLinkSx}><MenuBookIcon />{Locale.label("plans.planList.scheduleLesson", "Schedule Lesson")}</Box>
@@ -194,9 +194,9 @@ export const PlanList = memo((props: Props) => {
         {canEdit && (
           <VerbRow plain>
             {scheduleLessonVerb}
-            <TextAction onClick={() => setShowTemplates(true)} data-testid="plan-templates-button">
+            {process.env.REACT_APP_STAGE !== "cloudflare" && <TextAction onClick={() => setShowTemplates(true)} data-testid="plan-templates-button">
               <Box component="span" sx={toolLinkSx}><TemplatesIcon />{Locale.label("plans.templates.button", "Templates")}</Box>
-            </TextAction>
+            </TextAction>}
           </VerbRow>
         )}
       </Stack>

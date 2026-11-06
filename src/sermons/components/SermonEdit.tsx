@@ -1,7 +1,7 @@
 import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
-import { Grid, InputLabel, MenuItem, Select, TextField, FormControl, Button, Box } from "@mui/material";
+import { Grid, InputLabel, MenuItem, Select, TextField, FormControl, Button, Box, Alert, Stack, Typography } from "@mui/material";
 import { Loading, Locale } from "@churchapps/apphelper";
 import { ErrorMessages } from "@churchapps/apphelper";
 import { ApiHelper } from "@churchapps/apphelper";
@@ -10,13 +10,17 @@ import { DateHelper } from "@churchapps/apphelper";
 import { UserHelper } from "@churchapps/apphelper";
 import { ImageEditor } from "@churchapps/apphelper";
 import { Permissions } from "@churchapps/helpers";
-import type { SermonInterface, PlaylistInterface } from "@churchapps/helpers";
+import type { SermonInterface } from "@churchapps/helpers";
 import { Duration } from "./Duration";
 import { FormCard } from "../../components/ui";
 import { useConfirmDelete } from "../../hooks";
 import { AppDatePicker } from "../../components";
 import { CustomFileUpload } from "../../site/components/CustomFileUpload";
 
+import { CloudflareSermonFiles } from "../../cloudflare/CloudflareSermonFiles";
+import { canCreateUnassignedSermon, canEditArchivePlaylist, canEditArchiveSermon, canListArchivePlaylists, type ArchivePlaylist } from "../../cloudflare/sermonPermissions";
+
+const IS_CLOUDFLARE = process.env.REACT_APP_STAGE === "cloudflare";
 const AUDIO_ACCEPT = "audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a";
 
 interface Props {
@@ -24,14 +28,16 @@ interface Props {
   updatedFunction?: () => void
 }
 
-type PodcastSermon = SermonInterface & { audioUrl?: string };
+type PodcastSermon = SermonInterface & { audioUrl?: string; speaker?: string; visibility?: "public" | "private"; publishedAt?: string | null; canEdit?: boolean; playlistTitle?: string };
 
 type AnyRecord = Record<string, any>;
 
 export const SermonEdit: React.FC<Props> = (props) => {
   "use no memo"; // compiler caches register() results, breaking RHF field re-registration after reset()
+  const [saving, setSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<string[]>([]);
-  const playlistsQuery = useQuery<PlaylistInterface[]>({ queryKey: ["/playlists", "ContentApi"], placeholderData: [] });
+  const playlistsQuery = useQuery<ArchivePlaylist[]>({ queryKey: ["/playlists", "ContentApi"], placeholderData: [], enabled: !IS_CLOUDFLARE || canListArchivePlaylists() });
+  const canEdit = IS_CLOUDFLARE ? canEditArchiveSermon(props.currentSermon) : UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit);
   const { confirm, ConfirmDialogElement } = useConfirmDelete();
   const [showImageEditor, setShowImageEditor] = React.useState(false);
   const [showOption, setShowOption] = React.useState(false);
@@ -48,11 +54,13 @@ export const SermonEdit: React.FC<Props> = (props) => {
       publishDate: props.currentSermon?.publishDate ? DateHelper.formatHtml5Date(DateHelper.toDate(props.currentSermon.publishDate)) : "",
       title: props.currentSermon?.title ?? "",
       description: props.currentSermon?.description ?? "",
+      speaker: props.currentSermon?.speaker ?? "",
+      visibility: props.currentSermon?.visibility ?? "private",
       audioUrl: props.currentSermon?.audioUrl ?? ""
     }
   });
 
-  const checkDelete = () => { if (!UniqueIdHelper.isMissing(props.currentSermon?.id)) return handleDelete; else return undefined; };
+  const checkDelete = () => { if (canEdit && !UniqueIdHelper.isMissing(props.currentSermon?.id)) return handleDelete; else return undefined; };
   const handleCancel = () => { props.updatedFunction?.(); };
 
   const handleAudioUploaded = (file: any) => {
@@ -67,10 +75,11 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
   const handleDelete = async () => {
     const errs = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorizedDelete"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorizedDelete"));
     if (errs.length > 0) { setErrors(errs); return; }
     if (await confirm(Locale.label("sermons.sermonEdit.deleteConfirm"))) {
-      ApiHelper.delete("/sermons/" + props.currentSermon.id, "ContentApi").then(() => { props.updatedFunction?.(); });
+      setSaving(true);
+      try { await ApiHelper.delete("/sermons/" + props.currentSermon.id, "ContentApi"); props.updatedFunction?.(); } catch (err) { setErrors([err instanceof Error ? err.message : "Could not delete sermon."]); } finally { setSaving(false); }
     }
   };
 
@@ -108,13 +117,14 @@ export const SermonEdit: React.FC<Props> = (props) => {
     }
   };
 
-  const onValid = (values: AnyRecord) => {
+  const onValid = async (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
     if (errs.length > 0) { setErrors(errs); return; }
 
     const sermon: PodcastSermon = {
       ...props.currentSermon,
+      ...(IS_CLOUDFLARE ? { speaker: values.speaker, visibility: values.visibility } : {}),
       playlistId: values.playlistId,
       videoType: values.videoType,
       videoData: values.videoData,
@@ -126,16 +136,18 @@ export const SermonEdit: React.FC<Props> = (props) => {
       audioUrl: values.audioUrl,
       videoUrl: buildVideoUrl(values.videoType, values.videoData)
     };
-    ApiHelper.post("/sermons", [sermon], "ContentApi").then(props.updatedFunction);
+    setSaving(true); setErrors([]);
+    try { await ApiHelper.post("/sermons", [sermon], "ContentApi"); props.updatedFunction?.(); } catch (err) { setErrors([err instanceof Error ? err.message : "Could not save sermon."]); } finally { setSaving(false); }
   };
 
   const handleAdd = (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.sermonEdit.unauthorized"));
     if (errs.length > 0) { setErrors(errs); return; }
 
     const sermon: PodcastSermon = {
       ...props.currentSermon,
+      ...(IS_CLOUDFLARE ? { speaker: values.speaker, visibility: values.visibility } : {}),
       playlistId: additionalPlaylistId,
       videoType: values.videoType,
       videoData: values.videoData,
@@ -154,6 +166,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
   const watchedVideoType = watch("videoType");
 
   const fetchVideo = (videoType: "youtube" | "vimeo") => {
+    if (IS_CLOUDFLARE) return;
     const videoData = watch("videoData");
     ApiHelper.getAnonymous(`/sermons/lookup?videoType=${videoType}&videoData=${videoData}`, "ContentApi").then((d: any) => {
       setValue("title", d.title);
@@ -174,7 +187,10 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
   const getPlaylists = () => {
     const result: React.ReactElement[] = [];
-    (playlistsQuery.data || []).forEach((playlist: any) => {
+    const currentId = props.currentSermon.playlistId;
+    const options = (playlistsQuery.data || []).filter(playlist => !IS_CLOUDFLARE || playlist.id === currentId || canEditArchivePlaylist(playlist));
+    if (IS_CLOUDFLARE && currentId && !options.some(playlist => playlist.id === currentId)) result.push(<MenuItem key={currentId} value={currentId}>{props.currentSermon.playlistTitle || "Current playlist"}</MenuItem>);
+    options.forEach((playlist) => {
       result.push(<MenuItem key={playlist.id} value={playlist.id} data-testid={`playlist-option-${playlist.id}`} aria-label={playlist.title}>{playlist.title}</MenuItem>);
     });
     return result;
@@ -197,6 +213,8 @@ export const SermonEdit: React.FC<Props> = (props) => {
       publishDate: props.currentSermon?.publishDate ? DateHelper.formatHtml5Date(DateHelper.toDate(props.currentSermon.publishDate)) : "",
       title: props.currentSermon?.title ?? "",
       description: props.currentSermon?.description ?? "",
+      speaker: props.currentSermon?.speaker ?? "",
+      visibility: props.currentSermon?.visibility ?? "private",
       audioUrl: props.currentSermon?.audioUrl ?? ""
     });
     setThumbnail(props.currentSermon?.thumbnail ?? "");
@@ -228,21 +246,35 @@ export const SermonEdit: React.FC<Props> = (props) => {
       break;
   }
 
+  if (IS_CLOUDFLARE) endAdornment = <></>;
+
+  const updatePublication = async (publish: boolean) => {
+    if (!canEdit || !props.currentSermon.id) return;
+    setSaving(true); setErrors([]);
+    try {
+      if (publish) await ApiHelper.post("/sermons/" + props.currentSermon.id + "/publish", {}, "ContentApi");
+      else await ApiHelper.delete("/sermons/" + props.currentSermon.id + "/published", "ContentApi");
+      props.updatedFunction?.();
+    } catch (err) { setErrors([err instanceof Error ? err.message : "Could not update publication."]); } finally { setSaving(false); }
+  };
+
   if (playlistsQuery.isLoading) return <Loading data-testid="sermon-edit-loading" />;
   else {
     return (
       <>
         {ConfirmDialogElement}
         {showImageEditor && <ImageEditor aspectRatio={16 / 9} outputWidth={640} outputHeight={360} photoUrl={thumbnail || ""} onCancel={() => setShowImageEditor(false)} onUpdate={handlePhotoUpdated} />}
-        <FormCard icon="calendar_month" title={(props.currentSermon?.permanentUrl) ? Locale.label("sermons.sermonEdit.editPermanentLiveUrl") : Locale.label("sermons.sermonEdit.editSermon")} onSave={handleSubmit(onValid)} onCancel={handleCancel} onDelete={checkDelete()} help="docs/b1-admin/sermons/" data-testid="sermon-edit-box">
+        <FormCard icon="calendar_month" title={(props.currentSermon?.permanentUrl) ? Locale.label("sermons.sermonEdit.editPermanentLiveUrl") : Locale.label("sermons.sermonEdit.editSermon")} onSave={handleSubmit(onValid)} onCancel={handleCancel} onDelete={checkDelete()} isSubmitting={saving} disabled={saving} help={IS_CLOUDFLARE ? undefined : "docs/b1-admin/sermons/"} data-testid="sermon-edit-box">
           <ErrorMessages errors={errors} data-testid="sermon-errors" />
+          {IS_CLOUDFLARE && <Alert severity="info">Save sermon details first, then publish the saved record to the member archive. Live streaming, provider lookups and podcast feeds are not enabled.</Alert>}
+          {IS_CLOUDFLARE && props.currentSermon.publishedAt && <Alert severity="warning">This sermon is published. Saved edits appear in the member archive immediately. Unpublish it first to prepare changes privately.</Alert>}
           <>
             {!props.currentSermon?.permanentUrl && (
               <FormControl fullWidth>
                 <InputLabel>{Locale.label("sermons.playlist")}</InputLabel>
                 <Controller name="playlistId" control={control} render={({ field }) => (
                   <Select {...field} value={field.value ?? ""} label={Locale.label("sermons.playlist")} data-testid="sermon-playlist-select" aria-label={Locale.label("sermons.sermonEdit.selectPlaylistAria")}>
-                    <MenuItem value="">{Locale.label("sermons.sermonEdit.none")}</MenuItem>
+                    {(!IS_CLOUDFLARE || !props.currentSermon.playlistId || canCreateUnassignedSermon()) && <MenuItem value="">{Locale.label("sermons.sermonEdit.none")}</MenuItem>}
                     {getPlaylists()}
                   </Select>
                 )} />
@@ -256,6 +288,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
                   <Controller name="videoType" control={control} render={({ field }) => (
                     <Select {...field} value={field.value ?? ""} label={Locale.label("sermons.sermonEdit.videoProvider")} data-testid="video-provider-select" aria-label={Locale.label("sermons.sermonEdit.selectVideoProviderAria")}>
                       {props.currentSermon?.permanentUrl && (<MenuItem value="youtube_channel">{Locale.label("sermons.sermonEdit.currentYouTubeLiveStream")}</MenuItem>)}
+                      {IS_CLOUDFLARE && <MenuItem value="">No video</MenuItem>}
                       <MenuItem value="youtube">{Locale.label("sermons.sermonEdit.youtube")}</MenuItem>
                       <MenuItem value="vimeo">{Locale.label("sermons.sermonEdit.vimeo")}</MenuItem>
                       <MenuItem value="facebook">{Locale.label("sermons.sermonEdit.facebook")}</MenuItem>
@@ -289,9 +322,10 @@ export const SermonEdit: React.FC<Props> = (props) => {
 
             <Grid container spacing={3}>
               <Grid size={{ xs: 3 }}>
-                <a href="about:blank" onClick={(e) => { e.preventDefault(); setShowImageEditor(true); }} data-testid="edit-thumbnail-link" aria-label={Locale.label("sermons.sermonEdit.editThumbnailAria")}>
+                {!IS_CLOUDFLARE && <a href="about:blank" onClick={(e) => { e.preventDefault(); setShowImageEditor(true); }} data-testid="edit-thumbnail-link" aria-label={Locale.label("sermons.sermonEdit.editThumbnailAria")}>
                   <img src={thumbnail || "/images/no-image.png"} className="img-fluid" style={{ marginTop: 20 }} alt={Locale.label("sermons.sermonEdit.thumbnailAlt")} data-testid="sermon-thumbnail"></img>
-                </a>
+                </a>}
+                {IS_CLOUDFLARE && <TextField label="Thumbnail URL" value={thumbnail} onChange={e => setThumbnail(e.target.value)} helperText="Optional HTTPS URL; preview is not fetched." fullWidth />}
               </Grid>
               <Grid size={{ xs: 9 }}>
                 <TextField fullWidth label={Locale.label("sermons.sermonEdit.title")} data-testid="sermon-title-input" aria-label={Locale.label("sermons.sermonEdit.sermonTitleAria")} placeholder={Locale.label("placeholders.sermon.title")} {...register("title")} />
@@ -302,17 +336,31 @@ export const SermonEdit: React.FC<Props> = (props) => {
             </Grid>
 
             <Box sx={{ mt: 2 }}>
-              <TextField fullWidth label={Locale.label("sermons.sermonEdit.audioUrl")} helperText={Locale.label("sermons.sermonEdit.audioUrlHelp")} data-testid="sermon-audio-url-input" {...register("audioUrl")} />
-              {!UniqueIdHelper.isMissing(props.currentSermon?.id) && (
+              <TextField fullWidth label={IS_CLOUDFLARE ? "Audio URL" : Locale.label("sermons.sermonEdit.audioUrl")} helperText={IS_CLOUDFLARE ? "Optional HTTPS media URL. Attach private archive files below." : Locale.label("sermons.sermonEdit.audioUrlHelp")} data-testid="sermon-audio-url-input" {...register("audioUrl")} />
+              {!IS_CLOUDFLARE && !UniqueIdHelper.isMissing(props.currentSermon?.id) && (
                 <Box sx={{ mt: 1 }}>
-                  <CustomFileUpload contentType="sermon" contentId={props.currentSermon.id} accept={AUDIO_ACCEPT} pendingSave={pendingAudioUpload} saveCallback={handleAudioUploaded} errorCallback={() => setPendingAudioUpload(false)} />
+                  <CustomFileUpload contentType="sermon" contentId={props.currentSermon.id!} accept={AUDIO_ACCEPT} pendingSave={pendingAudioUpload} saveCallback={handleAudioUploaded} errorCallback={() => setPendingAudioUpload(false)} />
                   <Button variant="outlined" size="small" sx={{ mt: 1 }} onClick={() => setPendingAudioUpload(true)} data-testid="upload-sermon-audio-button">{Locale.label("sermons.sermonEdit.uploadAudio")}</Button>
                 </Box>
               )}
             </Box>
 
+            {IS_CLOUDFLARE && <Stack spacing={2}>
+              <TextField label="Speaker" fullWidth {...register("speaker")} />
+              <Controller name="visibility" control={control} render={({ field }) => <TextField {...field} value={field.value || "private"} select label="Archive visibility" helperText="Visible to members only after explicit publication and the publish date."><MenuItem value="private">Private draft</MenuItem><MenuItem value="public">Member archive</MenuItem></TextField>} />
+              {!UniqueIdHelper.isMissing(props.currentSermon.id) ? <>
+                <Typography variant="body2">Saved publication status: {props.currentSermon.publishedAt ? "Published" : "Unpublished"}</Typography>
+                <Stack direction="row" spacing={2}>
+                  {!props.currentSermon.publishedAt && <Button variant="outlined" disabled={saving || props.currentSermon.visibility !== "public"} onClick={() => updatePublication(true)}>Publish saved sermon</Button>}
+                  {props.currentSermon.publishedAt && <Button color="warning" disabled={saving} onClick={() => updatePublication(false)}>Unpublish sermon</Button>}
+                </Stack>
+                {props.currentSermon.visibility !== "public" && <Typography variant="caption">Choose Member archive and save before publishing.</Typography>}
+                <CloudflareSermonFiles sermonId={props.currentSermon.id!} />
+              </> : <Typography variant="body2" color="text.secondary">Save this sermon to attach archive files and enable publication.</Typography>}
+            </Stack>}
+
             {/* add to another playlist */}
-            <div style={{ marginTop: 15 }}>
+            {!IS_CLOUDFLARE && <div style={{ marginTop: 15 }}>
               <a href="about:blank" onClick={(e) => { e.preventDefault(); setShowOption(!showOption); }} data-testid="add-to-playlist-link" aria-label={Locale.label("sermons.sermonEdit.addToAnotherPlaylistAria")}>{Locale.label("sermons.sermonEdit.addToAnotherPlaylist")}</a>
               {showOption && (
                 <FormControl fullWidth>
@@ -326,7 +374,7 @@ export const SermonEdit: React.FC<Props> = (props) => {
                   </Select>
                 </FormControl>
               )}
-            </div>
+            </div>}
           </>
         </FormCard>
       </>

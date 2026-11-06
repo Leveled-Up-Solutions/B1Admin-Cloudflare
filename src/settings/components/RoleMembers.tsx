@@ -30,7 +30,7 @@ export const RoleMembers: React.FC<Props> = memo((props) => {
   );
 
   const editContent = useMemo(() => {
-    if (isRoleEveryone) return null;
+    if (isRoleEveryone || (process.env.REACT_APP_STAGE === "cloudflare" && props.role.name === "Domain Admins")) return null;
     return <Button size="small" variant="contained" startIcon={<AddIcon />} onClick={handleAdd} data-testid="add-role-member-button" aria-label={Locale.label("settings.roleMembers.addRoleMemberAria")}>{Locale.label("common.add")}</Button>;
   }, [isRoleEveryone, handleAdd]);
 
@@ -44,7 +44,7 @@ export const RoleMembers: React.FC<Props> = memo((props) => {
   );
 
   const canEdit = useMemo(() => UserHelper.checkAccess(Permissions.membershipApi.roles.edit), []);
-  const canDelete = useMemo(() => (props.role.name === "Domain Admins" ? canEdit && roleMembers.length > 1 : canEdit), [props.role.name, canEdit, roleMembers.length]);
+  const canDelete = useMemo(() => (props.role.name === "Domain Admins" ? process.env.REACT_APP_STAGE !== "cloudflare" && canEdit && roleMembers.length > 1 : canEdit), [props.role.name, canEdit, roleMembers.length]);
 
   const tableRows = useMemo(() => {
     const rows: JSX.Element[] = [];
@@ -62,7 +62,7 @@ export const RoleMembers: React.FC<Props> = memo((props) => {
       const removeLink = canDelete ? (
         <AppIconButton label={Locale.label("common.delete")} icon={<DeleteIcon />} intent="remove" onClick={() => handleRemove(rm)} data-testid={`remove-role-member-button-${rm.id}`} />
       ) : null;
-      const editLink = canEdit ? (
+      const editLink = canEdit && process.env.REACT_APP_STAGE !== "cloudflare" ? (
         <AppIconButton label={Locale.label("common.edit")} icon={<EditIcon />} onClick={() => { props.setSelectedRoleMember(rm.userId || ""); }} data-testid={`edit-role-member-button-${rm.id}`} />
       ) : null;
 

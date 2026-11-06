@@ -6,6 +6,7 @@ import { FormGroup, FormControlLabel, Checkbox } from "@mui/material";
 interface Props {
   apiName: string;
   contentType: string;
+  contentId?: string;
   action: string;
   label: string;
   roleId?: string;
@@ -16,18 +17,22 @@ interface Props {
 export const RoleCheck: React.FC<Props> = (props) => {
   const [rolePermission, setRolePermission] = React.useState<RolePermissionInterface | null>(null);
   const [errors, setErrors] = React.useState<string[]>([]);
+  const [saving, setSaving] = React.useState(false);
 
   const init = () => {
-    const match = props.rolePermissions.find((rp) => rp.apiName === props.apiName && rp.contentType === props.contentType && rp.action === props.action);
+    const match = props.rolePermissions.find((rp) => rp.apiName === props.apiName && rp.contentType === props.contentType && rp.action === props.action && (rp.contentId || "") === (props.contentId || ""));
     setRolePermission(match || null);
   };
 
   const handleChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (saving) return;
+    setSaving(true); setErrors([]);
     if (e.target.checked) {
       const rp: RolePermissionInterface = {
         roleId: props.roleId,
         apiName: props.apiName,
         contentType: props.contentType,
+        contentId: props.contentId,
         action: props.action
       };
       setRolePermission(rp); // optimistic
@@ -41,7 +46,7 @@ export const RoleCheck: React.FC<Props> = (props) => {
         setRolePermission(null); // revert
         props.onChange?.(rp, false);
         setErrors([Locale.label("common.saveError")]);
-      }
+      } finally { setSaving(false); }
     } else {
       const previous = rolePermission;
       setRolePermission(null); // optimistic
@@ -52,18 +57,18 @@ export const RoleCheck: React.FC<Props> = (props) => {
         setRolePermission(previous); // revert
         props.onChange?.(previous!, true);
         setErrors([Locale.label("common.saveError")]);
-      }
+      } finally { setSaving(false); }
     }
   };
 
-  React.useEffect(init, [props.rolePermissions]);
+  React.useEffect(init, [props.rolePermissions, props.apiName, props.contentType, props.action, props.contentId]);
 
   return (
     <FormGroup>
       <ErrorMessages errors={errors} />
       <FormControlLabel
         control={
-          <Checkbox checked={rolePermission !== null} onChange={handleChange} data-testid={`role-permission-checkbox-${props.contentType}-${props.action}`} aria-label={Locale.label("settings.roleCheck.permissionAria").replace("{label}", props.label)} />
+          <Checkbox checked={rolePermission !== null} disabled={saving} onChange={handleChange} data-testid={`role-permission-checkbox-${props.contentType}-${props.action}`} aria-label={Locale.label("settings.roleCheck.permissionAria").replace("{label}", props.label)} />
         }
         label={props.label}
       />

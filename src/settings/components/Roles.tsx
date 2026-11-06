@@ -35,7 +35,7 @@ export const Roles = memo(({ selectRoleId, selectedRoleId, church }: Props) => {
   const rows = useMemo(() => {
     const result: JSX.Element[] = [];
 
-    if (UserHelper.checkAccess(Permissions.membershipApi.roles.edit)) {
+    if (UserHelper.checkAccess(Permissions.membershipApi.roles.edit) && process.env.REACT_APP_STAGE !== "cloudflare") {
       result.push(
         <TableRow key="everyone">
           <TableCell>
@@ -48,7 +48,7 @@ export const Roles = memo(({ selectRoleId, selectedRoleId, church }: Props) => {
     }
 
     sortedRoles.forEach((role) => {
-      const editLink = canEdit ? (
+      const editLink = canEdit && !(process.env.REACT_APP_STAGE === "cloudflare" && role.name === "Domain Admins") ? (
         <TextAction small onClick={() => { selectRoleId(role.id || ""); }} aria-label={Locale.label("common.edit") + " " + (role.name || "")} data-testid="edit-role-button">{Locale.label("common.edit")}</TextAction>
       ) : null;
       const memberCount = role.memberCount ?? 0;
@@ -200,8 +200,8 @@ export const AddRoleMenu: React.FC<AddRoleProps> = ({ churchId, onAddCustom }) =
         <MenuItem data-cy="add-campus" onClick={handleAddCustomRole} data-testid="add-custom-role-menu-item" aria-label={Locale.label("settings.roles.addCustomRoleAria")}>
           <LockIcon fontSize="small" sx={{ mr: "3px" }} /> {Locale.label("settings.roles.custAdd")}
         </MenuItem>
-        <Divider />
-        {predefined.map((role) => (
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <Divider />}
+        {(process.env.REACT_APP_STAGE === "cloudflare" ? [] : predefined).map((role) => (
           <MenuItem
             key={role.name}
             onClick={() => {

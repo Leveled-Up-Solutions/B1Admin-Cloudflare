@@ -1,0 +1,103 @@
+import { expect, test } from "@playwright/test";
+
+test("calendar recurrence keeps civil DST times and supports skip, restore, future edits and series deletion", async ({ page, request, baseURL }, testInfo) => {
+  test.setTimeout(90000);
+  const errors: string[] = [], failed: string[] = [], external: string[] = [];
+  page.on("pageerror", error => errors.push(error.message));
+  page.on("response", response => { if (response.url().includes("/api/") && response.status() >= 400) failed.push(`${response.status()} ${response.url()}`); });
+  page.on("request", request => { if (!request.url().startsWith(baseURL!) && !request.url().startsWith("data:") && !request.url().startsWith("blob:")) external.push(request.url()); });
+  await page.goto("/login");
+  await page.locator('input[type="email"]').fill("admin@example.test");
+  await page.locator('input[type="password"]').fill("LocalDemo2026!");
+  const login = page.waitForResponse(response => response.url().endsWith("/api/membership/users/login") && response.request().method() === "POST");
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const token = (await (await login).json()).userChurches[0].jwt;
+  const headers = { Authorization: `Bearer ${token}` };
+  await expect(page.getByRole("heading", { name: "Church administration", exact: true })).toBeVisible();
+  let calendarId = "";
+  try {
+    await page.getByRole("link", { name: "Calendars & scheduling", exact: true }).first().click();
+    await page.getByRole("button", { name: "New calendar", exact: true }).click();
+    await page.getByLabel(/^Calendar name/).fill(`Synthetic recurrence ${Date.now()}`);
+    await page.getByLabel(/^Time zone/).fill("America/New_York");
+    const calendarSaved = page.waitForResponse(response => response.url().endsWith("/api/content/calendars") && response.request().method() === "POST");
+    await page.getByRole("button", { name: "Save calendar", exact: true }).click();
+    calendarId = (await (await calendarSaved).json())[0].id;
+    await expect(page.getByText("Calendar saved.", { exact: true })).toBeVisible();
+    await page.getByLabel("View from", { exact: true }).fill("2027-03-01");
+    await page.getByRole("button", { name: "New event", exact: true }).click();
+    await page.getByLabel(/^Event title/).fill("Synthetic weekly gathering");
+    await page.getByLabel(/^Start/).fill("2027-03-07T09:00");
+    await page.getByLabel(/^End/).fill("2027-03-07T10:00");
+    const allDay = page.getByRole("checkbox", { name: "All-day event", exact: true });
+    await allDay.check();
+    await expect(page.getByLabel(/^End date/)).toHaveValue("2027-03-08");
+    await allDay.uncheck(); await allDay.check();
+    await expect(page.getByLabel(/^End date/)).toHaveValue("2027-03-08");
+    await allDay.uncheck();
+    await page.getByLabel(/^Start/).fill("2027-03-07T09:00");
+    await page.getByLabel(/^End/).fill("2027-03-07T10:00");
+    await page.getByRole("checkbox", { name: "Recurring event", exact: true }).check();
+    await page.getByLabel("Occurrences", { exact: true }).fill("3");
+    await page.getByRole("button", { name: "Save event", exact: true }).click();
+    await expect(page.getByText("Event saved.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Synthetic weekly gathering", { exact: true })).toHaveCount(3);
+    const apiRows = await (await request.get(`/api/content/events/instances?calendarId=${calendarId}&start=2027-03-01&end=2027-04-01`, { headers })).json();
+    expect(apiRows.map((row: { start: string }) => row.start)).toEqual(["2027-03-07T14:00:00.000Z", "2027-03-14T13:00:00.000Z", "2027-03-21T13:00:00.000Z"]);
+
+    await page.getByRole("button", { name: "Delete Synthetic weekly gathering", exact: true }).first().click();
+    await page.getByRole("button", { name: "This event only", exact: true }).click();
+    await expect(page.getByText("Occurrence skipped.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Synthetic weekly gathering", { exact: true })).toHaveCount(2);
+    await page.getByRole("button", { name: "Edit Synthetic weekly gathering", exact: true }).first().click();
+    await page.getByRole("button", { name: "Entire series", exact: true }).click();
+    page.once("dialog", dialog => dialog.accept());
+    await page.getByRole("button", { name: "Restore 2027-03-07", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Restore 2027-03-07", exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(page.getByText("Synthetic weekly gathering", { exact: true })).toHaveCount(3);
+
+    await page.getByRole("button", { name: "Edit Synthetic weekly gathering", exact: true }).nth(1).click();
+    await page.getByRole("button", { name: "This and future events", exact: true }).click();
+    await expect(page.getByLabel("Occurrences", { exact: true })).toHaveValue("2");
+    await page.getByLabel(/^Event title/).fill("Synthetic future gathering");
+    await page.getByRole("button", { name: "Save event", exact: true }).click();
+    await expect(page.getByText("Event saved.", { exact: true })).toBeVisible();
+    await expect(page.getByText("Synthetic weekly gathering", { exact: true })).toHaveCount(1);
+    await expect(page.getByText("Synthetic future gathering", { exact: true })).toHaveCount(2);
+    await page.screenshot({ path: testInfo.outputPath("recurring-calendar.png"), fullPage: true });
+    await page.getByRole("button", { name: "Delete Synthetic future gathering", exact: true }).first().click();
+    await page.getByRole("button", { name: "Entire series", exact: true }).click();
+    await expect(page.getByText("Synthetic future gathering", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: "Delete Synthetic weekly gathering", exact: true }).click();
+    await page.getByRole("button", { name: "Entire series", exact: true }).click();
+    await expect(page.getByText("Synthetic weekly gathering", { exact: true })).toHaveCount(0);
+    const createdFold = await request.post("/api/content/events", { headers, data: [{ calendarId, title: "Synthetic fold anchor", start: "2027-11-07T01:30:00-04:00", end: "2027-11-07T02:30:00-05:00", recurrenceRule: "FREQ=WEEKLY;COUNT=2" }] });
+    expect(createdFold.ok()).toBeTruthy();
+    const [fold] = await createdFold.json();
+    await page.getByLabel("View from", { exact: true }).fill("2027-11-01");
+    await expect(page.getByText("Synthetic fold anchor", { exact: true })).toHaveCount(2);
+    await page.getByRole("button", { name: "Edit Synthetic fold anchor", exact: true }).first().click();
+    await page.getByRole("button", { name: "Entire series", exact: true }).click();
+    await page.getByLabel(/^Event title/).fill("Synthetic fold renamed");
+    await page.getByRole("button", { name: "Save event", exact: true }).click();
+    await expect(page.getByText("Synthetic fold renamed", { exact: true })).toHaveCount(2);
+    const savedFold = await (await request.get(`/api/content/events/${fold.id}`, { headers })).json();
+    expect(savedFold.start).toBe("2027-11-07T05:30:00.000Z");
+    expect(savedFold.end).toBe("2027-11-07T07:30:00.000Z");
+    expect((await request.post("/api/content/events", { headers, data: [{ calendarId, title: "Synthetic monthly pattern", start: "2027-01-10T09:00:00-05:00", end: "2027-01-10T10:00:00-05:00", recurrenceRule: "FREQ=MONTHLY;BYMONTHDAY=10;COUNT=2" }] })).ok()).toBeTruthy();
+    await page.getByLabel("View from", { exact: true }).fill("2027-01-01");
+    await page.getByRole("button", { name: "Edit Synthetic monthly pattern", exact: true }).first().click();
+    await page.getByRole("button", { name: "Entire series", exact: true }).click();
+    await page.getByLabel(/^Start/).fill("2027-01-15T09:00");
+    await expect(page.getByRole("combobox", { name: /^Monthly pattern\b/ })).toHaveText("On day 10 of the month");
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    expect(errors).toEqual([]); expect(failed).toEqual([]); expect(external).toEqual([]);
+  } finally {
+    if (calendarId) {
+      const rows = await (await request.get(`/api/content/events?calendarId=${calendarId}`, { headers })).json();
+      for (const row of rows) if (!row.recurrenceParentId) await request.delete(`/api/content/events/${row.id}`, { headers });
+      expect((await request.delete(`/api/content/calendars/${calendarId}`, { headers })).ok()).toBeTruthy();
+    }
+  }
+});

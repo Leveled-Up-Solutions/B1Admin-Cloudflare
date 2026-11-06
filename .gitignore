@@ -133,3 +133,10 @@ dist
 # TernJS port file
 .tern-port
 .auth-state.json
+
+# Cloudflare local state and secrets
+.dev.vars
+.dev.vars.*
+.wrangler/
+!cloudflare/package-lock.json
+!.env.cloudflare

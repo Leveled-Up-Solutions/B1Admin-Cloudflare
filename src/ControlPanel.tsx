@@ -3,15 +3,25 @@ import UserContext from "./UserContext";
 
 import { ApiHelper, ErrorMessages, Locale } from "@churchapps/apphelper";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Login } from "./Login";
-import { OAuthCallback } from "./oauth/OAuthCallback";
 
-import { Authenticated } from "./Authenticated";
-import { Logout } from "./Logout";
+import { EnvironmentHelper } from "./helpers/EnvironmentHelper";
+import { CloudflareLogin } from "./cloudflare/CloudflareLogin";
+import { CloudflareApp } from "./cloudflare/CloudflareApp";
+
+
+
+
 import { type ErrorLogInterface, type ErrorAppDataInterface } from "@churchapps/helpers";
 import { AnalyticsHelper } from "./helpers";
 import { UserHelper, ErrorHelper } from "@churchapps/apphelper";
 import { Pingback } from "./Pingback";
+import { queryClient } from "./queryClient";
+
+const MemberPortal = React.lazy(() => import("./cloudflare/MemberPortal"));
+const Login = React.lazy(() => import("./Login").then(m => ({ default: m.Login })));
+const Authenticated = React.lazy(() => import("./Authenticated").then(m => ({ default: m.Authenticated })));
+const Logout = React.lazy(() => import("./Logout").then(m => ({ default: m.Logout })));
+const OAuthCallback = React.lazy(() => import("./oauth/OAuthCallback").then(m => ({ default: m.OAuthCallback })));
 
 const isSessionExpired = () => {
   try {
@@ -43,6 +53,7 @@ const ApiErrorBanner = () => {
   // Re-arm the 401 redirect guard once the user lands back on the login screen.
   React.useEffect(() => {
     if (location.pathname.startsWith("/login")) redirectingRef.current = false;
+    if (EnvironmentHelper.isCloudflare) setErrors([]);
   }, [location.pathname]);
 
   const getErrorAppData = React.useCallback((): ErrorAppDataInterface => ({
@@ -62,6 +73,12 @@ const ApiErrorBanner = () => {
         lastErrorRef.current = { key, time: now };
 
         if (type === "401") {
+          if (EnvironmentHelper.isCloudflare) {
+            ApiHelper.clearPermissions();
+            queryClient.clear();
+            navigateRef.current("/login", { replace: true });
+            return;
+          }
           // APIs also return 401 for permission denials on a live session; only an
           // expired/missing session token means the user actually needs to re-login.
           if (!isSessionExpired()) return;
@@ -106,20 +123,23 @@ export const ControlPanel = () => {
   return (
     <>
       <ApiErrorBanner />
+      <React.Suspense fallback={<div>Loading…</div>}>
       <Routes>
+        <Route path="/portal/*" element={<MemberPortal />} />
         <Route path="/pingback" element={<Pingback />} />
-        <Route path="/logout" element={<Logout />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/oauth/callback" element={<OAuthCallback />} />
+        <Route path="/logout" element={EnvironmentHelper.isCloudflare ? <Navigate to="/" replace /> : <Logout />} />
+        <Route path="/login" element={EnvironmentHelper.isCloudflare ? <CloudflareLogin /> : <Login />} />
+        <Route path="/oauth/callback" element={EnvironmentHelper.isCloudflare ? <Navigate to="/" replace /> : <OAuthCallback />} />
         <Route
           path="/*"
           element={
             <RequireAuth>
-              <Authenticated />
+              {EnvironmentHelper.isCloudflare ? <CloudflareApp /> : <Authenticated />}
             </RequireAuth>
           }
         />
       </Routes>
+      </React.Suspense>
     </>
   );
 };

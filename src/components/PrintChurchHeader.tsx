@@ -8,10 +8,10 @@ import UserContext from "../UserContext";
 export const usePrintLogo = (churchId?: string) => {
   const settings = useQuery<Record<string, string>>({
     queryKey: ["/settings/public/" + churchId, "MembershipApi"],
-    enabled: !!churchId
+    enabled: !!churchId && process.env.REACT_APP_STAGE !== "cloudflare"
   });
   const logoUrl = settings.data?.logoLight || "";
-  const loaded = !churchId || settings.isFetched;
+  const loaded = process.env.REACT_APP_STAGE === "cloudflare" || !churchId || settings.isFetched;
   const [ready, setReady] = useState(false);
 
   useEffect(() => {

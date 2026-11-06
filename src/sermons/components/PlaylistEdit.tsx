@@ -6,7 +6,8 @@ import {
   Box,
   Stack,
   Divider,
-  Button
+  Button,
+  Alert
 } from "@mui/material";
 import {
   PhotoCamera as PhotoCameraIcon,
@@ -23,6 +24,7 @@ import { useForm, Controller } from "react-hook-form";
 import { FormCard } from "../../components/ui";
 import { useConfirmDelete } from "../../hooks";
 import { AppDatePicker } from "../../components";
+import { canEditArchivePlaylist } from "../../cloudflare/sermonPermissions";
 
 interface Props {
   currentPlaylist: PlaylistInterface,
@@ -31,10 +33,15 @@ interface Props {
   updatedPhoto: string | null
 }
 
+const IS_CLOUDFLARE = process.env.REACT_APP_STAGE === "cloudflare";
+
 type AnyRecord = Record<string, any>;
 
 export const PlaylistEdit: React.FC<Props> = (props) => {
   "use no memo"; // compiler caches register() results, breaking RHF field re-registration after reset()
+  const [error, setError] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
+  const canEdit = IS_CLOUDFLARE ? canEditArchivePlaylist(props.currentPlaylist) : UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit);
   const thumbnailRef = React.useRef<string | null>(null);
   const [thumbnailDisplay, setThumbnailDisplay] = React.useState<string | null>(null);
 
@@ -66,22 +73,24 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
 
   const handleDelete = async () => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorizedDelete"));
+    if (!canEdit) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorizedDelete"));
     if (errs.length > 0) return;
 
     if (await confirm(Locale.label("sermons.playlists.playlistEdit.deleteConfirm"))) {
-      ApiHelper.delete("/playlists/" + watchedId, "ContentApi").then(() => { props.updatedFunction?.(); });
+      setSaving(true); setError("");
+      try { await ApiHelper.delete("/playlists/" + watchedId, "ContentApi"); props.updatedFunction?.(); } catch (err) { setError(err instanceof Error ? err.message : "Could not delete playlist."); } finally { setSaving(false); }
     }
   };
 
-  const onValid = (values: AnyRecord) => {
+  const onValid = async (values: AnyRecord) => {
     const errs: string[] = [];
-    if (!UserHelper.checkAccess(Permissions.contentApi.streamingServices.edit)) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorized"));
+    if (!canEdit) errs.push(Locale.label("sermons.playlists.playlistEdit.unauthorized"));
     if (errs.length > 0) return;
 
     const p: PlaylistInterface = { ...props.currentPlaylist, ...values, thumbnail: thumbnailRef.current ?? undefined };
     p.publishDate = values.publishDate ? DateHelper.toDate(values.publishDate) : undefined;
-    ApiHelper.post("/playlists", [p], "ContentApi").then(props.updatedFunction);
+    setSaving(true); setError("");
+    try { await ApiHelper.post("/playlists", [p], "ContentApi"); props.updatedFunction?.(); } catch (err) { setError(err instanceof Error ? err.message : "Could not save playlist."); } finally { setSaving(false); }
   };
 
   return (
@@ -93,9 +102,12 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
         onSave={handleSubmit(onValid)}
         onCancel={handleCancel}
         onDelete={checkDelete()}
-        help="docs/b1-admin/sermons/playlists"
+        help={IS_CLOUDFLARE ? undefined : "docs/b1-admin/sermons/playlists"}
+        isSubmitting={saving}
+        disabled={saving}
         data-testid="edit-playlist-inputbox"
       >
+        {error && <Alert severity="error">{error}</Alert>}
         <Grid container spacing={3}>
           <Grid size={12}>
             <Typography variant="h3" component="h3" sx={{ mb: 2 }}>
@@ -163,7 +175,7 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
                   }}
                 >
                   <img
-                    src={thumbnailDisplay || "/images/no-image.png"}
+                    src={IS_CLOUDFLARE ? "/images/no-image.png" : thumbnailDisplay || "/images/no-image.png"}
                     alt={Locale.label("sermons.playlists.playlistEdit.thumbnailAlt")}
                     style={{
                       maxWidth: "100%",
@@ -174,7 +186,7 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
                   />
                 </Box>
 
-                <Button
+                {!IS_CLOUDFLARE && <Button
                   variant="outlined"
                   startIcon={<PhotoCameraIcon />}
                   onClick={(e) => {
@@ -183,7 +195,8 @@ export const PlaylistEdit: React.FC<Props> = (props) => {
                   }}
                 >
                   {thumbnailDisplay ? Locale.label("sermons.playlists.playlistEdit.changeThumbnail") : Locale.label("sermons.playlists.playlistEdit.addThumbnail")}
-                </Button>
+                </Button>}
+                {IS_CLOUDFLARE && <TextField label="Thumbnail URL" value={thumbnailDisplay || ""} onChange={event => { thumbnailRef.current = event.target.value; setThumbnailDisplay(event.target.value); }} helperText="Optional HTTPS URL; preview is not fetched." />}
 
                 <Typography variant="caption" color="text.secondary" sx={{ textAlign: "center" }}>
                   {Locale.label("sermons.playlists.playlistEdit.recommendedSize")}

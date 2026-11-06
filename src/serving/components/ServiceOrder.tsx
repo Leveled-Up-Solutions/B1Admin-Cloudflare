@@ -2,8 +2,8 @@ import React, { memo, useCallback, useMemo } from "react";
 import { Stack, Box, Menu, MenuItem, Snackbar, Alert, TextField, Typography } from "@mui/material";
 import { Add as AddIcon, Album as AlbumIcon, MenuBook as MenuBookIcon, ArrowDropDown as ArrowDropDownIcon, FormatListBulleted as FormatListBulletedIcon, MusicNote as MusicNoteIcon } from "@mui/icons-material";
 import { EmptyState, RecordHeading, TextAction, VerbRow } from "../../components/ui";
-import { type GroupInterface, type PlanInterface, type TimeInterface, type PositionInterface, type AssignmentInterface } from "@churchapps/helpers";
-import { type PlanItemInterface, type PlanItemTimeInterface, type PlanTypeInterface, hasPlansEditAccess } from "../../helpers";
+import { type GroupInterface, type TimeInterface, type PositionInterface, type AssignmentInterface } from "@churchapps/helpers";
+import { type PlanInterface, type PlanItemInterface, type PlanItemTimeInterface, type PlanTypeInterface, hasPlansEditAccess } from "../../helpers";
 import { ApiHelper, ArrayHelper, Locale, type PersonInterface, DateHelper } from "@churchapps/apphelper";
 import { useQuery } from "@tanstack/react-query";
 import { getProvider, type InstructionItem, type IProvider } from "@churchapps/content-providers";
@@ -58,16 +58,16 @@ function instructionToPlanItem(item: InstructionItem, providerId?: string, provi
 export const ServiceOrder = memo((props: Props) => {
   const [planItems, setPlanItems] = React.useState<PlanItemInterface[]>([]);
   const [loaded, setLoaded] = React.useState(false);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(props.plan?.ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!props.plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!props.plan?.ministryId,
     placeholderData: []
   });
 
   const isMinistryMember = !hasPlansEdit && !!props.plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === props.plan.ministryId);
-  const canEdit = hasPlansEdit || isMinistryMember;
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && isMinistryMember);
   const [editPlanItem, setEditPlanItem] = React.useState<PlanItemInterface | null>(null);
   const [showHeaderDrop, setShowHeaderDrop] = React.useState(false);
   const [showItemDrop, setShowItemDrop] = React.useState(false);
@@ -128,7 +128,9 @@ export const ServiceOrder = memo((props: Props) => {
         ApiHelper.get("/assignments/plan/" + props.plan.id, "DoingApi")
       ]);
       const peopleIds = ArrayHelper.getUniqueValues(assignmentsData || [], "personId");
-      const people: PersonInterface[] = peopleIds.length > 0 ? await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi") : [];
+      const people: PersonInterface[] = process.env.REACT_APP_STAGE === "cloudflare"
+        ? await ApiHelper.get("/planPeople/" + props.plan.id, "DoingApi")
+        : peopleIds.length > 0 ? await ApiHelper.get("/people/ids?ids=" + peopleIds.join(","), "MembershipApi") : [];
       setPositions(positionsData || []);
       setPositionLabels(buildPositionLabels(positionsData || [], assignmentsData || [], people));
     } catch (error) {
@@ -442,10 +444,10 @@ export const ServiceOrder = memo((props: Props) => {
               <ArrowDropDownIcon sx={{ fontSize: 18 }} />
             </Box>
           </TextAction>
-          {!hasAssociatedContent && (
+          {process.env.REACT_APP_STAGE !== "cloudflare" && !hasAssociatedContent && (
             <TextAction small onClick={() => setShowAssociateLessonSelector(true)}>{Locale.label("plans.serviceOrder.associateLesson") || "Link Lesson"}</TextAction>
           )}
-          <TextAction small onClick={() => setShowSaveTemplate(true)}>{Locale.label("plans.templates.saveTitle") || "Save as Template"}</TextAction>
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <TextAction small onClick={() => setShowSaveTemplate(true)}>{Locale.label("plans.templates.saveTitle") || "Save as Template"}</TextAction>}
         </VerbRow>
         <Menu
           anchorEl={addMenuAnchor}
@@ -458,12 +460,12 @@ export const ServiceOrder = memo((props: Props) => {
           <MenuItem onClick={() => { setAddMenuAnchor(null); addItem(); }}>
             <FormatListBulletedIcon sx={{ mr: 1 }} /> {Locale.label("plans.planItem.item")}
           </MenuItem>
-          <MenuItem onClick={() => { setAddMenuAnchor(null); addSong(); }}>
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <MenuItem onClick={() => { setAddMenuAnchor(null); addSong(); }}>
             <MusicNoteIcon sx={{ mr: 1 }} /> {Locale.label("plans.planItem.song")}
-          </MenuItem>
-          <MenuItem onClick={() => { setAddMenuAnchor(null); handleAddContent(); }}>
+          </MenuItem>}
+          {process.env.REACT_APP_STAGE !== "cloudflare" && <MenuItem onClick={() => { setAddMenuAnchor(null); handleAddContent(); }}>
             <MenuBookIcon sx={{ mr: 1 }} /> {Locale.label("plans.serviceOrder.addFromLesson") || "Add from Lesson"}
-          </MenuItem>
+          </MenuItem>}
         </Menu>
       </>
     ),

@@ -226,6 +226,7 @@ const PeopleSearchResults = memo(function PeopleSearchResults(props: Props) {
   );
 
   useEffect(() => {
+    if (process.env.REACT_APP_STAGE === "cloudflare") return;
     ApiHelper.get("/forms?contentType=person", "MembershipApi").then((data: any) => {
       if (data.length > 0) {
         const personForms = data.filter((f: any) => f.contentType === "person");

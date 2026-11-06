@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { Add as AddIcon, ArrowBack as BackIcon, ConnectedTv as SignageIcon } from "@mui/icons-material";
 import { Box, Typography } from "@mui/material";
-import { Loading, Locale } from "@churchapps/apphelper";
+import { ApiHelper, Loading, Locale } from "@churchapps/apphelper";
 import { useQuery } from "@tanstack/react-query";
 import { type GroupInterface } from "@churchapps/helpers";
 import { type PlanTypeInterface, hasPlansEditAccess } from "../../helpers";
@@ -15,24 +15,28 @@ export const PlanTypePage = () => {
   const params = useParams();
   const [showSignageFeed, setShowSignageFeed] = useState(false);
   const [addRequest, setAddRequest] = useState(0);
-  const hasPlansEdit = hasPlansEditAccess();
 
   const planType = useQuery<PlanTypeInterface>({
     queryKey: [`/planTypes/${params.id}`, "DoingApi"],
     enabled: !!params.id
   });
 
+  const hasPlansEdit = hasPlansEditAccess(planType.data?.ministryId);
+
   const ministry = useQuery<GroupInterface>({
-    queryKey: [`/groups/${planType.data?.ministryId}`, "MembershipApi"],
+    queryKey: process.env.REACT_APP_STAGE === "cloudflare" ? ["/ministryScopes", "DoingApi", planType.data?.ministryId] : [`/groups/${planType.data?.ministryId}`, "MembershipApi"],
+    queryFn: () => process.env.REACT_APP_STAGE === "cloudflare"
+      ? ApiHelper.get("/ministryScopes", "DoingApi").then((groups: GroupInterface[]) => groups.find(group => group.id === planType.data?.ministryId))
+      : ApiHelper.get(`/groups/${planType.data?.ministryId}`, "MembershipApi"),
     enabled: !!planType.data?.ministryId
   });
 
   const myMinistries = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit,
     placeholderData: []
   });
-  const canEdit = hasPlansEdit || (myMinistries.data || []).some((g) => g.id === ministry.data?.id);
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && (myMinistries.data || []).some((g) => g.id === ministry.data?.id));
 
   if (planType.isLoading || ministry.isLoading) return <Loading />;
 
@@ -54,13 +58,13 @@ export const PlanTypePage = () => {
     <>
       <PageHeader title={planType.data.name || Locale.label("plans.planTypePage.planType")} subtitle={ministry.data.name}>
         <HeaderTextButton component={Link} to="/serving/plans" startIcon={<BackIcon />} data-testid="plan-type-plans-link">{Locale.label("components.wrapper.plans", "Plans")}</HeaderTextButton>
-        <HeaderTextButton component={Link} to={`/serving/overview?planTypeId=${planType.data.id}&ministryId=${planType.data.ministryId}`} data-testid="plan-type-overview-link">
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <HeaderTextButton component={Link} to={`/serving/overview?planTypeId=${planType.data.id}&ministryId=${planType.data.ministryId}`} data-testid="plan-type-overview-link">
           {Locale.label("plans.planTypePage.overview")}
-        </HeaderTextButton>
+        </HeaderTextButton>}
         <HeaderTextButton onClick={scrollToGroups} data-testid="plan-type-groups-link">{Locale.label("plans.planTypeGroups.heading")}</HeaderTextButton>
-        <HeaderTextButton startIcon={<SignageIcon />} onClick={() => setShowSignageFeed(true)} data-testid="signage-feed-button">
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <HeaderTextButton startIcon={<SignageIcon />} onClick={() => setShowSignageFeed(true)} data-testid="signage-feed-button">
           {Locale.label("plans.signageFeed.button", "Digital Signage")}
-        </HeaderTextButton>
+        </HeaderTextButton>}
         {canEdit && (
           <HeaderPrimaryButton startIcon={<AddIcon />} onClick={() => setAddRequest((n) => n + 1)} data-testid="add-plan-button">
             {Locale.label("plans.planList.newPlan")}

@@ -4,6 +4,7 @@ import { ApiHelper, Notes, DateHelper, type ConversationInterface, Locale, Loadi
 import { type TaskInterface, type UserContextInterface } from "@churchapps/helpers";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import { PageContainer, EmptyState, RecordLayout, StatusBadge, TextAction, eyebrowSx, RecordActions } from "../../components/ui";
+import { canEditTask } from "./permissions";
 import { ContentPicker } from "./components/ContentPicker";
 import UserContext from "../../UserContext";
 import { RequestedChanges } from "./components/RequestedChanges";
@@ -12,6 +13,7 @@ import { GroupJoinRequestTask } from "./components/GroupJoinRequestTask";
 import { TaskReminderEdit } from "./components/TaskReminderEdit";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Assignment as AssignmentIcon } from "@mui/icons-material";
+import { ProfileRequestReview } from "../../cloudflare/ProfileRequestReview";
 
 export const TaskPage = () => {
   const params = useParams();
@@ -110,6 +112,8 @@ export const TaskPage = () => {
     );
   }
 
+  const protectedProfileRequest = process.env.REACT_APP_STAGE === "cloudflare" && task.data.taskType === "directoryUpdate";
+  const editable = !protectedProfileRequest && canEditTask(task.data.assignedToType === "group" ? task.data.assignedToId : undefined);
   const open = task.data.status === "Open";
   const quiet = { typography: "body2", color: "text.secondary", overflowWrap: "anywhere" } as const;
 
@@ -125,13 +129,13 @@ export const TaskPage = () => {
       </Stack>
       <RecordActions
         sx={{ mt: 2 }}
-        buttons={<>
+        buttons={editable && <>
           <Button variant="contained" onClick={() => handleStatusChange(open ? "Closed" : "Open")} data-testid="task-status-toggle">
             {open ? Locale.label("tasks.taskPage.closeTask", "Close task") : Locale.label("tasks.taskPage.reopenTask", "Reopen task")}
           </Button>
           <Button variant="outlined" onClick={() => setModalField("assignedTo")} aria-label={Locale.label("tasks.taskPage.editAssigned")} data-testid="task-assign">{Locale.label("tasks.taskPage.assign")}</Button>
         </>}>
-        <TextAction small onClick={() => setModalField("associatedWith")} aria-label={Locale.label("tasks.taskPage.editAssoc")} data-testid="task-associate">{Locale.label("tasks.taskPage.associate")}</TextAction>
+        {editable && <TextAction small onClick={() => setModalField("associatedWith")} aria-label={Locale.label("tasks.taskPage.editAssoc")} data-testid="task-associate">{Locale.label("tasks.taskPage.associate")}</TextAction>}
         <TextAction small to="/serving/tasks" component={RouterLink}>{Locale.label("tasks.myWork.title")}</TextAction>
       </RecordActions>
       <Box component="dl" sx={{ mt: 3, mb: 0, display: "grid", gridTemplateColumns: "auto 1fr", columnGap: 2, rowGap: 1, typography: "body2", "& dt": { color: "text.secondary", m: 0 }, "& dd": { m: 0, overflowWrap: "anywhere" } }}>
@@ -141,13 +145,13 @@ export const TaskPage = () => {
         <dd data-testid="task-assigned-label">{task.data.assignedToLabel || Locale.label("tasks.taskPage.unassigned")}</dd>
         <dt>{Locale.label("tasks.taskPage.due")}</dt>
         <dd>
-          {task.data.assignmentId
+          {task.data.assignmentId || !editable
             ? (DateHelper.formatHtml5Date(task.data.dueDate) || "-")
             : <TextField type="date" size="small" variant="standard" defaultValue={DateHelper.formatHtml5Date(task.data.dueDate)} key={String(task.data.dueDate || "")} onBlur={(e) => { if (e.target.value !== DateHelper.formatHtml5Date(task.data.dueDate)) handleDueDateChange(e.target.value); }} inputProps={{ "aria-label": Locale.label("tasks.taskPage.due") }} data-testid="task-due-input" />}
         </dd>
       </Box>
       <Box sx={{ mt: 3 }}>
-        <TaskReminderEdit taskId={task.data.id || ""} dueDate={task.data.dueDate} />
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <TaskReminderEdit taskId={task.data.id || ""} dueDate={task.data.dueDate} />}
       </Box>
     </Box>
   );
@@ -155,12 +159,14 @@ export const TaskPage = () => {
   return (
     <PageContainer>
       <RecordLayout identity={identity} spacing={3} data-testid="task-record">
-        {task.data.taskType === "directoryUpdate" && <RequestedChanges task={task.data} />}
+        {task.data.taskType === "directoryUpdate" && (protectedProfileRequest
+          ? <ProfileRequestReview taskId={task.data.id} onChanged={() => { task.refetch(); queryClient.invalidateQueries({ queryKey: ["/tasks", "DoingApi"] }); queryClient.invalidateQueries({ queryKey: ["/tasks/closed", "DoingApi"] }); }} />
+          : <RequestedChanges task={task.data} />)}
         {task.data.taskType === "accountDeletion" && <AccountDeletionRequest task={task.data} />}
         {task.data.taskType === "groupJoinRequest" && <GroupJoinRequestTask task={task.data} />}
-        <Notes context={context as UserContextInterface} conversationId={task.data.conversationId || ""} createConversation={handleCreateConversation as () => Promise<string>} />
+        {process.env.REACT_APP_STAGE !== "cloudflare" && <Notes context={context as UserContextInterface} conversationId={task.data.conversationId || ""} createConversation={handleCreateConversation as () => Promise<string>} />}
       </RecordLayout>
-      {modalField !== "" && <ContentPicker onClose={handleModalClose} onSelect={handleContentPicked} allowNone={modalField === "associatedWith"} />}
+      {modalField !== "" && <ContentPicker onClose={handleModalClose} onSelect={handleContentPicked} allowNone={modalField === "associatedWith"} assignment={modalField === "assignedTo"} />}
     </PageContainer>
   );
 };

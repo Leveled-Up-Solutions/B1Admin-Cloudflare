@@ -21,21 +21,23 @@ export const PlanPage = () => {
   const [ministry, setMinistry] = React.useState<GroupInterface | null>(null);
   const [planType, setPlanType] = React.useState<PlanTypeInterface | null>(null);
   const [allPlans, setAllPlans] = React.useState<PlanInterface[]>([]);
-  const hasPlansEdit = hasPlansEditAccess();
+  const hasPlansEdit = hasPlansEditAccess(plan?.ministryId);
 
   const myMinistriesQuery = useQuery<GroupInterface[]>({
     queryKey: ["/groups/my/ministry", "MembershipApi"],
-    enabled: !hasPlansEdit && !!plan?.ministryId,
+    enabled: process.env.REACT_APP_STAGE !== "cloudflare" && !hasPlansEdit && !!plan?.ministryId,
     placeholderData: []
   });
-  const canEdit = hasPlansEdit || (!!plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === plan.ministryId));
+  const canEdit = hasPlansEdit || (process.env.REACT_APP_STAGE !== "cloudflare" && !!plan?.ministryId && (myMinistriesQuery.data || []).some((g) => g.id === plan.ministryId));
 
   const loadData = React.useCallback(async () => {
     const planData = await ApiHelper.get("/plans/" + params.id, "DoingApi");
     setPlan(planData);
 
     if (planData.ministryId) {
-      const ministryData = await ApiHelper.get("/groups/" + planData.ministryId, "MembershipApi");
+      const ministryData = process.env.REACT_APP_STAGE === "cloudflare"
+        ? (await ApiHelper.get("/ministryScopes", "DoingApi")).find((group: GroupInterface) => group.id === planData.ministryId)
+        : await ApiHelper.get("/groups/" + planData.ministryId, "MembershipApi");
       setMinistry(ministryData);
     }
 
@@ -103,7 +105,9 @@ export const PlanPage = () => {
               {editing ? Locale.label("common.done") : Locale.label("common.edit")}
             </Button>
           )}
-          <Button variant="outlined" startIcon={<PrintIcon />} href={`/serving/plans/print/${plan.id}`} target="_blank" rel="noopener" data-testid="print-plan-link">{Locale.label("common.print")}</Button>
+          {process.env.REACT_APP_STAGE === "cloudflare"
+            ? <Button variant="outlined" startIcon={<PrintIcon />} component={RouterLink} to={`/serving/plans/print/${plan.id}`} data-testid="print-plan-link">{Locale.label("common.print")}</Button>
+            : <Button variant="outlined" startIcon={<PrintIcon />} href={`/serving/plans/print/${plan.id}`} target="_blank" rel="noopener" data-testid="print-plan-link">{Locale.label("common.print")}</Button>}
         </>}>
         {planType?.id && <TextAction small to={`/serving/planTypes/${planType.id}`} component={RouterLink}>{planType.name}</TextAction>}
         <TextAction small to="/serving/plans" component={RouterLink} data-testid="plan-plans-link">{Locale.label("plans.planList.plans")}</TextAction>

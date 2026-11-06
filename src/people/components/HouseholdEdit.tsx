@@ -113,13 +113,13 @@ export function HouseholdEdit(props: Props) {
       </TableCell>
       <TableCell>
         <FormControl fullWidth style={{ marginTop: 0 }}>
-          <InputLabel id="household-role">{m.name.display}</InputLabel>
+          <InputLabel id={`household-role-${index}`}>{m.name.display}</InputLabel>
           <Select
             aria-label="role"
             value={m.householdRole || ""}
             size="small"
             label={m.name.display}
-            labelId="household-role"
+            labelId={`household-role-${index}`}
             onChange={(e: SelectChangeEvent) => handleChangeRole(e, index)}
             data-testid="household-role-select">
             <MenuItem value="Head">{Locale.label("people.householdEdit.head")}</MenuItem>
@@ -141,7 +141,7 @@ export function HouseholdEdit(props: Props) {
         <h3>{Locale.label("people.householdEdit.addMember")}</h3>
         <AppIconButton label={Locale.label("common.close")} icon={<CloseIcon />} onClick={() => setShowAdd(false)} />
       </div>
-      <PersonAdd getPhotoUrl={PersonHelper.getPhotoUrl} addFunction={handlePersonAdd} person={props.currentPerson} showCreatePersonOnNotFound={true} showHouseholdRole onCreate={handlePersonAdd} />
+      <PersonAdd filterList={members.map(member => member.id || "")} getPhotoUrl={PersonHelper.getPhotoUrl} addFunction={handlePersonAdd} person={props.currentPerson} showCreatePersonOnNotFound={true} showHouseholdRole onCreate={handlePersonAdd} />
     </div>
   ) : null;
 

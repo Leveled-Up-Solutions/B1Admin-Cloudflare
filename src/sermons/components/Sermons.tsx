@@ -14,25 +14,34 @@ import { PlaylistEdit } from "./PlaylistEdit";
 import { CountChip, HeaderPrimaryButton, ResultsBar, SearchField, Surface, TextAction, tableScrollSx } from "../../components/ui";
 import { hoverRowSx } from "../../components/ui/tableStyles";
 import { SermonChrome } from "./SermonChrome";
+import { canCreateArchivePlaylist, canCreateUnassignedSermon, canEditArchivePlaylist, canEditArchiveSermon, canListArchivePlaylists, type ArchivePlaylist, type ArchiveSermon } from "../../cloudflare/sermonPermissions";
+import { CloudflarePlaylistDetails, CloudflareSermonDetails } from "../../cloudflare/CloudflareArchiveDetails";
+
+const IS_CLOUDFLARE = process.env.REACT_APP_STAGE === "cloudflare";
 
 export const Sermons = () => {
-  const [sermons, setSermons] = React.useState<SermonInterface[]>([]);
-  const [filteredSermons, setFilteredSermons] = React.useState<SermonInterface[]>([]);
-  const [playlists, setPlaylists] = React.useState<PlaylistInterface[]>([]);
-  const [currentSermon, setCurrentSermon] = React.useState<SermonInterface | null>(null);
+  const [sermons, setSermons] = React.useState<ArchiveSermon[]>([]);
+  const [filteredSermons, setFilteredSermons] = React.useState<ArchiveSermon[]>([]);
+  const [playlists, setPlaylists] = React.useState<ArchivePlaylist[]>([]);
+  const [currentSermon, setCurrentSermon] = React.useState<ArchiveSermon | null>(null);
+  const [loadError, setLoadError] = React.useState("");
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState("");
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const navigate = useNavigate();
 
-  const [currentPlaylist, setCurrentPlaylist] = React.useState<PlaylistInterface | null>(null);
+  const [currentPlaylist, setCurrentPlaylist] = React.useState<ArchivePlaylist | null>(null);
   const [playlistSearch, setPlaylistSearch] = React.useState<string>("");
   const [photoUrl, setPhotoUrl] = React.useState<string | null>(null);
   const [photoType, setPhotoType] = React.useState<string | null>(null);
   const imageEditorRef = React.useRef<HTMLDivElement>(null);
   const [copySnackbar, setCopySnackbar] = React.useState(false);
+  const canListPlaylists = !IS_CLOUDFLARE || canListArchivePlaylists();
+  const canAddPlaylist = !IS_CLOUDFLARE || canCreateArchivePlaylist();
+  const canAddSermon = !IS_CLOUDFLARE || canCreateUnassignedSermon() || playlists.some(canEditArchivePlaylist);
 
   const podcastFeedUrl = React.useMemo(() => {
+    if (IS_CLOUDFLARE) return "";
     const base = ApiHelper.getConfig("ContentApi")?.url?.replace(/\/+$/, "") || "";
     const churchId = UserHelper.currentUserChurch?.church?.id;
     return (base && churchId) ? base + "/sermons/rss/" + churchId : "";
@@ -67,7 +76,7 @@ export const Sermons = () => {
     navigate("/sermons/bulk");
   };
 
-  const getActionButtons = () => (
+  const getActionButtons = () => canAddSermon ? (
     <>
       <HeaderPrimaryButton
         startIcon={<AddIcon />}
@@ -96,29 +105,29 @@ export const Sermons = () => {
             <Typography>{Locale.label("sermons.addSermon")}</Typography>
           </Stack>
         </MenuItem>
-        <MenuItem onClick={handleAddPermanentLiveUrl}>
+        {!IS_CLOUDFLARE && <MenuItem onClick={handleAddPermanentLiveUrl}>
           <Stack direction="row" spacing={1} alignItems="center">
             <LiveTvIcon fontSize="small" sx={{ color: "error.main" }} />
             <Typography>{Locale.label("sermons.addPermanentLiveUrl")}</Typography>
           </Stack>
-        </MenuItem>
-        <MenuItem onClick={handleBulkImport} data-testid="bulk-import-menu-item">
+        </MenuItem>}
+        {!IS_CLOUDFLARE && <MenuItem onClick={handleBulkImport} data-testid="bulk-import-menu-item">
           <Stack direction="row" spacing={1} alignItems="center">
             <CloudUploadIcon fontSize="small" />
             <Typography>{Locale.label("sermons.bulkImport.title")}</Typography>
           </Stack>
-        </MenuItem>
+        </MenuItem>}
       </Menu>
     </>
-  );
+  ) : undefined;
 
   const loadData = () => {
-    ApiHelper.get("/playlists", "ContentApi").then((data: any) => { setPlaylists(data); });
+    if (canListPlaylists) ApiHelper.get("/playlists", "ContentApi").then((data: ArchivePlaylist[]) => { setPlaylists(data); }).catch(err => setLoadError(err.message));
     ApiHelper.get("/sermons", "ContentApi").then((data: any) => {
       setSermons(data);
       setFilteredSermons(filterSermons(data, searchTerm));
-      setIsLoading(false);
-    });
+      setIsLoading(false); setLoadError("");
+    }).catch(err => { setLoadError(err.message); setIsLoading(false); });
   };
 
   const filterSermons = (list: any[], value: string) => {
@@ -138,7 +147,9 @@ export const Sermons = () => {
   };
 
   const handleAdd = (permanentUrl: boolean) => {
-    const v: SermonInterface = { churchId: UserHelper.currentUserChurch.church.id, duration: 5400, videoType: "youtube", videoData: "", title: Locale.label("sermons.sermonEdit.newSermon"), permanentUrl };
+    if (!canAddSermon) return;
+    const v: SermonInterface = { churchId: UserHelper.currentUserChurch.church.id, duration: 5400, publishDate: new Date(), videoType: IS_CLOUDFLARE ? "" : "youtube", videoData: "", title: Locale.label("sermons.sermonEdit.newSermon"), permanentUrl };
+    if (IS_CLOUDFLARE && !canCreateUnassignedSermon()) v.playlistId = playlists.find(canEditArchivePlaylist)?.id;
     if (permanentUrl) {
       v.videoType = "youtube_channel";
       v.videoData = Locale.label("sermons.sermonEdit.channelIdPlaceholder");
@@ -171,6 +182,7 @@ export const Sermons = () => {
   };
 
   const handleAddPlaylist = () => {
+    if (!canAddPlaylist) return;
     const v: PlaylistInterface = { churchId: UserHelper.currentUserChurch.church.id, title: Locale.label("sermons.playlists.playlistEdit.newPlaylist"), description: "", publishDate: new Date(), thumbnail: "" };
     setCurrentSermon(null);
     setCurrentPlaylist(v);
@@ -188,7 +200,7 @@ export const Sermons = () => {
             <Stack direction="row" spacing={1} alignItems="center">
               <PlaylistIcon sx={{ fontSize: 18, color: "text.secondary" }} />
               <Typography variant="body2">
-                {getPlaylistTitle(video.playlistId) || Locale.label("sermons.noPlaylist")}
+                {video.playlistTitle || getPlaylistTitle(video.playlistId) || Locale.label("sermons.noPlaylist")}
               </Typography>
             </Stack>
           </TableCell>
@@ -207,7 +219,7 @@ export const Sermons = () => {
           </TableCell>
           <TableCell align="right" className="rowActions">
             <TextAction small onClick={() => { setCurrentPlaylist(null); setCurrentSermon(video); }} data-testid={`edit-sermon-${video.id}`}>
-              {Locale.label("common.edit")}
+              {IS_CLOUDFLARE && !canEditArchiveSermon(video) ? "View" : Locale.label("common.edit")}
             </TextAction>
           </TableCell>
         </TableRow>
@@ -227,7 +239,7 @@ export const Sermons = () => {
           <Typography variant="body2" color="text.secondary">
             {searchTerm ? Locale.label("sermons.adjustSearchTerms") : Locale.label("sermons.getStarted")}
           </Typography>
-          {!searchTerm && (
+          {!searchTerm && canAddSermon && (
             <TextAction onClick={() => handleAdd(false)} data-testid="add-first-sermon-button">
               {Locale.label("sermons.addFirstSermon")}
             </TextAction>
@@ -274,7 +286,7 @@ export const Sermons = () => {
               <Typography variant="body2" color="text.secondary">
                 {playlistSearch ? Locale.label("sermons.playlists.noPlaylistsMatch") : Locale.label("sermons.playlists.noPlaylistsFound")}
               </Typography>
-              {!playlistSearch && (
+              {!playlistSearch && canAddPlaylist && (
                 <TextAction small onClick={handleAddPlaylist} data-testid="add-first-playlist-button">
                   {Locale.label("sermons.playlists.createFirstPlaylist")}
                 </TextAction>
@@ -297,7 +309,7 @@ export const Sermons = () => {
         </TableCell>
         <TableCell align="right" className="rowActions">
           <TextAction small onClick={() => { setCurrentSermon(null); setCurrentPlaylist(playlist); }} data-testid={`edit-playlist-${playlist.id}`}>
-            {Locale.label("common.edit")}
+            {IS_CLOUDFLARE && !canEditArchivePlaylist(playlist) ? "View" : Locale.label("common.edit")}
           </TextAction>
         </TableCell>
       </TableRow>
@@ -331,18 +343,21 @@ export const Sermons = () => {
         <Typography variant="h3" component="h2">{Locale.label("sermons.playlists.title")}</Typography>
         {playlists.length > 0 && <CountChip count={playlists.length} />}
       </Stack>
-      <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={handleAddPlaylist} data-testid="add-playlist-button">{Locale.label("sermons.playlists.addPlaylist", "Add playlist")}</Button>
+      {canAddPlaylist && <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={handleAddPlaylist} data-testid="add-playlist-button">{Locale.label("sermons.playlists.addPlaylist", "Add playlist")}</Button>}
     </Stack>
   );
 
   return (
     <>
       <SermonChrome selected="sermons" actions={getActionButtons()}>
+        {loadError && <Alert severity="error" sx={{ mb: 2 }}>{loadError}</Alert>}
         <Grid container spacing={3} alignItems="flex-start">
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Grid size={{ xs: 12, lg: canListPlaylists ? 8 : 12 }}>
             {currentSermon !== null && (
               <Box sx={{ mb: 3 }}>
-                <SermonEdit currentSermon={currentSermon} updatedFunction={handleUpdated} />
+                {IS_CLOUDFLARE && !canEditArchiveSermon(currentSermon)
+                  ? <CloudflareSermonDetails sermon={currentSermon} onClose={handleUpdated} />
+                  : <SermonEdit currentSermon={currentSermon} updatedFunction={handleUpdated} />}
               </Box>
             )}
             <Surface>
@@ -362,17 +377,18 @@ export const Sermons = () => {
             </Surface>
           </Grid>
 
-          <Grid size={{ xs: 12, lg: 4 }}>
+          {canListPlaylists && <Grid size={{ xs: 12, lg: 4 }}>
             <Stack spacing={3}>
               {currentPlaylist !== null && (
                 <Box>
                   {imageEditor}
-                  <PlaylistEdit
-                    currentPlaylist={currentPlaylist}
-                    updatedFunction={handlePlaylistUpdated}
-                    showPhotoEditor={showPhotoEditor}
-                    updatedPhoto={(photoType === "playlist" && photoUrl) || null}
-                  />
+                  {IS_CLOUDFLARE && !canEditArchivePlaylist(currentPlaylist)
+                    ? <CloudflarePlaylistDetails playlist={currentPlaylist} onClose={handlePlaylistUpdated} /> : <PlaylistEdit
+                      currentPlaylist={currentPlaylist}
+                      updatedFunction={handlePlaylistUpdated}
+                      showPhotoEditor={showPhotoEditor}
+                      updatedPhoto={(photoType === "playlist" && photoUrl) || null}
+                    />}
                 </Box>
               )}
               <Surface data-testid="playlists-panel">
@@ -397,7 +413,7 @@ export const Sermons = () => {
                 </Surface>
               )}
             </Stack>
-          </Grid>
+          </Grid>}
         </Grid>
       </SermonChrome>
       <Snackbar open={copySnackbar} autoHideDuration={2500} onClose={() => setCopySnackbar(false)} anchorOrigin={{ vertical: "bottom", horizontal: "center" }}>

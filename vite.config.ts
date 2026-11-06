@@ -7,11 +7,12 @@ import path from "path";
 
 // demo.b1.church is this app (s3://demo-chums-app). Do not noindex prod (admin.b1.church / s3://chums-app).
 function noindexNonProd(stage: string | undefined): Plugin {
-  const noindexMeta = stage === "demo" || stage === "staging";
-  const disallowAll = stage === "demo";
+  const noindexMeta = stage === "demo" || stage === "staging" || stage === "cloudflare";
+  const disallowAll = stage === "demo" || stage === "cloudflare";
   return {
     name: "noindex-nonprod",
     transformIndexHtml(html) {
+      if (stage === "cloudflare") html = html.replace(/<link\s[^>]*https:\/\/fonts\.googleapis\.com[^>]*>/g, "");
       if (!noindexMeta || html.includes('name="robots"')) return html;
       return html.replace("<head>", '<head>\n    <meta name="robots" content="noindex, nofollow" />');
     },
@@ -48,7 +49,7 @@ export default defineConfig(({ mode }) => {
       noindexNonProd(env.REACT_APP_STAGE),
       selfHostBase(base),
       // Uploads sourcemaps so Sentry stack traces aren't minified; no-op without the token.
-      !!env.SENTRY_AUTH_TOKEN && sentryVitePlugin({
+      env.REACT_APP_STAGE !== "cloudflare" && !!env.SENTRY_AUTH_TOKEN && sentryVitePlugin({
         org: "churchapps",
         project: "b1-admin",
         authToken: env.SENTRY_AUTH_TOKEN,
@@ -69,16 +70,22 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       dedupe: ["react", "react-dom"],
-      alias: { "cropperjs/dist/cropper.css": path.resolve(__dirname, "node_modules/cropperjs/dist/cropper.css") }
+      alias: [
+        { find: "cropperjs/dist/cropper.css", replacement: path.resolve(__dirname, "node_modules/cropperjs/dist/cropper.css") },
+        // The shared apphelper barrel imports payment components. Stripe's default
+        // entry injects its remote script at import time, even without a payment UI.
+        ...(env.REACT_APP_STAGE === "cloudflare" ? [{ find: /^@stripe\/stripe-js$/, replacement: "@stripe/stripe-js/pure" }] : [])
+      ]
     },
     server: {
-      host: "0.0.0.0",
-      port: Number(env.PORT) ?? 3101,
+      host: "127.0.0.1",
+      proxy: env.REACT_APP_STAGE === "cloudflare" ? { "/api": { target: "http://127.0.0.1:8787", changeOrigin: true, ws: true } } : undefined,
+      port: Number(env.PORT || 3101),
       strictPort: true,
       open: false
     },
     preview: {
-      port: Number(env.PORT) ?? 3101,
+      port: Number(env.PORT || 3101),
       strictPort: true,
       open: true
     },

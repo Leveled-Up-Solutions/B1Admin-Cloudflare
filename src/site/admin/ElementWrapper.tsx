@@ -3,6 +3,7 @@ import { Element } from "@churchapps/apphelper/website";
 import "./elements/SafeRawHTMLElement";
 import type { ElementInterface } from "../../helpers";
 import type { ChurchInterface } from "@churchapps/helpers";
+import { toWebsiteElement } from "../websiteRendererData";
 
 interface Props {
   element: ElementInterface;
@@ -15,5 +16,5 @@ interface Props {
 
 /** Wrapper component for Element that handles dragging and double-click editing. */
 export const ElementWrapper: React.FC<Props> = (props) => {
-  return <Element {...props} />;
+  return <Element {...props} element={toWebsiteElement(props.element)} />;
 };

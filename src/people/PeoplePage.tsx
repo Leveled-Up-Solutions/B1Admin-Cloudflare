@@ -8,7 +8,7 @@ import { B1AdminPersonHelper, EnvironmentHelper } from "../helpers";
 import { PeopleSearch } from "./components/PeopleSearch";
 import { SavedLists, type ListConditions, type ListInterface } from "./components/SavedLists";
 import { buildRulesFromCriteria } from "./components/listRules";
-import { type ActiveFilter } from "./components/AdvancedPeopleSearch";
+import { AdvancedPeopleSearch, type ActiveFilter } from "./components/AdvancedPeopleSearch";
 import { Add as AddIcon, HomeOutlined as HouseholdsIcon, PersonSearch as PersonSearchIcon, TableRowsOutlined as TableIcon } from "@mui/icons-material";
 import { EmptyState, ExportButton, HeaderPrimaryButton, HeaderTextButton, PageContainer, PageHeader, Surface, ViewToggle } from "../components/ui";
 import { CreatePerson } from "../components";
@@ -70,6 +70,9 @@ export const PeoplePage = memo(() => {
     severity: "success"
   });
   const canEdit = UserHelper.checkAccess(Permissions.membershipApi.people.edit);
+  const canBulkEdit = canEdit && !EnvironmentHelper.isCloudflare;
+  const [simpleSearch, setSimpleSearch] = React.useState("");
+  const [advancedSearchOpen, setAdvancedSearchOpen] = React.useState(false);
   const currentPersonId = UserHelper.currentUserChurch?.person?.id || "";
 
   const peopleQuery = useQuery<PersonInterface[]>({
@@ -422,7 +425,7 @@ export const PeoplePage = memo(() => {
           selectedColumns={selectedColumns}
           updateSearchResults={(people) => setSearchResults(people)}
           updatedFunction={refetch}
-          canSelectPeople={canEdit}
+          canSelectPeople={canBulkEdit}
           selectedPersonIds={selectedPersonIds}
           togglePersonSelection={togglePersonSelection}
           toggleAllVisiblePeople={toggleAllVisiblePeople}
@@ -434,7 +437,7 @@ export const PeoplePage = memo(() => {
     return (
       <DirectoryHouseholds
         households={households}
-        canSelect={canEdit}
+        canSelect={canBulkEdit}
         selectedPersonIds={selectedPersonIds}
         currentPersonId={currentPersonId}
         onOpen={(person) => navigate("/people/" + person.id)}
@@ -446,12 +449,12 @@ export const PeoplePage = memo(() => {
   return (
     <>
       <PageHeader title={Locale.label("people.directory.title")} subtitle={Locale.label("people.directory.subtitle")}>
-        <HeaderTextButton onClick={() => navigate("/people/demographics")} data-testid="demographics-button">
+        {!EnvironmentHelper.isCloudflare && <HeaderTextButton onClick={() => navigate("/people/demographics")} data-testid="demographics-button">
           {Locale.label("people.demographics.title")}
-        </HeaderTextButton>
-        <HeaderTextButton onClick={handlePrint} data-testid="print-directory-button">
+        </HeaderTextButton>}
+        {!EnvironmentHelper.isCloudflare && <HeaderTextButton onClick={handlePrint} data-testid="print-directory-button">
           {isSearchPerformed ? Locale.label("people.peoplePage.printResults") : Locale.label("people.peoplePage.printDirectory")}
-        </HeaderTextButton>
+        </HeaderTextButton>}
         {searchResults && <ExportButton data={getExportData(searchResults)} filename="people.csv" text={Locale.label("people.peoplePage.export")} />}
         <PeopleColumns selectedColumns={selectedColumns} toggleColumn={handleToggleColumn} columns={columns} />
         {canSaveList && (
@@ -469,9 +472,20 @@ export const PeoplePage = memo(() => {
       <PageContainer>
         <Surface>
           <Stack spacing={3}>
-            <SavedLists onSelect={handleSelectList} onClear={handleEveryone} selectedId={selectedListId} canManage={canEdit} />
+            {!EnvironmentHelper.isCloudflare && <SavedLists onSelect={handleSelectList} onClear={handleEveryone} selectedId={selectedListId} canManage={canEdit} />}
 
-            <PeopleSearch
+            {EnvironmentHelper.isCloudflare ? <Stack component="form" direction="row" spacing={2} onSubmit={async (event) => {
+              event.preventDefault();
+              try {
+                const results: PersonInterface[] = await ApiHelper.get("/people/search?term=" + encodeURIComponent(simpleSearch), "MembershipApi");
+                setSearchResults(results.map(B1AdminPersonHelper.getExpandedPersonObject));
+                setIsSearchPerformed(!!simpleSearch);
+              } catch { setToast({ open: true, message: "Search failed. Please try again.", severity: "error" }); }
+            }}>
+              <TextField label="Search people" value={simpleSearch} onChange={e => setSimpleSearch(e.target.value)} fullWidth />
+              <Button type="submit" variant="outlined">Search</Button>
+              <Button onClick={() => { setSimpleSearch(""); resetSearchResults(); }}>Clear</Button>
+            </Stack> : <PeopleSearch
               key={searchKey}
               updateSearchResults={(people) => {
                 setSearchResults(people);
@@ -482,11 +496,15 @@ export const PeoplePage = memo(() => {
               updatedFunction={refetch}
               initialFilters={selectedListFilters}
               onReportCriteria={setSaveableCriteria}
-            />
+            />}
 
+            {EnvironmentHelper.isCloudflare && (canEdit || UserHelper.checkAccess(Permissions.membershipApi.people.view)) && <>
+              <Button onClick={() => setAdvancedSearchOpen(value => !value)} aria-expanded={advancedSearchOpen} sx={{ alignSelf: "flex-start" }}>Advanced search</Button>
+              {advancedSearchOpen && <AdvancedPeopleSearch embedded updateSearchResults={people => { setSearchResults(people); setIsSearchPerformed(true); }} resetSearchResults={resetSearchResults} />}
+            </>}
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" useFlexGap flexWrap="wrap" spacing={1} sx={{ minHeight: 40 }} data-testid="people-results-bar">
-                {canEdit && selectedPersonIds.length > 0 ? (
+                {canBulkEdit && selectedPersonIds.length > 0 ? (
                   <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
                     <Typography variant="body2" sx={{ fontWeight: 600 }}>{Locale.label("people.directory.selectedCount").replace("{count}", selectedPersonIds.length.toString())}</Typography>
                     <Button size="small" onClick={() => setSelectedPersonIds([])}>{Locale.label("people.bulk.clearSelection")}</Button>
@@ -494,7 +512,7 @@ export const PeoplePage = memo(() => {
                   </Stack>
                 ) : (
                   <Stack direction="row" spacing={1} alignItems="center">
-                    {canEdit && view === "households" && visibleSelectableIds.length > 0 && (
+                    {canBulkEdit && view === "households" && visibleSelectableIds.length > 0 && (
                       <Checkbox
                         size="small"
                         checked={allVisibleSelected}

@@ -35,7 +35,7 @@ setTimeout(() => {
   try { sessionStorage.removeItem("preload-error-reloaded"); } catch { /* storage unavailable */ }
 }, 10000);
 
-Sentry.init({
+if (process.env.REACT_APP_STAGE !== "cloudflare") Sentry.init({
   dsn: "https://0fa8dbad4eea6ffc6b2ffc157c43cff2@o4510432524107776.ingest.us.sentry.io/4510432531251200",
   enabled: sentryEnabled(process.env.REACT_APP_STAGE, window.location.hostname),
   sendDefaultPii: true,

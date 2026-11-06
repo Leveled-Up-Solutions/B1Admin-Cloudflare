@@ -6,6 +6,7 @@ import { Add as AddIcon, People as PeopleIcon } from "@mui/icons-material";
 import { type GroupInterface } from "@churchapps/helpers";
 import { useMountedState, Permissions } from "@churchapps/apphelper";
 import { GroupAdd } from "../../groups/components";
+import { hasCloudflarePermission } from "../../cloudflare/permissions";
 import { CardWithHeader, numericCellSx, tableScrollSx } from "../../components/ui";
 
 interface Props {
@@ -22,7 +23,7 @@ export const TeamList = memo((props: Props) => {
   }, []);
 
   const loadData = useCallback(() => {
-    ApiHelper.get("/groups/tag/team", "MembershipApi").then((data: any) => {
+    ApiHelper.get(process.env.REACT_APP_STAGE === "cloudflare" ? "/ministryTeams/" + props.ministry.id : "/groups/tag/team", process.env.REACT_APP_STAGE === "cloudflare" ? "DoingApi" : "MembershipApi").then((data: any) => {
       if (isMounted()) setGroups(ArrayHelper.getAll(data, "categoryName", props.ministry.id));
     });
   }, [props.ministry.id, isMounted]);
@@ -69,9 +70,9 @@ export const TeamList = memo((props: Props) => {
               {groups.map((g) => (
                 <TableRow key={g.id}>
                   <TableCell>
-                    <MuiLink component={Link} to={`/groups/${g.id}?tag=team`} underline="hover" sx={{ fontWeight: 600 }}>
-                      {g.name}
-                    </MuiLink>
+                    {process.env.REACT_APP_STAGE !== "cloudflare" || hasCloudflarePermission({ api: "MembershipApi", contentType: "Groups", action: "View" }, g.id) || hasCloudflarePermission(Permissions.membershipApi.groups.edit, g.id)
+                      ? <MuiLink component={Link} to={`/groups/${g.id}?tag=team`} underline="hover" sx={{ fontWeight: 600 }}>{g.name}</MuiLink>
+                      : <Typography sx={{ fontWeight: 600 }}>{g.name}</Typography>}
                   </TableCell>
                   <TableCell sx={numericCellSx}>{g.memberCount || 0}</TableCell>
                 </TableRow>
